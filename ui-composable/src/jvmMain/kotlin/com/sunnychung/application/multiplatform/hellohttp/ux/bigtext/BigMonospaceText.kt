@@ -414,6 +414,7 @@ private fun CoreBigMonospaceText(
                 onTransformInit?.invoke(transformedText)
             }
         } else {
+            viewState.transformedText = transformedText
             null
         }
     }

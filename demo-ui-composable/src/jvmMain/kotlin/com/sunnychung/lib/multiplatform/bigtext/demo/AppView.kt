@@ -61,9 +61,6 @@ fun AppView() {
 
             BigMonospaceTextField(
                 textFieldState = bigTextFieldState,
-                textTransformation = object : IncrementalTextTransformation<Unit> {
-                    override fun initialize(text: BigText, transformer: BigTextTransformer) {}
-                },
                 color = Color.Black,
                 scrollState = scrollState,
                 modifier = Modifier.background(Color(224, 224, 160))
