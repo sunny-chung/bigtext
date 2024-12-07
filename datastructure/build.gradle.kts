@@ -56,6 +56,8 @@ kotlin {
 tasks.withType<Test> {
     useJUnitPlatform()
     jvmArgs("-Xmx6144m")
+    maxParallelForks = maxOf(1, Runtime.getRuntime().availableProcessors() / 2)
+
     testLogging {
         events = setOf(TestLogEvent.STARTED, TestLogEvent.FAILED, TestLogEvent.PASSED, TestLogEvent.SKIPPED)
         showStandardStreams = true

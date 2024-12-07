@@ -12,6 +12,8 @@ import com.sunnychung.application.multiplatform.hellohttp.ux.bigtext.MonospaceTe
 import org.junit.jupiter.api.MethodOrderer
 import org.junit.jupiter.api.Order
 import org.junit.jupiter.api.TestMethodOrder
+import org.junit.jupiter.api.parallel.Execution
+import org.junit.jupiter.api.parallel.ExecutionMode
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.ValueSource
 import java.util.TreeMap
@@ -19,6 +21,7 @@ import kotlin.random.Random
 import kotlin.test.assertEquals
 
 @TestMethodOrder(MethodOrderer.OrderAnnotation::class)
+@Execution(ExecutionMode.CONCURRENT) // needed for test classes with MethodOrderer
 class BigTextTransformerLayoutTest {
 
     @ParameterizedTest
