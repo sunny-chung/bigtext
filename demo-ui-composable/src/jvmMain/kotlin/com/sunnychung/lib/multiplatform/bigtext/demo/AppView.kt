@@ -61,7 +61,6 @@ fun AppView() {
 
             BigMonospaceTextField(
                 textFieldState = bigTextFieldState,
-                onTextLayout = {},
                 textTransformation = object : IncrementalTextTransformation<Unit> {
                     override fun initialize(text: BigText, transformer: BigTextTransformer) {}
                 },

@@ -327,15 +327,14 @@ private fun CoreBigMonospaceText(
     fun fireOnLayout() {
         log.d { "fireOnLayout" }
         lineHeight = (textLayouter.charMeasurer as ComposeUnicodeCharMeasurer).getRowHeight()
-        onTextLayout?.let { callback ->
-            callback(BigTextSimpleLayoutResult(
-                text = transformedText, // layout is only performed in `transformedText`
-                rowHeight = lineHeight,
-            ).also {
-                layoutResult = it
-                viewState.layoutResult = it
-            })
+        val layoutResult = BigTextSimpleLayoutResult(
+            text = transformedText, // layout is only performed in `transformedText`
+            rowHeight = lineHeight,
+        ).also {
+            layoutResult = it
+            viewState.layoutResult = it
         }
+        onTextLayout?.invoke(layoutResult)
         forceRecompose = Random.nextLong()
     }
 
