@@ -11,15 +11,14 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import com.sunnychung.application.multiplatform.hellohttp.ux.local.LocalColor
 import com.sunnychung.lib.multiplatform.kdatetime.extension.milliseconds
-import com.sunnychung.lib.multiplatform.kdatetime.extension.seconds
 import kotlinx.coroutines.delay
 
 @Composable
-fun BigTextFieldCursor(modifier: Modifier = Modifier, lineHeight: Dp) {
+fun BigTextFieldCursor(modifier: Modifier = Modifier, lineHeight: Dp, color: Color) {
     var isVisible by remember { mutableStateOf(true) }
 
     if (isVisible) {
@@ -27,7 +26,7 @@ fun BigTextFieldCursor(modifier: Modifier = Modifier, lineHeight: Dp) {
             modifier = modifier
                 .width(2.dp)
                 .height(lineHeight)
-                .background(LocalColor.current.cursor)
+                .background(color)
         )
     }
 

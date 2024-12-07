@@ -62,6 +62,7 @@ fun AppView() {
             BigMonospaceTextField(
                 textFieldState = bigTextFieldState,
                 color = Color.Black,
+                cursorColor = Color.Blue,
                 scrollState = scrollState,
                 modifier = Modifier.background(Color(224, 224, 160))
                     .fillMaxSize()

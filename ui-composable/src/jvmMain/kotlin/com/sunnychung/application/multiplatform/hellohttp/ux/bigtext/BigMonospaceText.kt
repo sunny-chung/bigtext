@@ -157,6 +157,7 @@ fun BigMonospaceTextField(
     fontSize: TextUnit = LocalFont.current.bodyFontSize,
     fontFamily: FontFamily = FontFamily.Monospace,
     color: Color = LocalColor.current.text,
+    cursorColor: Color = LocalColor.current.cursor,
     inputFilter: BigTextInputFilter? = null,
     textTransformation: IncrementalTextTransformation<*>? = null,
     textDecorator: BigTextDecorator? = null,
@@ -173,6 +174,7 @@ fun BigMonospaceTextField(
         fontSize = fontSize,
         fontFamily = fontFamily,
         color = color,
+        cursorColor = cursorColor,
         onTextChange = {
             textFieldState.emitValueChange(it.changeId)
         },
@@ -196,6 +198,7 @@ fun BigMonospaceTextField(
     fontSize: TextUnit = LocalFont.current.bodyFontSize,
     fontFamily: FontFamily = FontFamily.Monospace,
     color: Color = LocalColor.current.text,
+    cursorColor: Color = LocalColor.current.cursor,
     onTextChange: (BigTextChangeEvent) -> Unit,
     inputFilter: BigTextInputFilter? = null,
     textTransformation: IncrementalTextTransformation<*>? = null,
@@ -213,6 +216,7 @@ fun BigMonospaceTextField(
     fontSize = fontSize,
     fontFamily = fontFamily,
     color = color,
+    cursorColor = cursorColor,
     isSelectable = true,
     isEditable = true,
     onTextChange = onTextChange,
@@ -236,6 +240,7 @@ private fun CoreBigMonospaceText(
     fontSize: TextUnit = LocalFont.current.bodyFontSize,
     fontFamily: FontFamily = FontFamily.Monospace,
     color: Color = LocalColor.current.text,
+    cursorColor: Color = LocalColor.current.cursor,
     isSelectable: Boolean = false,
     isEditable: Boolean = false,
     onTextChange: (BigTextChangeEvent) -> Unit,
@@ -1357,6 +1362,7 @@ private fun CoreBigMonospaceText(
                         }
                         BigTextFieldCursor(
                             lineHeight = lineHeight.toDp(),
+                            color = cursorColor,
                             modifier = Modifier.offset(
                                 x = x.toDp(),
                                 y = yOffset,
