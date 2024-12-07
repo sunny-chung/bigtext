@@ -1,6 +1,5 @@
 package com.sunnychung.application.multiplatform.hellohttp.ux.bigtext
 
-import com.sunnychung.application.multiplatform.hellohttp.extension.binarySearchForMaxIndexOfValueAtMost
 import com.sunnychung.application.multiplatform.hellohttp.util.CharMeasurer
 
 private val LINE_BREAK_REGEX = "\n".toRegex()

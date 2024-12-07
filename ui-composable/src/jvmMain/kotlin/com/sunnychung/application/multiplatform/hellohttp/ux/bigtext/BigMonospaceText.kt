@@ -285,11 +285,14 @@ private fun CoreBigMonospaceText(
     val focusRequester = remember { FocusRequester() }
     val textLayouter = remember(density, fontFamilyResolver, textStyle) {
         MonospaceTextLayouter(
-            TextMeasurer(
-                fontFamilyResolver,
-                density,
-                LayoutDirection.Ltr,
-            ), textStyle
+            ComposeUnicodeCharMeasurer(
+                measurer = TextMeasurer(
+                    fontFamilyResolver,
+                    density,
+                    LayoutDirection.Ltr,
+                ),
+                style = textStyle
+            )
         )
     }
     // if the value of `viewState.isLayoutDisabled` is changed, trigger a recomposition
