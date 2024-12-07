@@ -26,7 +26,6 @@ import androidx.compose.material.LocalTextStyle
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -92,20 +91,13 @@ import com.sunnychung.application.multiplatform.hellohttp.platform.MacOS
 import com.sunnychung.application.multiplatform.hellohttp.platform.currentOS
 import com.sunnychung.application.multiplatform.hellohttp.util.ComposeUnicodeCharMeasurer
 import com.sunnychung.application.multiplatform.hellohttp.util.annotatedString
+import com.sunnychung.application.multiplatform.hellohttp.util.buildTestTag
 import com.sunnychung.application.multiplatform.hellohttp.util.debouncedStateOf
 import com.sunnychung.application.multiplatform.hellohttp.util.string
-import com.sunnychung.application.multiplatform.hellohttp.ux.ContextMenuView
-import com.sunnychung.application.multiplatform.hellohttp.ux.DropDownDivider
-import com.sunnychung.application.multiplatform.hellohttp.ux.DropDownKeyValue
 import com.sunnychung.application.multiplatform.hellohttp.ux.compose.rememberLast
-import com.sunnychung.application.multiplatform.hellohttp.ux.local.LocalColor
-import com.sunnychung.application.multiplatform.hellohttp.ux.local.LocalFont
 import com.sunnychung.lib.multiplatform.kdatetime.KInstant
 import com.sunnychung.lib.multiplatform.kdatetime.extension.milliseconds
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import kotlin.math.abs
 import kotlin.math.roundToInt
 import kotlin.random.Random
 import kotlin.reflect.KMutableProperty
@@ -117,9 +109,13 @@ fun BigMonospaceText(
     modifier: Modifier = Modifier,
     text: BigText,
     padding: PaddingValues = PaddingValues(4.dp),
-    fontSize: TextUnit = LocalFont.current.bodyFontSize,
+    fontSize: TextUnit = LocalTextStyle.current.fontSize,
     fontFamily: FontFamily = FontFamily.Monospace,
-    color: Color = LocalColor.current.text,
+    color: Color = LocalTextStyle.current.color,
+    contextMenu: @Composable (isVisible: Boolean, onDismiss: () -> Unit, entries: List<ContextMenuItemEntry>, testTag: String) -> Unit =
+        { isVisible: Boolean, onDismiss: () -> Unit, entries: List<ContextMenuItemEntry>, testTag: String ->
+            DefaultBigTextFieldContextMenu(isVisible = isVisible, onDismiss = onDismiss, entries = entries, testTag = testTag)
+        },
     isSelectable: Boolean = false,
     inputFilter: BigTextInputFilter? = null,
     textTransformation: IncrementalTextTransformation<*>? = null,
@@ -136,6 +132,7 @@ fun BigMonospaceText(
     fontSize = fontSize,
     fontFamily = fontFamily,
     color = color,
+    contextMenu = contextMenu,
     isSelectable = isSelectable,
     isEditable = false,
     onTextChange = {},
@@ -154,10 +151,14 @@ fun BigMonospaceTextField(
     modifier: Modifier = Modifier,
     textFieldState: BigTextFieldState,
     padding: PaddingValues = PaddingValues(4.dp),
-    fontSize: TextUnit = LocalFont.current.bodyFontSize,
+    fontSize: TextUnit = LocalTextStyle.current.fontSize,
     fontFamily: FontFamily = FontFamily.Monospace,
-    color: Color = LocalColor.current.text,
-    cursorColor: Color = LocalColor.current.cursor,
+    color: Color = LocalTextStyle.current.color,
+    cursorColor: Color = LocalTextStyle.current.color,
+    contextMenu: @Composable (isVisible: Boolean, onDismiss: () -> Unit, entries: List<ContextMenuItemEntry>, testTag: String) -> Unit =
+        { isVisible: Boolean, onDismiss: () -> Unit, entries: List<ContextMenuItemEntry>, testTag: String ->
+            DefaultBigTextFieldContextMenu(isVisible = isVisible, onDismiss = onDismiss, entries = entries, testTag = testTag)
+        },
     inputFilter: BigTextInputFilter? = null,
     textTransformation: IncrementalTextTransformation<*>? = null,
     textDecorator: BigTextDecorator? = null,
@@ -175,6 +176,7 @@ fun BigMonospaceTextField(
         fontFamily = fontFamily,
         color = color,
         cursorColor = cursorColor,
+        contextMenu = contextMenu,
         onTextChange = {
             textFieldState.emitValueChange(it.changeId)
         },
@@ -195,10 +197,14 @@ fun BigMonospaceTextField(
     modifier: Modifier = Modifier,
     text: BigText,
     padding: PaddingValues = PaddingValues(4.dp),
-    fontSize: TextUnit = LocalFont.current.bodyFontSize,
+    fontSize: TextUnit = LocalTextStyle.current.fontSize,
     fontFamily: FontFamily = FontFamily.Monospace,
-    color: Color = LocalColor.current.text,
-    cursorColor: Color = LocalColor.current.cursor,
+    color: Color = LocalTextStyle.current.color,
+    cursorColor: Color = LocalTextStyle.current.color,
+    contextMenu: @Composable (isVisible: Boolean, onDismiss: () -> Unit, entries: List<ContextMenuItemEntry>, testTag: String) -> Unit =
+        { isVisible: Boolean, onDismiss: () -> Unit, entries: List<ContextMenuItemEntry>, testTag: String ->
+            DefaultBigTextFieldContextMenu(isVisible = isVisible, onDismiss = onDismiss, entries = entries, testTag = testTag)
+        },
     onTextChange: (BigTextChangeEvent) -> Unit,
     inputFilter: BigTextInputFilter? = null,
     textTransformation: IncrementalTextTransformation<*>? = null,
@@ -217,6 +223,7 @@ fun BigMonospaceTextField(
     fontFamily = fontFamily,
     color = color,
     cursorColor = cursorColor,
+    contextMenu = contextMenu,
     isSelectable = true,
     isEditable = true,
     onTextChange = onTextChange,
@@ -237,12 +244,16 @@ private fun CoreBigMonospaceText(
     modifier: Modifier = Modifier,
     text: BigText,
     padding: PaddingValues = PaddingValues(4.dp),
-    fontSize: TextUnit = LocalFont.current.bodyFontSize,
+    fontSize: TextUnit = LocalTextStyle.current.fontSize,
     fontFamily: FontFamily = FontFamily.Monospace,
-    color: Color = LocalColor.current.text,
-    cursorColor: Color = LocalColor.current.cursor,
+    color: Color = LocalTextStyle.current.color,
+    cursorColor: Color = LocalTextStyle.current.color,
     isSelectable: Boolean = false,
     isEditable: Boolean = false,
+    contextMenu: @Composable (isVisible: Boolean, onDismiss: () -> Unit, entries: List<ContextMenuItemEntry>, testTag: String) -> Unit =
+        { isVisible: Boolean, onDismiss: () -> Unit, entries: List<ContextMenuItemEntry>, testTag: String ->
+            DefaultBigTextFieldContextMenu(isVisible = isVisible, onDismiss = onDismiss, entries = entries, testTag = testTag)
+        },
     onTextChange: (BigTextChangeEvent) -> Unit,
     inputFilter: BigTextInputFilter? = null,
     textTransformation: IncrementalTextTransformation<*>? = null,
@@ -1376,34 +1387,20 @@ private fun CoreBigMonospaceText(
             log.d { "Declare BigText content for render took ${endInstant - startInstant}" }
         }
 
-        ContextMenuView(
-            isShowContextMenu = isShowContextMenu,
-            onDismissRequest = { isShowContextMenu = false },
-            colors = LocalColor.current,
-            testTagParts = null,
-            populatedItems = listOf(
-                DropDownKeyValue(ContextMenuItem.Copy, "Copy", viewState.hasSelection()),
-                DropDownKeyValue(ContextMenuItem.Paste, "Paste", clipboardManager.hasText()),
-                DropDownKeyValue(ContextMenuItem.Cut, "Cut", viewState.hasSelection()),
-                DropDownDivider,
-                DropDownKeyValue(ContextMenuItem.Undo, "Undo", text.isUndoable()),
-                DropDownKeyValue(ContextMenuItem.Redo, "Redo", text.isRedoable()),
-                DropDownDivider,
-                DropDownKeyValue(ContextMenuItem.SelectAll, "Select All", text.isNotEmpty),
+        contextMenu(
+            isShowContextMenu,
+            { isShowContextMenu = false },
+            listOf(
+                ContextMenuItemButton("Copy", viewState.hasSelection(), buildTestTag("Copy")!!) { copySelection() },
+                ContextMenuItemButton("Paste", clipboardManager.hasText(), buildTestTag("Paste")!!) { paste() },
+                ContextMenuItemButton("Cut", viewState.hasSelection(), buildTestTag("Cut")!!) { cutSelection() },
+                ContextMenuItemDivider(),
+                ContextMenuItemButton("Undo", text.isUndoable(), buildTestTag("Undo")!!) { undo() },
+                ContextMenuItemButton("Redo", text.isRedoable(), buildTestTag("Redo")!!) { redo() },
+                ContextMenuItemDivider(),
+                ContextMenuItemButton("Select All", text.isNotEmpty, buildTestTag("Select All")!!) { selectAll() },
             ),
-            onClickItem = {
-                when (it.key as ContextMenuItem) {
-                    ContextMenuItem.Copy -> copySelection()
-                    ContextMenuItem.Paste -> paste()
-                    ContextMenuItem.Cut -> cutSelection()
-                    ContextMenuItem.Undo -> undo()
-                    ContextMenuItem.Redo -> redo()
-                    ContextMenuItem.SelectAll -> selectAll()
-                }
-                true
-            },
-            selectedItem = null,
-            isClickable = true,
+            "",
         )
     }
 }
