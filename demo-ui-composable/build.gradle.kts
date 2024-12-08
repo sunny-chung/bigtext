@@ -41,6 +41,9 @@ kotlin {
                 implementation("co.touchlab:kermit:1.0.0")
                 implementation("io.github.sunny-chung:kdatetime-multiplatform:1.0.0")
                 api(project(":bigtext-ui-composable"))
+
+                // for demo hash calculation on text change
+                implementation("org.kotlincrypto.hash:sha2:0.5.3")
             }
         }
         jvmMain {
