@@ -22,11 +22,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import com.sunnychung.application.multiplatform.hellohttp.ux.bigtext.BigMonospaceTextField
-import com.sunnychung.application.multiplatform.hellohttp.ux.bigtext.BigText
-import com.sunnychung.application.multiplatform.hellohttp.ux.bigtext.BigTextTransformer
-import com.sunnychung.application.multiplatform.hellohttp.ux.bigtext.IncrementalTextTransformation
-import com.sunnychung.application.multiplatform.hellohttp.ux.bigtext.rememberConcurrentLargeAnnotatedBigTextFieldState
+import com.sunnychung.lib.multiplatform.bigtext.ux.BigMonospaceTextField
+import com.sunnychung.lib.multiplatform.bigtext.ux.rememberConcurrentLargeAnnotatedBigTextFieldState
 import kotlin.random.Random
 
 val PRELOAD_CONTENT = mapOf(

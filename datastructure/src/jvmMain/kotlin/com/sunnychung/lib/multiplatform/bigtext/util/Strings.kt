@@ -1,0 +1,15 @@
+package com.sunnychung.lib.multiplatform.bigtext.util
+
+fun String?.emptyToNull(): String? {
+    return if (this == "") null else this
+}
+
+fun CharSequence.findAllIndicesOfChar(char: Char): List<Int> {
+    val result = mutableListOf<Int>()
+    for (i in this.indices) {
+        if (char == this[i]) {
+            result.add(i)
+        }
+    }
+    return result
+}
