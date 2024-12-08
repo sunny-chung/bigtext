@@ -170,6 +170,7 @@ fun BigMonospaceTextField(
         { isVisible: Boolean, onDismiss: () -> Unit, entries: List<ContextMenuItemEntry>, testTag: String ->
             DefaultBigTextFieldContextMenu(isVisible = isVisible, onDismiss = onDismiss, entries = entries, testTag = testTag)
         },
+    onTextChange: (BigTextChangeEvent) -> Unit = {},
     inputFilter: BigTextInputFilter? = null,
     textTransformation: IncrementalTextTransformation<*>? = null,
     textDecorator: BigTextDecorator? = null,
@@ -189,6 +190,7 @@ fun BigMonospaceTextField(
         cursorColor = cursorColor,
         contextMenu = contextMenu,
         onTextChange = {
+            onTextChange(it)
             textFieldState.emitValueChange(it.changeId)
         },
         inputFilter = inputFilter,
