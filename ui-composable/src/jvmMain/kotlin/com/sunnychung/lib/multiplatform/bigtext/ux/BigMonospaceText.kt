@@ -325,6 +325,8 @@ private fun CoreBigMonospaceText(
     var forceRecompose by remember { mutableStateOf(0L) }
     forceRecompose
 
+    viewState.version // observe value changes
+
     val transformedText: BigTextTransformed = remember(text, textTransformation) {
         log.d { "CoreBigMonospaceText recreate BigTextTransformed $text $textTransformation" }
         BigTextTransformerImpl(text)
