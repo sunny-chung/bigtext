@@ -395,7 +395,7 @@ private fun CoreBigMonospaceText(
                 log.i { "BigText layout took ${endInstant - startInstant}" }
 
                 if (log.config.minSeverity <= Severity.Verbose) {
-                    (transformedText as BigTextImpl).printDebug("after init layout")
+                    (transformedText as? BigTextImpl)?.printDebug("after init layout")
                 }
 
                 transformedText.onLayoutCallback?.invoke()
@@ -637,7 +637,7 @@ private fun CoreBigMonospaceText(
         insertAt(insertPos, textInput)
         updateViewState()
         if (log.config.minSeverity <= Severity.Verbose) {
-            (transformedText as BigTextImpl).printDebug("transformedText onType '${textInput.string().replace("\n", "\\n")}'")
+            (transformedText as? BigTextImpl)?.printDebug("transformedText onType '${textInput.string().replace("\n", "\\n")}'")
         }
         // update cursor after invoking listeners, because a transformation or change may take place
         viewState.cursorIndex = minOf(text.length, insertPos + textInput.length)
@@ -667,7 +667,7 @@ private fun CoreBigMonospaceText(
                     onValuePostChange(BigTextChangeEventType.Delete, cursor, cursor + 1)
                     updateViewState()
                     if (log.config.minSeverity <= Severity.Verbose) {
-                        (transformedText as BigTextImpl).printDebug("transformedText onDelete $direction")
+                        (transformedText as? BigTextImpl)?.printDebug("transformedText onDelete $direction")
                     }
                     text.recordCurrentChangeSequenceIntoUndoHistory()
                     scrollToCursor()
@@ -681,7 +681,7 @@ private fun CoreBigMonospaceText(
                     onValuePostChange(BigTextChangeEventType.Delete, cursor - 1, cursor)
                     updateViewState()
                     if (log.config.minSeverity <= Severity.Verbose) {
-                        (transformedText as BigTextImpl).printDebug("transformedText onDelete $direction")
+                        (transformedText as? BigTextImpl)?.printDebug("transformedText onDelete $direction")
                     }
                     // update cursor after invoking listeners, because a transformation or change may take place
                     viewState.cursorIndex = maxOf(0, cursor - 1)
