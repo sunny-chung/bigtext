@@ -57,5 +57,6 @@ kotlin {
 compose.desktop {
     application {
         mainClass = "com.sunnychung.lib.multiplatform.bigtext.demo.MainKt"
+        jvmArgs += "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005" // to enable debugger for debug use only
     }
 }
