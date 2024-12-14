@@ -107,6 +107,8 @@ open class ConcurrentBigText(open val delegate: BigText) : BigText {
 
     override fun setContentWidth(contentWidth: Float) = lock.write { delegate.setContentWidth(contentWidth) }
 
+    override fun setSoftWrapEnabled(isSoftWrapEnabled: Boolean) = lock.write { delegate.setSoftWrapEnabled(isSoftWrapEnabled) }
+
     override fun layout() = lock.write { delegate.layout() }
 
     // the first call to `hashCode()` would write to cache

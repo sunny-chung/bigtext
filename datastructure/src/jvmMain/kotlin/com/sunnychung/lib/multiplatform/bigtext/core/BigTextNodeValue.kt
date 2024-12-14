@@ -49,6 +49,23 @@ open class BigTextNodeValue : Comparable<BigTextNodeValue>, DebuggableNode<BigTe
     override val transformOffsetMapping: BigTextTransformOffsetMapping
         get() = BigTextTransformOffsetMapping.WholeBlock
 
+    /**
+     * startLineWidth = known line width of beginning of current node, limited by current buffer
+     *
+     * If there is only one line, only `endLineWidth` has non-negative valid value.
+     * If there are two lines, only `startLineWidth` and `endLineWidth` have non-negative valid values.
+     * `middleMaxLineWidth` stores the maximum width excluding startLineWidth and endLineWidth.
+     */
+    var startLineWidth: Long = -1
+    var middleMaxLineWidth: Long = -1
+    var endLineWidth: Long = -1
+    var aggregatedStartLineWidth: Long = 0
+    var aggregatedEndLineWidth: Long = 0
+    var aggregatedStartLineIdentifier: Any? = null
+    var aggregatedEndLineIdentifier: Any? = null
+
+    var maxLineWidth: Long = -1
+
     internal var node: RedBlackTree<BigTextNodeValue>.Node? = null
 
     private val key = RANDOM.nextInt()
@@ -87,7 +104,7 @@ open class BigTextNodeValue : Comparable<BigTextNodeValue>, DebuggableNode<BigTe
     override fun debugKey(): String = "$key"
     override fun debugLabel(node: RedBlackTree<BigTextNodeValue>.Node): String =
 //        "$leftStringLength [$bufferIndex: $bufferOffsetStart ..< $bufferOffsetEndExclusive] L ${node.length()} r $leftNumOfRowBreaks/$rowBreakOffsets lw $lastRowWidth $isEndWithForceRowBreak '${buffer.subSequence(renderBufferStart, renderBufferEndExclusive).toString().replace("\n", "\\n")}'"
-        "$leftStringLength [$bufferIndex: $bufferOffsetStart ..< $bufferOffsetEndExclusive] L ${node.length()} r $leftNumOfRowBreaks/$rowBreakOffsets l $leftNumOfLineBreaks/$renderNumLineBreaksInRange lw $lastRowWidth $isEndWithForceRowBreak"
+        "|${debugKey()}| $leftStringLength [$bufferIndex: $bufferOffsetStart ..< $bufferOffsetEndExclusive] L ${node.length()} r $leftNumOfRowBreaks/$rowBreakOffsets l $leftNumOfLineBreaks/$renderNumLineBreaksInRange lw $lastRowWidth $isEndWithForceRowBreak"
 
     protected fun CharSequence.quoteForMermaid(): String {
         return toString().replace("\n", "\\n").replace("\"", "&quot;")
@@ -98,7 +115,7 @@ open class BigTextNodeValue : Comparable<BigTextNodeValue>, DebuggableNode<BigTe
     }
 }
 
-abstract class TextBuffer {
+abstract class TextBuffer(val size: Int) {
     private val mutableLineOffsetStarts = mutableListOf<Int>()
 
     /**

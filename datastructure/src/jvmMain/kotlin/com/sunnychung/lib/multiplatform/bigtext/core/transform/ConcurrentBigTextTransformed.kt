@@ -59,6 +59,9 @@ class ConcurrentBigTextTransformed(override val delegate: BigTextTransformed) : 
     override fun restoreToOriginal(range: IntRange)
         = lock.write { delegate.restoreToOriginal(range) }
 
+    override val maxLineWidth: Long
+        get() = lock.read { delegate.maxLineWidth }
+
     override var onLayoutCallback: (() -> Unit)?
         get() = lock.read { delegate.onLayoutCallback }
         set(value) { lock.write { delegate.onLayoutCallback = value } }
@@ -71,4 +74,7 @@ class ConcurrentBigTextTransformed(override val delegate: BigTextTransformed) : 
 
     override fun findPositionByRowIndex(index: Int): Int
         = lock.read { delegate.findPositionByRowIndex(index) }
+
+    override fun findWidthByColumnRangeOfSameLine(lineIndex: Int, columns: IntRange): Float
+        = lock.read { delegate.findWidthByColumnRangeOfSameLine(lineIndex, columns) }
 }

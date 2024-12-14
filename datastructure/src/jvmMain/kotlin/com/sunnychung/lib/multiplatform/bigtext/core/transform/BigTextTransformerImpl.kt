@@ -9,9 +9,11 @@ import com.sunnychung.lib.multiplatform.bigtext.core.BigTextChangeHook
 import com.sunnychung.lib.multiplatform.bigtext.core.BigTextImpl
 import com.sunnychung.lib.multiplatform.bigtext.core.BigTextNodeValue
 import com.sunnychung.lib.multiplatform.bigtext.core.BufferOwnership
+import com.sunnychung.lib.multiplatform.bigtext.core.ConcurrentBigText
 import com.sunnychung.lib.multiplatform.bigtext.core.LengthTree
 import com.sunnychung.lib.multiplatform.bigtext.core.RedBlackTreeComputations
 import com.sunnychung.lib.multiplatform.bigtext.core.StringTextBuffer
+import com.sunnychung.lib.multiplatform.bigtext.core.TextBuffer
 import com.sunnychung.lib.multiplatform.bigtext.core.isD
 import com.sunnychung.lib.multiplatform.bigtext.core.isNotNil
 import com.sunnychung.lib.multiplatform.bigtext.core.length
@@ -36,6 +38,9 @@ class BigTextTransformerImpl(override val originalText: BigText) : BigTextImpl(
     charSequenceBuilderFactory = originalText.charSequenceBuilderFactory,
     charSequenceFactory = originalText.charSequenceFactory,
 ), BigTextTransformed {
+
+    override val allBuffers: List<TextBuffer>
+        get() = super.allBuffers + ((((originalText as? ConcurrentBigText)?.delegate ?: originalText) as? BigTextImpl)?.buffers ?: emptyList())
 
     private var hasReachedExtensiveSearch: Boolean = false
 
@@ -127,6 +132,9 @@ class BigTextTransformerImpl(override val originalText: BigText) : BigTextImpl(
     ) {
         require(pos in 0..originalLength) { "Out of bound. pos = $pos, originalLength = $originalLength" }
 
+        createBufferExtraData(nodeValue.buffer)
+        buildBufferExtraData(nodeValue.buffer, bufferOffsetStart)
+
         val renderPos = findTransformedPositionByOriginalPosition(pos)
 
         insertChunkAtPosition(
@@ -158,9 +166,12 @@ class BigTextTransformerImpl(override val originalText: BigText) : BigTextImpl(
         if (buffer == null) {
             buffer = textBufferFactory(chunkSize)
             buffers += buffer
+            createBufferExtraData(buffer)
         }
         require(buffer.length + chunkedString.length <= chunkSize)
+        val oldBufferLength = buffer.length
         val range = buffer.append(chunkedString)
+        buildBufferExtraData(buffer, oldBufferLength)
         return insertChunkAtPosition(position, chunkedString.length, BufferOwnership.Owned, buffer, range, true) {
             this as BigTextTransformNodeValue
             bufferIndex = -1

@@ -139,6 +139,10 @@ class InefficientBigText(text: String) : BigText {
         TODO("Not yet implemented")
     }
 
+    override fun setSoftWrapEnabled(isSoftWrapEnabled: Boolean) {
+        TODO("Not yet implemented")
+    }
+
     override fun layout() {
         TODO("Not yet implemented")
     }

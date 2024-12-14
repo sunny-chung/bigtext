@@ -6,7 +6,7 @@ import com.sunnychung.lib.multiplatform.bigtext.core.TextBuffer
 import com.sunnychung.lib.multiplatform.bigtext.extension.hasIntersectWith
 import java.util.TreeMap
 
-class AnnotatedStringTextBuffer(size: Int) : TextBuffer() {
+class AnnotatedStringTextBuffer(size: Int) : TextBuffer(size) {
     private val buffer = StringBuilder(size)
 
     // TODO optimize it to use interval tree when styles that change character width are supported

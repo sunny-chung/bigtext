@@ -1,5 +1,6 @@
 package com.sunnychung.lib.multiplatform.bigtext.demo
 
+import androidx.compose.foundation.HorizontalScrollbar
 import androidx.compose.foundation.VerticalScrollbar
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -8,9 +9,11 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.rememberScrollbarAdapter
 import androidx.compose.material.Button
+import androidx.compose.material.Checkbox
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -32,7 +35,9 @@ fun SimpleDemoView() {
     var generateContentKey by remember { mutableStateOf("Empty") }
 
     val bigTextFieldState by rememberConcurrentLargeAnnotatedBigTextFieldState(PRELOAD_CONTENT[generateContentKey]!!, cacheKey)
+    var isSoftWrapEnabled by remember { mutableStateOf(false) }
     val scrollState = rememberScrollState()
+    val horizontalScrollState = rememberScrollState()
     val coroutineScope = rememberCoroutineScope()
 
     Column {
@@ -53,12 +58,19 @@ fun SimpleDemoView() {
                 }
         }
 
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Checkbox(checked = isSoftWrapEnabled, onCheckedChange = { isSoftWrapEnabled = it })
+            Text("Soft Wrap")
+        }
+
         Box {
             BigMonospaceTextField(
                 textFieldState = bigTextFieldState,
                 color = Color.Black,
                 cursorColor = Color.Blue,
+                isSoftWrapEnabled = isSoftWrapEnabled,
                 scrollState = scrollState,
+                horizontalScrollState = horizontalScrollState, // only required for soft wrap disabled
                 modifier = Modifier.background(Color(224, 224, 160))
                     .fillMaxSize()
             )
@@ -66,6 +78,12 @@ fun SimpleDemoView() {
                 adapter = rememberScrollbarAdapter(scrollState),
                 modifier = Modifier.align(Alignment.TopEnd).fillMaxHeight()
             )
+            if (!isSoftWrapEnabled) {
+                HorizontalScrollbar(
+                    adapter = rememberScrollbarAdapter(horizontalScrollState),
+                    modifier = Modifier.align(Alignment.BottomStart).fillMaxWidth()
+                )
+            }
         }
     }
 }

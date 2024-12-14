@@ -139,7 +139,7 @@ internal class BigTextVerifyImpl(bigTextImpl: BigTextImpl) : BigText {
     }
 
     override fun insertAt(pos: Int, text: CharSequence): Int {
-        println("insert $pos, ${text.length}")
+//        println("insert $pos, ${text.length}")
         val r = bigTextImpl.insertAt(pos, text)
 //        val offset = transformOffsetsByPosition.subMap(0, pos).values.sum().also {
         val offset = (transformOffsetsMappingByPosition.subMap(0, true, pos, true).values.sum()).also {
@@ -157,7 +157,7 @@ internal class BigTextVerifyImpl(bigTextImpl: BigTextImpl) : BigText {
     }
 
     override fun delete(start: Int, endExclusive: Int): Int {
-        println("delete $start ..< $endExclusive")
+//        println("delete $start ..< $endExclusive")
         var r: Int = 0
         printDebugIfError {
             r = bigTextImpl.delete(start, endExclusive)
@@ -171,7 +171,7 @@ internal class BigTextVerifyImpl(bigTextImpl: BigTextImpl) : BigText {
             stringImpl.delete(offset + start, offset + endExclusive)
         }
         transformOps += TransformOp(start until endExclusive, BigTextTransformOffsetMapping.WholeBlock)
-        println("new len = ${bigTextImpl.length}")
+//        println("new len = ${bigTextImpl.length}")
         verify()
         return r
     }
@@ -362,6 +362,10 @@ internal class BigTextVerifyImpl(bigTextImpl: BigTextImpl) : BigText {
 
     override fun setContentWidth(contentWidth: Float) {
         TODO("Not yet implemented")
+    }
+
+    override fun setSoftWrapEnabled(isSoftWrapEnabled: Boolean) {
+        bigTextImpl.setSoftWrapEnabled(isSoftWrapEnabled)
     }
 
     override fun layout() {

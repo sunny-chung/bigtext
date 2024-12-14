@@ -1,6 +1,6 @@
 package com.sunnychung.lib.multiplatform.bigtext.core
 
-class StringTextBuffer(size: Int) : TextBuffer() {
+class StringTextBuffer(size: Int) : TextBuffer(size) {
     private val buffer = StringBuilder(size)
 
     override val length: Int

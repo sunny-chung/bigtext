@@ -5,9 +5,10 @@ import androidx.compose.ui.text.TextStyle
 import com.sunnychung.lib.multiplatform.bigtext.core.layout.CharMeasurer
 import com.sunnychung.lib.multiplatform.bigtext.util.log
 import java.util.LinkedHashMap
+import java.util.concurrent.ConcurrentHashMap
 
 class ComposeUnicodeCharMeasurer(private val measurer: TextMeasurer, private val style: TextStyle) : CharMeasurer {
-    private val charWidth: MutableMap<String, Float> = LinkedHashMap<String, Float>(256)
+    private val charWidth: MutableMap<String, Float> = ConcurrentHashMap<String, Float>(256) //LinkedHashMap<String, Float>(256)
     private val charHeight: Float = measurer.measure("|\n|").let {
         it.getLineTop(1) - it.getLineTop(0)
     }
@@ -74,6 +75,7 @@ class ComposeUnicodeCharMeasurer(private val measurer: TextMeasurer, private val
     fun getRowHeight(): Float = charHeight
 
     fun measureExactWidthOf(targets: List<String>): List<Float> {
+        log.d { "measure ${targets.size} targets" }
         val result = measurer.measure(targets.joinToString("") { "$it\n"}, style, softWrap = false)
         return targets.mapIndexed { index, s ->
             result.getLineRight(index) - result.getLineLeft(index)

@@ -41,6 +41,7 @@ kotlin {
             dependencies {
                 implementation("co.touchlab:kermit:1.0.0")
                 implementation("io.github.sunny-chung:kdatetime-multiplatform:1.0.0")
+                implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.1")
             }
         }
         jvmTest {

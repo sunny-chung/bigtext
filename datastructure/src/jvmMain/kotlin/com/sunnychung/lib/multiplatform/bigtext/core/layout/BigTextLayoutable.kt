@@ -14,6 +14,8 @@ interface BigTextLayoutable {
 
     val lastRowIndex: Int
 
+    val maxLineWidth: Long
+
     var onLayoutCallback: (() -> Unit)?
 
     fun setLayouter(layouter: TextLayouter)
@@ -29,4 +31,6 @@ interface BigTextLayoutable {
     fun findRowIndexByPosition(position: Int): Int
 
     fun findPositionByRowIndex(index: Int): Int
+
+    fun findWidthByColumnRangeOfSameLine(lineIndex: Int, columns: IntRange): Float
 }

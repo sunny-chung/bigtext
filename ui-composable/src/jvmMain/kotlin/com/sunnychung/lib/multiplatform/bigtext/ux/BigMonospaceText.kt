@@ -101,6 +101,8 @@ import com.sunnychung.lib.multiplatform.bigtext.core.transform.BigTextTransforme
 import com.sunnychung.lib.multiplatform.bigtext.core.transform.BigTextTransformerImpl
 import com.sunnychung.lib.multiplatform.bigtext.core.transform.ConcurrentBigTextTransformed
 import com.sunnychung.lib.multiplatform.bigtext.core.transform.IncrementalTextTransformation
+import com.sunnychung.lib.multiplatform.bigtext.extension.binarySearchForMaxIndexOfValueAtMost
+import com.sunnychung.lib.multiplatform.bigtext.extension.binarySearchForMinIndexOfValueAtLeast
 import com.sunnychung.lib.multiplatform.bigtext.util.annotatedString
 import com.sunnychung.lib.multiplatform.bigtext.util.buildTestTag
 import com.sunnychung.lib.multiplatform.bigtext.util.debouncedStateOf
@@ -128,10 +130,12 @@ fun BigMonospaceText(
             DefaultBigTextFieldContextMenu(isVisible = isVisible, onDismiss = onDismiss, entries = entries, testTag = testTag)
         },
     isSelectable: Boolean = false,
+    isSoftWrapEnabled: Boolean = false,
     inputFilter: BigTextInputFilter? = null,
     textTransformation: IncrementalTextTransformation<*>? = null,
     textDecorator: BigTextDecorator? = null,
     scrollState: ScrollState = rememberScrollState(),
+    horizontalScrollState: ScrollState = rememberScrollState(),
     viewState: BigTextViewState = remember { BigTextViewState() },
     onPointerEvent: ((event: PointerEvent, tag: String?) -> Unit)? = null,
     onTextLayout: ((BigTextSimpleLayoutResult) -> Unit)? = null,
@@ -146,11 +150,13 @@ fun BigMonospaceText(
     contextMenu = contextMenu,
     isSelectable = isSelectable,
     isEditable = false,
+    isSoftWrapEnabled = isSoftWrapEnabled,
     onTextChange = {},
     inputFilter = inputFilter,
     textTransformation = textTransformation,
     textDecorator = textDecorator,
     scrollState = scrollState,
+    horizontalScrollState = horizontalScrollState,
     viewState = viewState,
     onPointerEvent = onPointerEvent,
     onTextLayout = onTextLayout,
@@ -166,6 +172,7 @@ fun BigMonospaceTextField(
     fontFamily: FontFamily = FontFamily.Monospace,
     color: Color = LocalTextStyle.current.color,
     cursorColor: Color = LocalTextStyle.current.color,
+    isSoftWrapEnabled: Boolean = false,
     contextMenu: @Composable (isVisible: Boolean, onDismiss: () -> Unit, entries: List<ContextMenuItemEntry>, testTag: String) -> Unit =
         { isVisible: Boolean, onDismiss: () -> Unit, entries: List<ContextMenuItemEntry>, testTag: String ->
             DefaultBigTextFieldContextMenu(isVisible = isVisible, onDismiss = onDismiss, entries = entries, testTag = testTag)
@@ -175,6 +182,7 @@ fun BigMonospaceTextField(
     textTransformation: IncrementalTextTransformation<*>? = null,
     textDecorator: BigTextDecorator? = null,
     scrollState: ScrollState = rememberScrollState(),
+    horizontalScrollState: ScrollState = rememberScrollState(),
     keyboardInputProcessor: BigTextKeyboardInputProcessor? = null,
     onPointerEvent: ((event: PointerEvent, tag: String?) -> Unit)? = null,
     onTextLayout: ((BigTextSimpleLayoutResult) -> Unit)? = null,
@@ -188,6 +196,7 @@ fun BigMonospaceTextField(
         fontFamily = fontFamily,
         color = color,
         cursorColor = cursorColor,
+        isSoftWrapEnabled = isSoftWrapEnabled,
         contextMenu = contextMenu,
         onTextChange = {
             onTextChange(it)
@@ -197,6 +206,7 @@ fun BigMonospaceTextField(
         textTransformation = textTransformation,
         textDecorator = textDecorator,
         scrollState = scrollState,
+        horizontalScrollState = horizontalScrollState,
         viewState = textFieldState.viewState,
         keyboardInputProcessor = keyboardInputProcessor,
         onPointerEvent = onPointerEvent,
@@ -214,6 +224,7 @@ fun BigMonospaceTextField(
     fontFamily: FontFamily = FontFamily.Monospace,
     color: Color = LocalTextStyle.current.color,
     cursorColor: Color = LocalTextStyle.current.color,
+    isSoftWrapEnabled: Boolean = false,
     contextMenu: @Composable (isVisible: Boolean, onDismiss: () -> Unit, entries: List<ContextMenuItemEntry>, testTag: String) -> Unit =
         { isVisible: Boolean, onDismiss: () -> Unit, entries: List<ContextMenuItemEntry>, testTag: String ->
             DefaultBigTextFieldContextMenu(isVisible = isVisible, onDismiss = onDismiss, entries = entries, testTag = testTag)
@@ -223,6 +234,7 @@ fun BigMonospaceTextField(
     textTransformation: IncrementalTextTransformation<*>? = null,
     textDecorator: BigTextDecorator? = null,
     scrollState: ScrollState = rememberScrollState(),
+    horizontalScrollState: ScrollState = rememberScrollState(),
     viewState: BigTextViewState = remember(text) { BigTextViewState() },
     keyboardInputProcessor: BigTextKeyboardInputProcessor? = null,
     onPointerEvent: ((event: PointerEvent, tag: String?) -> Unit)? = null,
@@ -236,6 +248,7 @@ fun BigMonospaceTextField(
     fontFamily = fontFamily,
     color = color,
     cursorColor = cursorColor,
+    isSoftWrapEnabled = isSoftWrapEnabled,
     contextMenu = contextMenu,
     isSelectable = true,
     isEditable = true,
@@ -244,6 +257,7 @@ fun BigMonospaceTextField(
     textTransformation = textTransformation,
     textDecorator = textDecorator,
     scrollState = scrollState,
+    horizontalScrollState = horizontalScrollState,
     viewState = viewState,
     keyboardInputProcessor = keyboardInputProcessor,
     onPointerEvent = onPointerEvent,
@@ -263,6 +277,7 @@ private fun CoreBigMonospaceText(
     cursorColor: Color = LocalTextStyle.current.color,
     isSelectable: Boolean = false,
     isEditable: Boolean = false,
+    isSoftWrapEnabled: Boolean = false,
     contextMenu: @Composable (isVisible: Boolean, onDismiss: () -> Unit, entries: List<ContextMenuItemEntry>, testTag: String) -> Unit =
         { isVisible: Boolean, onDismiss: () -> Unit, entries: List<ContextMenuItemEntry>, testTag: String ->
             DefaultBigTextFieldContextMenu(isVisible = isVisible, onDismiss = onDismiss, entries = entries, testTag = testTag)
@@ -272,6 +287,7 @@ private fun CoreBigMonospaceText(
     textTransformation: IncrementalTextTransformation<*>? = null,
     textDecorator: BigTextDecorator? = null,
     scrollState: ScrollState = rememberScrollState(),
+    horizontalScrollState: ScrollState = rememberScrollState(),
     viewState: BigTextViewState = remember(text) { BigTextViewState() },
     keyboardInputProcessor: BigTextKeyboardInputProcessor? = null,
     onPointerEvent: ((event: PointerEvent, tag: String?) -> Unit)? = null,
@@ -345,6 +361,7 @@ private fun CoreBigMonospaceText(
             }
     }
     transformedText.decorator = textDecorator
+    transformedText.setSoftWrapEnabled(isSoftWrapEnabled)
 
 //    log.v { "text = |${text.buildString()}|" }
 //    log.v { "transformedText = |${transformedText.buildString()}|" }
@@ -388,6 +405,7 @@ private fun CoreBigMonospaceText(
                         fireOnLayout()
                     }
                 }
+                transformedText.setSoftWrapEnabled(isSoftWrapEnabled)
                 transformedText.setLayouter(textLayouter)
                 transformedText.setContentWidth(contentWidth)
 
@@ -431,6 +449,35 @@ private fun CoreBigMonospaceText(
                 (this as KMutableProperty<Int>)
                 setter.isAccessible = true
                 setter.call(scrollState, height)
+            }
+    }
+
+    rememberLast(width, transformedText.maxLineWidth) {
+        horizontalScrollState::class.declaredMemberProperties.first { it.name == "maxValue" }
+            .apply {
+                (this as KMutableProperty<Int>)
+                setter.isAccessible = true
+                val scrollableWidth = maxOf(
+                    0f,
+                    (transformedText.maxLineWidth / 10f) - width +
+                        with (density) {
+                            2 * (padding.calculateLeftPadding(LayoutDirection.Ltr) + padding.calculateRightPadding(LayoutDirection.Ltr)).toPx() +
+                                20.dp.toPx()
+                        }
+                )
+                log.d { "scrollableWidth = $scrollableWidth, maxLineWidth = ${transformedText.maxLineWidth}, width = $width" }
+                setter.call(horizontalScrollState, scrollableWidth.roundToInt())
+            }
+
+        horizontalScrollState::class.declaredMemberProperties.first { it.name == "viewportSize" }
+            .apply {
+                (this as KMutableProperty<Int>)
+                setter.isAccessible = true
+                val viewportLength = width -
+                    with (density) {
+                        (padding.calculateLeftPadding(LayoutDirection.Ltr) + padding.calculateRightPadding(LayoutDirection.Ltr)).toPx()
+                    }
+                setter.call(horizontalScrollState, viewportLength.roundToInt())
             }
     }
 
@@ -496,6 +543,7 @@ private fun CoreBigMonospaceText(
     var isShowContextMenu by remember { mutableStateOf(false) }
 
     val viewportTop = scrollState.value.toFloat()
+    val viewportLeft = if (isSoftWrapEnabled) 0f else horizontalScrollState.value.toFloat()
 
     fun getTransformedCharIndex(x: Float, y: Float, mode: ResolveCharPositionMode): Int {
         val row = ((viewportTop + y) / lineHeight).toInt()
@@ -506,16 +554,20 @@ private fun CoreBigMonospaceText(
             return 0
         }
 
-        val rowString = transformedText.findRowString(row)
         val rowPositionStart = transformedText.findRowPositionStartIndexByRowIndex(row)
-        var accumWidth = 0f
-        val charIndex = rowString.indexOfFirst {
-            accumWidth += textLayouter.charMeasurer.findCharWidth(it.toString())
-            x < accumWidth
-        }.takeIf { it >= 0 }
-            ?: (rowString.length - if (rowString.endsWith('\n')) 1 else 0)
-
-        return minOf(maxIndex, rowPositionStart + charIndex)
+        val nextRowPositionStart = if (row + 1 <= transformedText.lastRowIndex) {
+            transformedText.findRowPositionStartIndexByRowIndex(row + 1)
+        } else {
+            transformedText.length + 1
+        }
+        val lineIndex = transformedText.findLineIndexByRowIndex(row)
+        val linePositionStart = transformedText.findPositionStartOfLine(lineIndex)
+        val absX = (viewportLeft + x).toInt()
+        log.v { "viewportLeft=$viewportLeft, x=$x, absX=$absX" }
+        val pos = binarySearchForMaxIndexOfValueAtMost(rowPositionStart ..< nextRowPositionStart, absX) {
+            transformedText.findWidthByColumnRangeOfSameLine(lineIndex, 0 ..< it - linePositionStart).toInt()
+        }
+        return pos.coerceIn(0 .. maxIndex)
     }
 
     fun getTransformedStringWidth(start: Int, endExclusive: Int): Float {
@@ -1133,6 +1185,11 @@ private fun CoreBigMonospaceText(
         }
     }
 
+    /**
+     * This function is intended to be empty and used as a marker in IDE.
+     */
+    fun drawUIStart() = Unit
+
     Box(
         modifier = modifier
             .onGloballyPositioned {
@@ -1145,6 +1202,13 @@ private fun CoreBigMonospaceText(
             .clipToBounds()
             .padding(padding)
             .scrollable(scrollableState, orientation = Orientation.Vertical)
+            .run {
+                if (!isSoftWrapEnabled) {
+                    scrollable(horizontalScrollState, orientation = Orientation.Horizontal, reverseDirection = true)
+                } else {
+                    this
+                }
+            }
             .focusRequester(focusRequester)
             .pointerHoverIcon(PointerIcon.Text)
             .onDrag(
@@ -1196,7 +1260,7 @@ private fun CoreBigMonospaceText(
                     viewState.updateCursorIndexByTransformed(transformedText)
                 }
             )
-            .pointerInput(isEditable, text, transformedText.hasLayouted, viewState, viewportTop, lineHeight, contentWidth, transformedText.length, transformedText.hashCode(), onPointerEvent) {
+            .pointerInput(isEditable, text, transformedText.hasLayouted, viewState, viewportTop, viewportLeft, lineHeight, contentWidth, transformedText.length, transformedText.hashCode(), onPointerEvent) {
                 awaitPointerEventScope {
                     while (true) {
                         val event = awaitPointerEvent()
@@ -1252,7 +1316,7 @@ private fun CoreBigMonospaceText(
                     }
                 }
             }
-            .pointerInput(transformedText, transformedText.hasLayouted, viewportTop, lineHeight, contentWidth, viewState) {
+            .pointerInput(transformedText, transformedText.hasLayouted, viewportTop, viewportLeft, lineHeight, contentWidth, viewState) {
                 detectTapGestures(onDoubleTap = {
                     val wordStart = findPreviousWordBoundaryPositionFromCursor(isIncludeCursorPosition = true)
                     val wordEndExclusive = findNextWordBoundaryPositionFromCursor()
@@ -1337,6 +1401,7 @@ private fun CoreBigMonospaceText(
             val rowRange = viewState.calculateVisibleRowRange(viewportTop.toInt())
             val firstRowIndex = rowRange.first
             val lastRowIndex = rowRange.last
+            val numLines = transformedText.numOfLines
             log.v { "row index = [$firstRowIndex, $lastRowIndex]; scroll = $viewportTop ~ $viewportBottom; line h = $lineHeight" }
             viewState.firstVisibleRow = firstRowIndex
             viewState.lastVisibleRow = lastRowIndex
@@ -1351,52 +1416,134 @@ private fun CoreBigMonospaceText(
                     } else {
                         transformedText.findRowPositionStartIndexByRowIndex(i + 1)
                     }
-                    val nonVisualEndIndex = minOf(transformedText.length, maxOf(endIndex, startIndex + 1))
-                    val cursorDisplayRangeEndIndex = if (i + 1 > transformedText.lastRowIndex) {
-                        transformedText.length
-                    } else {
-                        maxOf(transformedText.findRowPositionStartIndexByRowIndex(i + 1) - 1, startIndex)
-                    }
+                    val yOffset = (-viewportTop + (i/* - firstRowIndex*/) * lineHeight).toDp()
+                    if (isSoftWrapEnabled) {
+                        val nonVisualEndIndex = minOf(transformedText.length, maxOf(endIndex, startIndex + 1))
+                        val cursorDisplayRangeEndIndex = if (i + 1 > transformedText.lastRowIndex) {
+                            transformedText.length
+                        } else {
+                            maxOf(transformedText.findRowPositionStartIndexByRowIndex(i + 1) - 1, startIndex)
+                        }
 //                    log.v { "line #$i: [$startIndex, $endIndex)" }
-                    val yOffset = (- viewportTop + (i/* - firstRowIndex*/) * lineHeight).toDp()
-                    if (viewState.hasSelection()) {
-                        val intersection = viewState.transformedSelection intersect (startIndex .. nonVisualEndIndex - 1)
-                        if (!intersection.isEmpty()) {
-                            log.v { "row #$i - intersection: $intersection" }
-                            Box(
-                                Modifier
-                                    .height(lineHeight.toDp())
-                                    .width(getTransformedStringWidth(intersection.start, intersection.endInclusive + 1).toDp())
-                                    .offset(x = getTransformedStringWidth(startIndex, intersection.start).toDp(), y = yOffset)
-                                    .background(color = textSelectionColors.backgroundColor) // `background` modifier must be after `offset` in order to take effect
-                            )
+                        if (viewState.hasSelection()) {
+                            val intersection = viewState.transformedSelection intersect (startIndex..nonVisualEndIndex - 1)
+                            if (!intersection.isEmpty()) {
+                                log.v { "row #$i - intersection: $intersection" }
+                                Box(
+                                    Modifier
+                                        .height(lineHeight.toDp())
+                                        .width(
+                                            getTransformedStringWidth(
+                                                intersection.start,
+                                                intersection.endInclusive + 1
+                                            ).toDp()
+                                        )
+                                        .offset(
+                                            x = getTransformedStringWidth(startIndex, intersection.start).toDp(),
+                                            y = yOffset
+                                        )
+                                        .background(color = textSelectionColors.backgroundColor) // `background` modifier must be after `offset` in order to take effect
+                                )
+                            }
                         }
-                    }
-                    val rowText = transformedText.subSequence(
-                        startIndex = startIndex,
-                        endIndex = endIndex,
-                    )
-                    log.v { "text R$i TT $startIndex ..< $endIndex: $rowText" }
-                    BasicText(
-                        text = rowText.annotatedString(),
-                        style = textStyle,
-                        maxLines = 1,
-                        softWrap = false,
-                        modifier = Modifier.offset(y = yOffset)
-                    )
-                    if (isEditable && isFocused && viewState.transformedCursorIndex in startIndex .. cursorDisplayRangeEndIndex) {
-                        var x = 0f
-                        (startIndex + 1 .. viewState.transformedCursorIndex).forEach {
-                            x += textLayouter.charMeasurer.findCharWidth(transformedText.substring(it - 1.. it - 1).string())
-                        }
-                        BigTextFieldCursor(
-                            lineHeight = lineHeight.toDp(),
-                            color = cursorColor,
-                            modifier = Modifier.offset(
-                                x = x.toDp(),
-                                y = yOffset,
-                            )
+                        val rowText = transformedText.subSequence(
+                            startIndex = startIndex,
+                            endIndex = endIndex,
                         )
+                        log.v { "text R$i TT $startIndex ..< $endIndex: $rowText" }
+                        BasicText(
+                            text = rowText.annotatedString(),
+                            style = textStyle,
+                            maxLines = 1,
+                            softWrap = false,
+                            modifier = Modifier.offset(y = yOffset)
+                        )
+                        if (isEditable && isFocused && viewState.transformedCursorIndex in startIndex..cursorDisplayRangeEndIndex) {
+                            var x = 0f
+                            (startIndex + 1..viewState.transformedCursorIndex).forEach {
+                                x += textLayouter.charMeasurer.findCharWidth(
+                                    transformedText.substring(it - 1..it - 1).string()
+                                )
+                            }
+                            BigTextFieldCursor(
+                                lineHeight = lineHeight.toDp(),
+                                color = cursorColor,
+                                modifier = Modifier.offset(
+                                    x = x.toDp(),
+                                    y = yOffset,
+                                )
+                            )
+                        }
+                    } else {
+                        val renderStartIndex = binarySearchForMaxIndexOfValueAtMost(startIndex .. maxOf(startIndex, endIndex - 1), viewportLeft.toInt()) {
+                            transformedText.findWidthByColumnRangeOfSameLine(i, 0 .. it - startIndex).toInt()
+                        }.coerceIn(startIndex .. maxOf(startIndex, endIndex - 1))
+                        val renderEndIndexExclusive = binarySearchForMinIndexOfValueAtLeast(startIndex + 1  .. endIndex, viewportLeft.toInt() + width) {
+                            transformedText.findWidthByColumnRangeOfSameLine(i, 0 ..< it - startIndex).toInt()
+                        }.coerceIn(
+                            minimumValue = renderStartIndex,
+                            maximumValue = maxOf(renderStartIndex, endIndex - if (i < numLines - 1) 1 /* exclude the '\n' char */ else 0)
+                        )
+                        log.v { "line #$i s=$startIndex e=$endIndex rs=$renderStartIndex re=$renderEndIndexExclusive" }
+                        val xOffset = (-viewportLeft + transformedText.findWidthByColumnRangeOfSameLine(i, 0 ..< renderStartIndex - startIndex).toInt()).toDp()
+
+                        if (viewState.hasSelection()) {
+                            val intersection = viewState.transformedSelection intersect (renderStartIndex .. renderEndIndexExclusive)
+                            if (!intersection.isEmpty()) {
+                                log.v { "row #$i - intersection: $intersection" }
+                                Box(
+                                    Modifier
+                                        .height(lineHeight.toDp())
+                                        .width(
+                                            getTransformedStringWidth(
+                                                intersection.start,
+                                                intersection.endInclusive + 1
+                                            ).toDp()
+                                        )
+                                        .offset(
+                                            x = xOffset + getTransformedStringWidth(renderStartIndex, intersection.start).toDp(),
+                                            y = yOffset
+                                        )
+                                        .background(color = textSelectionColors.backgroundColor) // `background` modifier must be after `offset` in order to take effect
+                                )
+                            }
+                        }
+
+                        val rowText = transformedText.subSequence(
+                            startIndex = renderStartIndex,
+                            endIndex = renderEndIndexExclusive,
+                        )
+
+                        BasicText(
+                            text = rowText.annotatedString(),
+                            style = textStyle,
+                            maxLines = 1,
+                            softWrap = false,
+                            modifier = Modifier.offset(y = yOffset, x = xOffset)
+                        )
+
+                        log.v { "line = $i, cursor T = ${viewState.transformedCursorIndex}" }
+                        if (isEditable && isFocused && viewState.transformedCursorIndex in renderStartIndex .. renderEndIndexExclusive) {
+                            val x = if (viewState.transformedCursorIndex - renderStartIndex > 0) {
+                                transformedText.findWidthByColumnRangeOfSameLine(
+                                    i,
+                                    0..< viewState.transformedCursorIndex - renderStartIndex
+                                ).also {
+                                    log.v { "find w = $it" }
+                                }
+                            } else {
+                                0f
+                            }.toDp() + xOffset
+                            log.v { "cursor x = $x" }
+                            BigTextFieldCursor(
+                                lineHeight = lineHeight.toDp(),
+                                color = cursorColor,
+                                modifier = Modifier.offset(
+                                    x = x,
+                                    y = yOffset,
+                                )
+                            )
+                        }
                     }
                 }
             }

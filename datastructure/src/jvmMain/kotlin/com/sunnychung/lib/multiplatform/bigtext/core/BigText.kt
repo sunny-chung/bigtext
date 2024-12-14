@@ -109,6 +109,8 @@ interface BigText {
 
     fun setContentWidth(contentWidth: Float)
 
+    fun setSoftWrapEnabled(isSoftWrapEnabled: Boolean)
+
     /**
      * This function should not be called manually in normal routines.
      */

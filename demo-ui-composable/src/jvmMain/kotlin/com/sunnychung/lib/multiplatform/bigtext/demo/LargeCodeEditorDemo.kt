@@ -1,5 +1,6 @@
 package com.sunnychung.lib.multiplatform.bigtext.demo
 
+import androidx.compose.foundation.HorizontalScrollbar
 import androidx.compose.foundation.VerticalScrollbar
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -13,6 +14,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.rememberScrollbarAdapter
 import androidx.compose.material.Button
+import androidx.compose.material.Checkbox
 import androidx.compose.material.CircularProgressIndicator
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
@@ -56,10 +58,12 @@ fun LargeCodeEditorDemoView() {
         )
     }
     var bigTextLayoutResult by remember { mutableStateOf<BigTextSimpleLayoutResult?>(null) }
+    var isSoftWrapEnabled by remember { mutableStateOf(false) }
     var isLoading by remember { mutableStateOf(false) }
     var isWaitForMeasure by remember { mutableStateOf(false) }
     var textHash by remember { mutableStateOf(calculateSha256Hash("")) }
     val scrollState = rememberScrollState()
+    val horizontalScrollState = rememberScrollState()
     val coroutineScope1 = rememberCoroutineScope()
 
     val isDisableSyntaxHighlighting = bigTextFieldState.text.length > 2 * 1024 * 1024 // 2 MB
@@ -112,6 +116,11 @@ fun LargeCodeEditorDemoView() {
                 }
         }
 
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Checkbox(checked = isSoftWrapEnabled, onCheckedChange = { isSoftWrapEnabled = it })
+            Text("Soft Wrap")
+        }
+
         Box(Modifier.fillMaxSize()) {
             Column(Modifier.fillMaxSize())  {
                 if (isDisableSyntaxHighlighting) {
@@ -149,7 +158,9 @@ fun LargeCodeEditorDemoView() {
                                 },
                                 onTextChange = { textHash = "" },
                                 scrollState = scrollState,
+                                horizontalScrollState = horizontalScrollState,
                                 onTextLayout = { bigTextLayoutResult = it },
+                                isSoftWrapEnabled = isSoftWrapEnabled,
                                 modifier = Modifier.background(Color(224, 224, 224))
                                     .fillMaxSize()
                             )
@@ -157,6 +168,12 @@ fun LargeCodeEditorDemoView() {
                                 adapter = rememberScrollbarAdapter(scrollState),
                                 modifier = Modifier.align(Alignment.TopEnd).fillMaxHeight()
                             )
+                            if (!isSoftWrapEnabled) {
+                                HorizontalScrollbar(
+                                    adapter = rememberScrollbarAdapter(horizontalScrollState),
+                                    modifier = Modifier.align(Alignment.BottomStart).fillMaxWidth()
+                                )
+                            }
                         }
                     }
                 }

@@ -13,6 +13,10 @@ class MonospaceTextLayouter : TextLayouter {
         charMeasurer.measureFullText(text)
     }
 
+    override fun measureCharWidth(char: String): Float {
+        return charMeasurer.findCharWidth(char)
+    }
+
     override fun layoutOneLine(line: CharSequence, contentWidth: Float, firstRowOccupiedWidth: Float, offset: Int): Pair<List<Int>, Float> {
         val charWidths = line.map { charMeasurer.findCharWidth(it.toString()) }
         val isOffsetLastLine = line.endsWith('\n')

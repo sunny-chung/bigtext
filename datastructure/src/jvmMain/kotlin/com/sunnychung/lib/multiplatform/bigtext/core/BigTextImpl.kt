@@ -13,7 +13,15 @@ import com.sunnychung.lib.multiplatform.bigtext.extension.length
 import com.sunnychung.lib.multiplatform.bigtext.util.CircularList
 import com.sunnychung.lib.multiplatform.bigtext.util.JvmLogger
 import com.sunnychung.lib.multiplatform.bigtext.util.let
+import com.sunnychung.lib.multiplatform.kdatetime.KInstant
 import com.williamfiset.algorithms.datastructures.balancedtree.RedBlackTree
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.runBlocking
+import java.util.WeakHashMap
+import java.util.concurrent.locks.ReentrantLock
+import kotlin.concurrent.withLock
 
 val log = Logger(object : MutableLoggerConfig {
     override var logWriterList: List<LogWriter> = listOf(JvmLogger())
@@ -55,6 +63,8 @@ open class BigTextImpl(
         }
     )
     val buffers = mutableListOf<TextBuffer>()
+    protected open val allBuffers: List<TextBuffer>
+        get() = buffers
 
     final override var layouter: TextLayouter? = null
         @JvmName("_setLayouter")
@@ -62,7 +72,19 @@ open class BigTextImpl(
 
     internal var isLayoutEnabled: Boolean = true
 
+    private var isSoftWrapEnabled: Boolean = true
+
+    protected val bufferExtraDataLock = ReentrantLock()
+    protected val bufferExtraData: MutableMap<TextBuffer, TextBufferExtraData> = WeakHashMap()
+
+    /**
+     * Viewport width.
+     */
     override var contentWidth: Float? = null
+
+    val widthMultiplier: Long = 10L
+    override val maxLineWidth: Long
+        get() = tree.getRoot().takeIf { it.isNotNil() }?.value?.maxLineWidth?.coerceAtLeast(0L) ?: 0L
 
     override var onLayoutCallback: (() -> Unit)? = null
 
@@ -151,6 +173,9 @@ open class BigTextImpl(
     }
 
     override fun findPositionByRowIndex(index: Int): Int {
+        if (!isSoftWrapEnabled) {
+            return findPositionStartOfLine(index)
+        }
         if (!hasLayouted) {
             return 0
         }
@@ -159,6 +184,9 @@ open class BigTextImpl(
     }
 
     override fun findRowIndexByPosition(position: Int): Int {
+        if (!isSoftWrapEnabled) {
+            return findLineAndColumnFromRenderPosition(position).first
+        }
         if (!hasLayouted) {
             return 0
         }
@@ -179,6 +207,9 @@ open class BigTextImpl(
     }
 
     override fun findRowPositionStartIndexByRowIndex(index: Int): Int {
+        if (!isSoftWrapEnabled) {
+            return findPositionStartOfLine(index)
+        }
         if (!hasLayouted) {
             return 0
         }
@@ -204,7 +235,11 @@ open class BigTextImpl(
 
     override fun findPositionStartOfLine(lineIndex: Int): Int {
         val (node, lineIndexStart) = tree.findNodeByLineBreaksExact(lineIndex)
-            ?: throw IndexOutOfBoundsException("Cannot find node for line $lineIndex")
+            ?: if (lineIndex == 0) {
+                return 0
+            } else {
+                throw IndexOutOfBoundsException("Cannot find node for line $lineIndex")
+            }
         val positionStart = findPositionStart(node)
         val lineBreakIndex = lineIndex - lineIndexStart - 1
 
@@ -227,6 +262,9 @@ open class BigTextImpl(
      * @return 0-based
      */
     override fun findLineIndexByRowIndex(rowIndex: Int): Int {
+        if (!isSoftWrapEnabled) {
+            return rowIndex
+        }
         if (!hasLayouted) {
             return 0
         }
@@ -313,6 +351,9 @@ open class BigTextImpl(
      * @return 0-based row index
      */
     override fun findFirstRowIndexOfLine(lineIndex: Int): Int {
+        if (!isSoftWrapEnabled) {
+            return lineIndex
+        }
         if (!hasLayouted) {
             return 0
         }
@@ -414,9 +455,12 @@ open class BigTextImpl(
         if (buffer == null) {
             buffer = textBufferFactory(chunkSize)
             buffers += buffer
+            createBufferExtraData(buffer)
         }
         require(buffer.length + chunkedString.length <= chunkSize)
+        val oldBufferLength = buffer.length
         val range = buffer.append(chunkedString)
+        buildBufferExtraData(buffer, oldBufferLength)
         insertChunkAtPosition(position, chunkedString.length, BufferOwnership.Owned, buffer, range) {
             bufferIndex = buffers.lastIndex
             bufferOffsetStart = range.start
@@ -634,6 +678,133 @@ open class BigTextImpl(
         log.v { ">> leftNumOfLineBreaks ${node?.value?.debugKey()} -> $leftNumOfLineBreaks" }
 
         leftNumOfRowBreaks = node?.left?.numRowBreaks() ?: 0
+
+        bufferExtraData[buffer]?.let { extraData ->
+            if (!extraData.hasInitialized) {
+                endLineWidth = -1
+                startLineWidth = -1
+                middleMaxLineWidth = -1
+                return@let
+            }
+
+            fun calculateWidth(range: IntRange): Long {
+                if (range.isEmpty()) {
+                    return 0
+                } else if (range.endInclusive < 0 || range.start < 0) {
+                    return -1
+                }
+
+                return extraData.widths[range.endInclusive] - if (range.start > 0) {
+                    extraData.widths[range.start - 1]
+                } else {
+                    0
+                }
+            }
+
+            var maxWidth = -1L
+            if (renderNumLineBreaksInRange == 0) {
+                endLineWidth = calculateWidth(renderBufferStart until renderBufferEndExclusive)
+                if (endLineWidth >= 0) {
+                    val consecutiveWidth = (node?.left?.value?.aggregatedEndLineWidth ?: 0L) +
+                            endLineWidth + (node?.right?.value?.aggregatedStartLineWidth ?: 0L)
+//                    aggregatedEndLineWidth = calculateAggregatedValue(node?.right, childAggregatedValue = { it.value?.aggregatedEndLineWidth }, currentValue = { consecutiveWidth })
+//                    aggregatedStartLineWidth = calculateAggregatedValue(node?.left, childAggregatedValue = { it.value?.aggregatedStartLineWidth }, currentValue = { consecutiveWidth })
+                    aggregatedEndLineWidth = node?.right?.value?.aggregatedEndLineWidth ?: consecutiveWidth
+                    aggregatedStartLineWidth = node?.left?.value?.aggregatedStartLineWidth ?: consecutiveWidth
+
+                    val selfIdentifier = Any()
+
+                    if (node?.left?.value?.aggregatedStartLineIdentifier != null) {
+                        if (node?.left?.value?.aggregatedStartLineIdentifier === node?.left?.value?.aggregatedEndLineIdentifier) {
+                            aggregatedStartLineWidth = consecutiveWidth
+                            aggregatedStartLineIdentifier = selfIdentifier
+                        } else {
+                            aggregatedStartLineIdentifier = node!!.left!!.value!!.aggregatedStartLineIdentifier
+                        }
+                    } else {
+                        aggregatedStartLineIdentifier = selfIdentifier
+                    }
+//                    if ((node?.left?.numLineBreaks() ?: 0) < 1) {
+//                        aggregatedStartLineWidth = consecutiveWidth
+//                    }
+
+                    if (node?.right?.value?.aggregatedEndLineIdentifier != null) {
+                        if (node?.right?.value?.aggregatedStartLineIdentifier === node?.right?.value?.aggregatedEndLineIdentifier) {
+                            aggregatedEndLineWidth = consecutiveWidth
+                            aggregatedEndLineIdentifier = selfIdentifier
+                        } else {
+                            aggregatedEndLineIdentifier = node!!.right!!.value!!.aggregatedEndLineIdentifier
+                        }
+                    } else {
+                        aggregatedEndLineIdentifier = selfIdentifier
+                    }
+//                    if ((node?.right?.numLineBreaks() ?: 0) < 1) {
+//                        aggregatedEndLineWidth = consecutiveWidth
+//                    }
+
+                    maxWidth = maxOf(maxWidth, consecutiveWidth)
+                }
+            } else {
+                val lineOffsetEndIndexExclusive = buffer.lineOffsetStarts.binarySearchForMinIndexOfValueAtLeast(renderBufferEndExclusive)
+                val lineOffsetStartIndex = maxOf(0, buffer.lineOffsetStarts.binarySearchForMinIndexOfValueAtLeast(renderBufferStart))
+                endLineWidth = calculateWidth(buffer.lineOffsetStarts[lineOffsetEndIndexExclusive - 1] + 1 until renderBufferEndExclusive)
+                if (endLineWidth >= 0) {
+                    val consecutiveWidth = endLineWidth + (node?.right?.value?.aggregatedStartLineWidth ?: 0L)
+                    aggregatedEndLineWidth = node?.right?.value?.aggregatedEndLineWidth ?: consecutiveWidth
+                    if (node?.right?.value?.aggregatedEndLineIdentifier != null) {
+                        if (node?.right?.value?.aggregatedStartLineIdentifier === node?.right?.value?.aggregatedEndLineIdentifier) {
+                            aggregatedEndLineWidth = consecutiveWidth
+                        }
+                        aggregatedEndLineIdentifier = node!!.right!!.value!!.aggregatedEndLineIdentifier
+                    } else {
+                        aggregatedEndLineIdentifier = Any()
+                    }
+//                    if ((node?.right?.numLineBreaks() ?: 0) < 1) {
+//                        aggregatedEndLineWidth = consecutiveWidth
+//                    }
+
+                    maxWidth = maxOf(maxWidth,
+                        (consecutiveWidth).also { log.v { "consider max width R $it" } }
+                    )
+                }
+//                if (startLineWidth < 0) {
+                    startLineWidth = calculateWidth(renderBufferStart until buffer.lineOffsetStarts[lineOffsetStartIndex])
+                    if (startLineWidth >= 0) {
+                        val consecutiveWidth = (node?.left?.value?.aggregatedEndLineWidth ?: 0L) + startLineWidth
+                        aggregatedStartLineWidth = node?.left?.value?.aggregatedStartLineWidth ?: consecutiveWidth
+                        if (node?.left?.value?.aggregatedStartLineIdentifier != null) {
+                            if (node?.left?.value?.aggregatedStartLineIdentifier === node?.left?.value?.aggregatedEndLineIdentifier) {
+                                aggregatedStartLineWidth = consecutiveWidth
+                            }
+                            aggregatedStartLineIdentifier = node!!.left!!.value!!.aggregatedStartLineIdentifier
+                        } else {
+                            aggregatedStartLineIdentifier = Any()
+                        }
+//                        if ((node?.left?.numLineBreaks() ?: 0) < 1) {
+//                            aggregatedStartLineWidth = consecutiveWidth
+//                        }
+
+                        maxWidth = maxOf(maxWidth,
+                            (consecutiveWidth).also { log.v { "consider max width L $it" } }
+                        )
+                    }
+//                }
+                if (middleMaxLineWidth < 0 && renderNumLineBreaksInRange >= 2) {
+                    middleMaxLineWidth = (lineOffsetStartIndex until lineOffsetEndIndexExclusive - 1).maxOf {
+                        calculateWidth(buffer.lineOffsetStarts[it] + 1 until buffer.lineOffsetStarts[it + 1])
+                    }
+                }
+            }
+            maxLineWidth = maxOf(
+                aggregatedEndLineWidth,
+                aggregatedStartLineWidth,
+                maxWidth,
+                middleMaxLineWidth,
+                node?.left?.value?.maxLineWidth ?: -1,
+                node?.right?.value?.maxLineWidth ?: -1,
+            )
+            log.v { "node ${debugKey()} line w end=$endLineWidth start=$startLineWidth mid=$middleMaxLineWidth aggEnd=$aggregatedEndLineWidth aggSt=$aggregatedStartLineWidth max=$maxLineWidth" }
+        }
     }
 
     fun recomputeAggregatedValues(node: RedBlackTree<BigTextNodeValue>.Node) {
@@ -822,7 +993,12 @@ open class BigTextImpl(
         require(0 <= lineIndex) { "lineIndex $lineIndex must be non-negative." }
         require(lineIndex <= numOfLines) { "lineIndex $lineIndex out of bound, numOfLines = $numOfLines." }
 
-        val (startNode, startNodeLineStart) = tree.findNodeByLineBreaks(lineIndex - 1)!!
+        val (startNode, startNodeLineStart) = tree.findNodeByLineBreaks(lineIndex - 1)
+            ?: if (lineIndex == 0) {
+                return ""
+            } else {
+                throw NullPointerException("Node not found for ${lineIndex - 1} line breaks")
+            }
         val endNodeFindPair = tree.findNodeByLineBreaks(lineIndex)
         val endCharIndex = if (endNodeFindPair != null) { // includes the last '\n' char
             val (endNode, endNodeLineStart) = endNodeFindPair
@@ -838,6 +1014,10 @@ open class BigTextImpl(
     }
 
     override fun findRowString(rowIndex: Int): CharSequence {
+        if (!isSoftWrapEnabled) {
+            return findLineString(rowIndex)
+        }
+
         /**
          * @param rowOffset 0 = start of buffer; 1 = char index of the first row break
          */
@@ -1246,12 +1426,67 @@ open class BigTextImpl(
     override fun findRenderCharIndexByLineAndColumn(lineIndex: Int, columnIndex: Int): Int {
         require(0 <= lineIndex) { "lineIndex $lineIndex must be non-negative." }
         require(lineIndex <= numOfLines) { "lineIndex $lineIndex out of bound, numOfLines = $numOfLines." }
-        require(0 <= columnIndex) { "columnIndex $lineIndex must be non-negative." }
+        require(0 <= columnIndex) { "columnIndex $columnIndex must be non-negative." }
 
-        val (startNode, startNodeLineStart) = tree.findNodeByLineBreaks(lineIndex - 1)!!
+        val (startNode, startNodeLineStart) = tree.findNodeByLineBreaks(lineIndex - 1) ?: if (lineIndex == 0) {
+            return columnIndex
+        } else {
+            throw IndexOutOfBoundsException("Node not found for line breaks ${lineIndex - 1}")
+        }
         val startCharIndex = findCharPosOfLineOffset(startNode, lineIndex - startNodeLineStart)
 
         return startCharIndex + columnIndex
+    }
+
+    override fun findWidthByColumnRangeOfSameLine(lineIndex: Int, columns: IntRange): Float {
+        if (columns.start == 0 && columns.last == 0 && length == 0) {
+            return 0f
+        } else if (columns.isEmpty() && columns.start == 0) {
+            return 0f
+        }
+
+        val startPos = findRenderCharIndexByLineAndColumn(lineIndex, columns.first)
+        val endPos = findRenderCharIndexByLineAndColumn(lineIndex, columns.last)
+        val endPosExclusive = endPos + 1
+        val startLine = findLineIndexByRowIndex(findRowIndexByPosition(startPos))
+        val endLine = findLineIndexByRowIndex(findRowIndexByPosition(endPos))
+        require(lineIndex == startLine) { "column start $startPos does not belong to line $lineIndex" }
+        require(lineIndex == endLine) { "column end $endPos does not belong to line $lineIndex" }
+
+        var node = tree.findNodeByRenderCharIndex(startPos) ?: throw IllegalStateException("Cannot find string node for position $startPos")
+        val endNode = tree.findNodeByRenderCharIndex(endPos) ?: throw IllegalStateException("Cannot find string node for position $endPos")
+        var nodeStartPos = findRenderPositionStart(node)
+        val endNodeStartPos = findRenderPositionStart(endNode)
+        var roiStartIndex = node.value.renderBufferStart + (startPos - nodeStartPos)
+
+        var accumulatedWidth = 0L
+        while (roiStartIndex < node.value.renderBufferEndExclusive) {
+            val roiEndInclusiveIndex = if (node === endNode) {
+                node.value.renderBufferStart + (endPosExclusive - endNodeStartPos) - 1
+            } else {
+                node.value.renderBufferEndExclusive - 1
+            }
+            val bufferExtraData = bufferExtraDataLock.withLock {
+                bufferExtraData[node.value.buffer]!!
+            }
+            accumulatedWidth += bufferExtraData.widths[roiEndInclusiveIndex] -
+                if (roiStartIndex - 1 >= node.value.renderBufferStart) {
+                    bufferExtraData.widths[roiStartIndex - 1]
+                } else {
+                    0L
+                }
+
+            if (node !== endNode) {
+                nodeStartPos += node.value.currentRenderLength
+                node = tree.nextNode(node) ?: throw IllegalStateException("Cannot find the next string node. Requested = $nodeStartPos")
+                roiStartIndex = node.value.renderBufferStart
+            } else {
+                break
+            }
+        }
+        val accumulatedWidthInDouble: Double = accumulatedWidth / widthMultiplier +
+                (accumulatedWidth % widthMultiplier).toDouble() / widthMultiplier
+        return accumulatedWidthInDouble.toFloat()
     }
 
     override fun hashCode(): Int {
@@ -1289,15 +1524,58 @@ open class BigTextImpl(
             return
         }
 
-        tree.forEach {
-            val buffer = it.buffer
-            val chunkString = buffer.subSequence(it.renderBufferStart, it.renderBufferEndExclusive)
-            layouter.indexCharWidth(chunkString.toString())
-        }
+//        tree.forEach {
+//            val buffer = it.buffer
+//            val chunkString = buffer.subSequence(it.renderBufferStart, it.renderBufferEndExclusive)
+//            layouter.indexCharWidth(chunkString.toString())
+//        }
 
         this.layouter = layouter
 
+        bufferExtraData.clear()
+        runBlocking {
+            allBuffers.map { buffer ->
+                async(Dispatchers.IO) {
+                    val start = KInstant.now()
+
+                    createBufferExtraData(buffer)
+                    buildBufferExtraData(buffer, 0)
+
+                    val end = KInstant.now()
+                    log.w { "build buffer extra took ${end - start}" }
+                }
+            }.awaitAll()
+
+            tree.visitInPostOrder { node ->
+                computeCurrentNodeProperties(node.value, node.left)
+            }
+        }
+
         layout()
+    }
+
+    protected fun createBufferExtraData(buffer: TextBuffer) {
+        bufferExtraDataLock.withLock {
+            bufferExtraData.getOrPut(buffer) {
+                TextBufferExtraData(buffer.size)
+            }
+        }
+    }
+
+    protected fun buildBufferExtraData(buffer: TextBuffer, fromCharIndex: Int) {
+        val layouter = layouter ?: return
+
+        val extra = bufferExtraDataLock.withLock {
+            bufferExtraData[buffer]!!
+        }
+        val length = buffer.length
+        // Use (map + forEachIndexed) VS forEach: 2s VS 0.7s
+        (fromCharIndex ..< length).forEach { i ->
+            val char = buffer.substring(i, i + 1)
+            val charWidth = layouter.measureCharWidth(char)
+            extra.widths[i] = (charWidth * widthMultiplier).toLong() + if (i > 0) extra.widths[i - 1] else 0L
+        }
+        extra.hasInitialized = true
     }
 
     override fun setContentWidth(contentWidth: Float) {
@@ -1309,6 +1587,15 @@ open class BigTextImpl(
 
         this.contentWidth = contentWidth
 
+        layout()
+    }
+
+    override fun setSoftWrapEnabled(isSoftWrapEnabled: Boolean) {
+        if (this.isSoftWrapEnabled == isSoftWrapEnabled) {
+            return
+        }
+
+        this.isSoftWrapEnabled = isSoftWrapEnabled
         layout()
     }
 
@@ -1376,6 +1663,7 @@ open class BigTextImpl(
         val layouter = this.layouter ?: return
         val contentWidth = this.contentWidth ?: return
 
+        if (!isSoftWrapEnabled) return // layout is only used for soft wrapping
         if (startPos >= length) return
         if (startPos >= endPosExclusive) return
 
@@ -1617,31 +1905,39 @@ open class BigTextImpl(
         get() = layouter != null && contentWidth != null
 
     override val numOfRows: Int
-        get() = tree.getRoot().numRowBreaks() + 1 + // TODO cache the result
-            run {
-                val lastNode = tree.rightmost(tree.getRoot()).takeIf { it.isNotNil() }
-                val lastValue = lastNode?.value ?: return@run 0
-                val lastLineOffset = lastValue.buffer.lineOffsetStarts.let {
-                    val lastIndex = it.binarySearchForMaxIndexOfValueAtMost(lastValue.renderBufferEndExclusive - 1)
-                    if (lastIndex in 0 .. it.lastIndex) {
-                        it[lastIndex]
-                    } else {
-                        null
+        get() = if (!isSoftWrapEnabled) {
+            numOfLines
+        } else {
+            tree.getRoot().numRowBreaks() + 1 + // TODO cache the result
+                    run {
+                        val lastNode = tree.rightmost(tree.getRoot()).takeIf { it.isNotNil() }
+                        val lastValue = lastNode?.value ?: return@run 0
+                        val lastLineOffset = lastValue.buffer.lineOffsetStarts.let {
+                            val lastIndex = it.binarySearchForMaxIndexOfValueAtMost(lastValue.renderBufferEndExclusive - 1)
+                            if (lastIndex in 0 .. it.lastIndex) {
+                                it[lastIndex]
+                            } else {
+                                null
+                            }
+                        } ?: return@run 0
+                        val lastNodePos = findRenderPositionStart(lastNode)
+                        if (lastNodePos + (lastLineOffset - lastValue.renderBufferStart) == lastIndex) {
+                            1 // one extra row if the string ends with '\n'
+                        } else {
+                            0
+                        }
                     }
-                } ?: return@run 0
-                val lastNodePos = findRenderPositionStart(lastNode)
-                if (lastNodePos + (lastLineOffset - lastValue.renderBufferStart) == lastIndex) {
-                    1 // one extra row if the string ends with '\n'
-                } else {
-                    0
-                }
-            }
+        }
 
     override val numOfLines: Int
         get() = tree.getRoot().numLineBreaks() + 1
 
     override val lastRowIndex: Int
-        get() = numOfRows - 1
+        get() = if (!isSoftWrapEnabled) {
+            numOfLines - 1
+        } else {
+            numOfRows - 1
+        }
 
     override val numOfOriginalLines: Int
         get() = numOfLines
