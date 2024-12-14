@@ -1470,7 +1470,7 @@ open class BigTextImpl(
                 bufferExtraData[node.value.buffer]!!
             }
             accumulatedWidth += bufferExtraData.widths[roiEndInclusiveIndex] -
-                if (roiStartIndex - 1 >= node.value.renderBufferStart) {
+                if (roiStartIndex - 1 >= 0 /*node.value.renderBufferStart*/) { // bufferExtraData.widths is monotonically increasing within the same buffer
                     bufferExtraData.widths[roiStartIndex - 1]
                 } else {
                     0L
