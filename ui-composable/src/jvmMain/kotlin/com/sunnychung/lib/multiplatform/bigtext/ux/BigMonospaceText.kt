@@ -1056,6 +1056,21 @@ private fun CoreBigMonospaceText(
                             isSelection = it.isShiftPressed,
                         )
                         log.v { "set cursor pos LR => ${viewState.cursorIndex} t ${viewState.transformedCursorIndex}" }
+                    } else if (!it.isShiftPressed) {
+                        // cancel selection
+                        val newTransformedPosition = if (viewState.hasSelection()) {
+                            if (delta > 0) {
+                                viewState.transformedSelection.endInclusive + 1
+                            } else {
+                                viewState.transformedSelection.start
+                            }
+                        } else {
+                            viewState.transformedCursorIndex
+                        }
+                        updateTransformedCursorOrSelection(
+                            newTransformedPosition = newTransformedPosition,
+                            isSelection = it.isShiftPressed,
+                        )
                     }
                     true
                 }
