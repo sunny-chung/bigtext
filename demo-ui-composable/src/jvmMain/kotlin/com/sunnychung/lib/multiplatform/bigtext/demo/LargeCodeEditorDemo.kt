@@ -3,6 +3,7 @@ package com.sunnychung.lib.multiplatform.bigtext.demo
 import androidx.compose.foundation.HorizontalScrollbar
 import androidx.compose.foundation.VerticalScrollbar
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -116,7 +117,12 @@ fun LargeCodeEditorDemoView() {
                 }
         }
 
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .clickable { isSoftWrapEnabled = !isSoftWrapEnabled }
+                .padding(end = 16.dp)
+        ) {
             Checkbox(checked = isSoftWrapEnabled, onCheckedChange = { isSoftWrapEnabled = it })
             Text("Soft Wrap")
         }
