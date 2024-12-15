@@ -31,6 +31,7 @@ private enum class DemoView(val displayName: String) {
     SimpleMonospace("Simple Monospace"),
     CodeEditor("Code Editor"),
     SansSerif("Sans Serif"),
+    Transformation("Transformation"),
 }
 
 @Composable
@@ -59,6 +60,7 @@ fun AppView() {
             DemoView.SimpleMonospace -> SimpleDemoView(fontFamily = FontFamily.Monospace)
             DemoView.CodeEditor -> CodeEditorDemoView()
             DemoView.SansSerif -> SimpleDemoView(fontFamily = FontFamily.SansSerif)
+            DemoView.Transformation -> TransformationDemoView()
         }
     }
 }
