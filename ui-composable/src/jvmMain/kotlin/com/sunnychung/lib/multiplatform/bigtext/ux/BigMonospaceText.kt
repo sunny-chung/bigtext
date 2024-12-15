@@ -1452,6 +1452,9 @@ private fun CoreBigMonospaceText(
     ) {
         val viewportBottom = viewportTop + height
         if (lineHeight > 0 && transformedText.hasLayouted) {
+
+            fun drawInnerUIStart() = Unit
+
 //            val firstRowIndex = maxOf(0, (viewportTop / lineHeight).toInt())
 //            val lastRowIndex = minOf(transformedText.lastRowIndex, (viewportBottom / lineHeight).toInt() + 1)
             val rowRange = viewState.calculateVisibleRowRange(viewportTop.toInt())
@@ -1480,6 +1483,8 @@ private fun CoreBigMonospaceText(
                     val yOffset: Dp = (-viewportTop + (i/* - firstRowIndex*/) * lineHeight).toDp()
                     val xOffset: Dp
 
+                    log.v { "row #$i line #$lineIndex s=$rowStartIndex e=$rowEndIndex ls=$linePositionStartIndex ro=$rowPositionOffset" }
+
                     if (isSoftWrapEnabled) {
                         renderStartIndex = rowStartIndex
                         renderEndIndexExclusive = (rowEndIndex - if (rowEndIndex in (1 .. transformedText.length) && transformedText.substring(rowEndIndex - 1 ..< rowEndIndex).string() == "\n") {
@@ -1493,17 +1498,17 @@ private fun CoreBigMonospaceText(
                         xOffset = 0.dp
                     } else {
                         renderStartIndex = binarySearchForMaxIndexOfValueAtMost(rowStartIndex .. maxOf(rowStartIndex, rowEndIndex - 1), viewportLeft.toInt()) {
-                            transformedText.findWidthByColumnRangeOfSameLine(i, 0 .. it - rowStartIndex).toInt()
+                            transformedText.findWidthByPositionRangeOfSameLine(rowStartIndex .. it).toInt()
                         }.coerceIn(rowStartIndex .. maxOf(rowStartIndex, rowEndIndex - 1))
                         renderEndIndexExclusive = binarySearchForMinIndexOfValueAtLeast(rowStartIndex + 1  .. rowEndIndex, viewportLeft.toInt() + width) {
-                            transformedText.findWidthByColumnRangeOfSameLine(i, 0 ..< it - rowStartIndex).toInt()
+                            transformedText.findWidthByPositionRangeOfSameLine(rowStartIndex ..< it).toInt()
                         }.coerceIn(
                             minimumValue = renderStartIndex,
                             maximumValue = (rowEndIndex - if (i < numLines - 1) 1 /* exclude the '\n' char */ else 0)
                                 .coerceIn(renderStartIndex..transformedText.length)
                         )
 
-                        xOffset = (-viewportLeft + transformedText.findWidthByColumnRangeOfSameLine(i, rowPositionOffset ..< rowPositionOffset + (renderStartIndex - rowStartIndex)).toInt()).toDp()
+                        xOffset = (-viewportLeft + transformedText.findWidthByPositionRangeOfSameLine(rowStartIndex ..< renderStartIndex).toInt()).toDp()
                     }
                     log.v { "row #$i line #$lineIndex s=$rowStartIndex e=$rowEndIndex rs=$renderStartIndex re=$renderEndIndexExclusive ls=$linePositionStartIndex ro=$rowPositionOffset" }
 

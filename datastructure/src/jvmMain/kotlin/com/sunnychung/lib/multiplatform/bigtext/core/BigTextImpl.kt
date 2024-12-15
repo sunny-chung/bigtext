@@ -209,7 +209,7 @@ open class BigTextImpl(
 
     override fun findRowPositionStartIndexByRowIndex(index: Int): Int {
         if (!isSoftWrapEnabled) {
-            return findPositionStartOfLine(index)
+            return findRenderPositionStartOfLine(index)
         }
         if (!hasLayouted) {
             return 0
@@ -242,6 +242,30 @@ open class BigTextImpl(
                 throw IndexOutOfBoundsException("Cannot find node for line $lineIndex")
             }
         val positionStart = findPositionStart(node)
+        val lineBreakIndex = lineIndex - lineIndexStart - 1
+
+        val positionStartOffsetOfLine = if (lineBreakIndex >= 0) {
+            val lineOffsets = node.value.buffer.lineOffsetStarts
+            val lineOffsetStartIndex = lineOffsets.binarySearchForMinIndexOfValueAtLeast(node.value.renderBufferStart)
+            require(lineOffsetStartIndex >= 0)
+            lineOffsets[lineOffsetStartIndex + lineBreakIndex] -
+                    node.value.renderBufferStart +
+                    /* find the position just after the '\n' char */ 1
+        } else {
+            0
+        }
+
+        return positionStart + positionStartOffsetOfLine
+    }
+
+    fun findRenderPositionStartOfLine(lineIndex: Int): Int {
+        val (node, lineIndexStart) = tree.findNodeByLineBreaksExact(lineIndex)
+            ?: if (lineIndex == 0) {
+                return 0
+            } else {
+                throw IndexOutOfBoundsException("Cannot find node for line $lineIndex")
+            }
+        val positionStart = findRenderPositionStart(node)
         val lineBreakIndex = lineIndex - lineIndexStart - 1
 
         val positionStartOffsetOfLine = if (lineBreakIndex >= 0) {
@@ -401,15 +425,7 @@ open class BigTextImpl(
     }
 
     protected fun findRenderPositionStart(node: RedBlackTree<BigTextNodeValue>.Node): Int {
-        var start = node.value.leftRenderLength
-        var node = node
-        while (node.parent.isNotNil()) {
-            if (node === node.parent.right) {
-                start += node.parent.value.leftRenderLength + node.parent.value.currentRenderLength
-            }
-            node = node.parent
-        }
-        return start
+        return tree.findRenderPositionStart(node)
     }
 
     protected fun findLineStart(node: RedBlackTree<BigTextNodeValue>.Node): Int {
@@ -1454,36 +1470,93 @@ open class BigTextImpl(
             return 0f
         }
 
-        val startPos = findRenderCharIndexByLineAndColumn(lineIndex, columns.first)
-        val endPos = findRenderCharIndexByLineAndColumn(lineIndex, columns.last)
-        val endPosExclusive = endPos + 1
-        val startLine = findLineIndexByRowIndex(findRowIndexByPosition(startPos))
-        val endLine = findLineIndexByRowIndex(findRowIndexByPosition(endPos))
-        require(lineIndex == startLine) { "column start $startPos does not belong to line $lineIndex" }
-        require(lineIndex == endLine) { "column end $endPos does not belong to line $lineIndex" }
+        val startRenderPos = findRenderCharIndexByLineAndColumn(lineIndex, columns.first)
+        val endRenderPos = findRenderCharIndexByLineAndColumn(lineIndex, columns.last)
+        val endRenderPosExclusive = endRenderPos + 1
 
-        var node = tree.findNodeByRenderCharIndex(startPos) ?: throw IllegalStateException("Cannot find string node for position $startPos")
-        val endNode = tree.findNodeByRenderCharIndex(endPos) ?: throw IllegalStateException("Cannot find string node for position $endPos")
+        val startLine = findLineAndColumnFromRenderPosition(startRenderPos).first
+        val endLine = findLineAndColumnFromRenderPosition(endRenderPos).first
+        log.v { "findWidthByColumnRangeOfSameLine($lineIndex, $columns) srp=$startRenderPos erp=$endRenderPos sl=$startLine el=$endLine" }
+        require(lineIndex == startLine) { "column start $startRenderPos does not belong to line $lineIndex but $startLine" }
+        require(lineIndex == endLine) { "column end $endRenderPos does not belong to line $lineIndex but $endLine" }
+
+        var node = tree.findNodeByRenderCharIndex(startRenderPos) ?: throw IllegalStateException("Cannot find string node for position $startRenderPos")
+        val endNode = tree.findNodeByRenderCharIndex(endRenderPos) ?: throw IllegalStateException("Cannot find string node for position $endRenderPos")
         var nodeStartPos = findRenderPositionStart(node)
         val endNodeStartPos = findRenderPositionStart(endNode)
-        var roiStartIndex = node.value.renderBufferStart + (startPos - nodeStartPos)
+        var roiStartIndex = node.value.renderBufferStart + (startRenderPos - nodeStartPos)
 
         var accumulatedWidth = 0L
-        while (roiStartIndex < node.value.renderBufferEndExclusive) {
-            val roiEndInclusiveIndex = if (node === endNode) {
-                node.value.renderBufferStart + (endPosExclusive - endNodeStartPos) - 1
-            } else {
-                node.value.renderBufferEndExclusive - 1
-            }
-            val bufferExtraData = bufferExtraDataLock.withLock {
-                bufferExtraData[node.value.buffer]!!
-            }
-            accumulatedWidth += bufferExtraData.widths[roiEndInclusiveIndex] -
-                if (roiStartIndex - 1 >= 0 /*node.value.renderBufferStart*/) { // bufferExtraData.widths is monotonically increasing within the same buffer
-                    bufferExtraData.widths[roiStartIndex - 1]
+        while (true) {
+            if (roiStartIndex >= 0 && roiStartIndex < node.value.renderBufferEndExclusive) {
+                val roiEndInclusiveIndex = if (node === endNode) {
+                    node.value.renderBufferStart + (endRenderPosExclusive - endNodeStartPos) - 1
                 } else {
-                    0L
+                    node.value.renderBufferEndExclusive - 1
                 }
+                val bufferExtraData = bufferExtraDataLock.withLock {
+                    bufferExtraData[node.value.buffer]!!
+                }
+                accumulatedWidth += bufferExtraData.widths[roiEndInclusiveIndex] -
+                    if (roiStartIndex - 1 >= 0 /*node.value.renderBufferStart*/) { // bufferExtraData.widths is monotonically increasing within the same buffer
+                        bufferExtraData.widths[roiStartIndex - 1]
+                    } else {
+                        0L
+                    }
+            }
+
+            if (node !== endNode) {
+                nodeStartPos += node.value.currentRenderLength
+                node = tree.nextNode(node) ?: throw IllegalStateException("Cannot find the next string node. Requested = $nodeStartPos")
+                roiStartIndex = node.value.renderBufferStart
+            } else {
+                break
+            }
+        }
+        val accumulatedWidthInDouble: Double = accumulatedWidth / widthMultiplier +
+                (accumulatedWidth % widthMultiplier).toDouble() / widthMultiplier
+        return accumulatedWidthInDouble.toFloat()
+    }
+
+    override fun findWidthByPositionRangeOfSameLine(positions: IntRange): Float {
+        if (positions.isEmpty()) {
+            return 0f
+        }
+
+        val startLine = findLineAndColumnFromRenderPosition(positions.start).first
+        val endLine = findLineAndColumnFromRenderPosition(positions.endInclusive).first
+//        val startLine = findLineIndexByRowIndex(findRowIndexByPosition(positions.start))
+//        val endLine = findLineIndexByRowIndex(findRowIndexByPosition(positions.endInclusive))
+        require(startLine == endLine) { "positions $positions does not belong to the same line $startLine but $endLine" }
+
+        var node = tree.findNodeByCharIndex(positions.start) ?: if (positions.start == 0 && (positions.isEmpty() || positions.endInclusive <= 0)) {
+            return 0f
+        } else {
+            throw IllegalStateException("Cannot find string node for position ${positions.start}")
+        }
+        val endNode = tree.findNodeByCharIndex(positions.endInclusive) ?: throw IllegalStateException("Cannot find string node for position ${positions.endInclusive}")
+        var nodeStartPos = findRenderPositionStart(node)
+        val endNodeStartPos = findRenderPositionStart(endNode)
+        var roiStartIndex = node.value.renderBufferStart + (positions.start - nodeStartPos)
+
+        var accumulatedWidth = 0L
+        while (true) {
+            if (roiStartIndex >= 0 && roiStartIndex < node.value.renderBufferEndExclusive) {
+                val roiEndInclusiveIndex = if (node === endNode) {
+                    node.value.renderBufferStart + (positions.endInclusive + 1 - endNodeStartPos) - 1
+                } else {
+                    node.value.renderBufferEndExclusive - 1
+                }
+                val bufferExtraData = bufferExtraDataLock.withLock {
+                    bufferExtraData[node.value.buffer]!!
+                }
+                accumulatedWidth += bufferExtraData.widths[roiEndInclusiveIndex] -
+                    if (roiStartIndex - 1 >= 0 /*node.value.renderBufferStart*/) { // bufferExtraData.widths is monotonically increasing within the same buffer
+                        bufferExtraData.widths[roiStartIndex - 1]
+                    } else {
+                        0L
+                    }
+            }
 
             if (node !== endNode) {
                 nodeStartPos += node.value.currentRenderLength

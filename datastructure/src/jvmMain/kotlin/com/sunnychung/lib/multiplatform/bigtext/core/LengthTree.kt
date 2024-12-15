@@ -57,10 +57,12 @@ open class LengthTree<V>(computations: RedBlackTreeComputations<V>) : RedBlackTr
                     if (isExact) {
                         0
                     } else {
-                        if (isIncludeMarkerNodes) {
+                        if (isIncludeMarkerNodes && find == it.value.leftRenderLength && it.left.isNotNil()) {
                             -1
-                        } else {
+                        } else if (!isIncludeMarkerNodes && find == it.value.leftRenderLength + it.value.currentRenderLength && it.right.isNotNil()) {
                             1
+                        } else {
+                            0
                         }
                     }
                 }
@@ -78,6 +80,13 @@ open class LengthTree<V>(computations: RedBlackTreeComputations<V>) : RedBlackTr
                 }
                 else -> throw IllegalStateException("what is find? $find")
             }
+        }?.takeIf {
+            val nodePosStart = findRenderPositionStart(it)
+            nodePosStart <= index && (
+                    index < nodePosStart + it.value.currentRenderLength
+                            || (isIncludeMarkerNodes && it.value.currentRenderLength == 0)
+                            || (index == getRoot().renderLength() && it === rightmost(getRoot()))
+                    )
         } ?: lastMatch
     }
 
@@ -87,6 +96,18 @@ open class LengthTree<V>(computations: RedBlackTreeComputations<V>) : RedBlackTr
         while (node.parent.isNotNil()) {
             if (node === node.parent.right) {
                 start += node.parent.value.leftStringLength + node.parent.value.bufferLength
+            }
+            node = node.parent
+        }
+        return start
+    }
+
+    fun findRenderPositionStart(node: RedBlackTree<V>.Node): Int {
+        var start = node.value.leftRenderLength
+        var node = node
+        while (node.parent.isNotNil()) {
+            if (node === node.parent.right) {
+                start += node.parent.value.leftRenderLength + node.parent.value.currentRenderLength
             }
             node = node.parent
         }

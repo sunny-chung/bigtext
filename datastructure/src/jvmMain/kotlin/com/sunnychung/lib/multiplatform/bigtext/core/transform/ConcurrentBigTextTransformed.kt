@@ -77,4 +77,7 @@ class ConcurrentBigTextTransformed(override val delegate: BigTextTransformed) : 
 
     override fun findWidthByColumnRangeOfSameLine(lineIndex: Int, columns: IntRange): Float
         = lock.read { delegate.findWidthByColumnRangeOfSameLine(lineIndex, columns) }
+
+    override fun findWidthByPositionRangeOfSameLine(positions: IntRange): Float
+        = lock.read { delegate.findWidthByPositionRangeOfSameLine(positions) }
 }

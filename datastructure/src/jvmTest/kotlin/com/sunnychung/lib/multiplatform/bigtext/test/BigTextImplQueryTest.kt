@@ -233,13 +233,13 @@ class BigTextImplQueryTest {
             "{\n\"mmm\": \"nn\",\n\"x\": \"dasc\",\n  \"d\": {\n    \"cc\": [\n       \"v\"\n    ]\n  }\n}"
         )
 
-        testStrings.forEach { testString ->
+        testStrings.forEachIndexed { index, testString ->
             val t = BigTextVerifyImpl(chunkSize = chunkSize)
             t.append(testString)
 
             (0 until t.length).forEach {
                 val (lineIndex, columnIndex) = t.bigTextImpl.findLineAndColumnFromRenderPosition(it)
-                t.assertLineAndColumn(it, lineIndex, columnIndex)
+                t.assertLineAndColumn(it, lineIndex, columnIndex, "test case #$index")
             }
         }
     }
@@ -312,7 +312,7 @@ private fun BigTextVerifyImpl.verifyAllLines() {
     }
 }
 
-internal fun BigTextVerifyImpl.assertLineAndColumn(charIndex: Int, lineIndex: Int, columnIndex: Int) {
+internal fun BigTextVerifyImpl.assertLineAndColumn(charIndex: Int, lineIndex: Int, columnIndex: Int, testCaseTitle: String = "") {
     val s = stringImpl.buildString()
     val numOfLineBreaks = s.substring(0 until charIndex).count { it == '\n' }
     val lastLineBreakPosition = s.lastIndexOf('\n', charIndex - 1)
@@ -324,7 +324,7 @@ internal fun BigTextVerifyImpl.assertLineAndColumn(charIndex: Int, lineIndex: In
     assertEquals(
         expected = numOfLineBreaks to (charIndex - lineStartPosition),
         actual = lineIndex to columnIndex,
-        message = "Mismatch line/col at char index = $charIndex value = '${s[charIndex]}'"
+        message = "Mismatch line/col at char index = $charIndex value = '${s[charIndex]}' $testCaseTitle"
     )
 }
 
