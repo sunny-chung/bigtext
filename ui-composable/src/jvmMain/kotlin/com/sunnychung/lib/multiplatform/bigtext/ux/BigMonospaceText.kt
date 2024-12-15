@@ -1,8 +1,8 @@
 package com.sunnychung.lib.multiplatform.bigtext.ux
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.ScrollState
-import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -14,12 +14,9 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.calculateEndPadding
 import androidx.compose.foundation.layout.calculateStartPadding
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.text.BasicText
 import androidx.compose.foundation.text.isTypedEvent
 import androidx.compose.foundation.text.selection.LocalTextSelectionColors
 import androidx.compose.material.LocalTextStyle
@@ -73,16 +70,19 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.setText
 import androidx.compose.ui.semantics.text
 import androidx.compose.ui.text.AnnotatedString
-import androidx.compose.ui.text.TextMeasurer
+import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontSynthesis
 import androidx.compose.ui.text.input.CommitTextCommand
 import androidx.compose.ui.text.input.ImeOptions
 import androidx.compose.ui.text.input.SetComposingTextCommand
 import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import co.touchlab.kermit.Severity
 import com.sunnychung.lib.multiplatform.bigtext.extension.contains
 import com.sunnychung.lib.multiplatform.bigtext.extension.intersect
@@ -309,19 +309,26 @@ private fun CoreBigMonospaceText(
         fontSize = fontSize,
         fontFamily = fontFamily,
         color = color,
+        letterSpacing = 0.sp,
+        fontSynthesis = FontSynthesis.None,
     )
 
     val coroutineScope = rememberCoroutineScope() // for scrolling
     val focusRequester = remember { FocusRequester() }
-    val textLayouter = remember(density, fontFamilyResolver, textStyle) {
+    val textMeasurer = rememberTextMeasurer(0)
+    val textLayouter = remember(density, fontFamilyResolver, textStyle, textMeasurer) {
+        log.d { "Recreate layouter" }
         MonospaceTextLayouter(
             ComposeUnicodeCharMeasurer(
-                measurer = TextMeasurer(
-                    fontFamilyResolver,
-                    density,
-                    LayoutDirection.Ltr,
-                ),
-                style = textStyle
+//                measurer = TextMeasurer(
+//                    fontFamilyResolver,
+//                    density,
+//                    LayoutDirection.Ltr,
+//                    0,
+//                ),
+                measurer = textMeasurer,
+                style = textStyle,
+//                density, fontFamilyResolver
             )
         )
     }
@@ -377,8 +384,8 @@ private fun CoreBigMonospaceText(
     }
 
     fun fireOnLayout() {
-        log.d { "fireOnLayout" }
         lineHeight = (textLayouter.charMeasurer as ComposeUnicodeCharMeasurer).getRowHeight()
+        log.d { "fireOnLayout lineHeight=$lineHeight" }
         val layoutResult = BigTextSimpleLayoutResult(
             text = transformedText, // layout is only performed in `transformedText`
             rowHeight = lineHeight,
@@ -460,7 +467,7 @@ private fun CoreBigMonospaceText(
                 setter.isAccessible = true
                 val scrollableWidth = maxOf(
                     0f,
-                    (transformedText.maxLineWidth / 10f) - width +
+                    (transformedText.maxLineWidth / transformedText.widthMultiplier.toFloat()) - width +
                         with (density) {
                             2 * (padding.calculateLeftPadding(LayoutDirection.Ltr) + padding.calculateRightPadding(LayoutDirection.Ltr)).toPx() +
                                 20.dp.toPx()
@@ -1426,62 +1433,82 @@ private fun CoreBigMonospaceText(
 
             val startInstant = KInstant.now()
 
-            with(density) {
+            Canvas(modifier = Modifier.fillMaxSize()) {
                 (firstRowIndex..lastRowIndex).forEach { i ->
                     val lineIndex = transformedText.findOriginalLineIndexByRowIndex(i)
-                    val startIndex = transformedText.findRowPositionStartIndexByRowIndex(i)
-                    val endIndex = if (i + 1 > transformedText.lastRowIndex) {
+                    val rowStartIndex = transformedText.findRowPositionStartIndexByRowIndex(i)
+                    val rowEndIndex = if (i + 1 > transformedText.lastRowIndex) {
                         transformedText.length
                     } else {
                         transformedText.findRowPositionStartIndexByRowIndex(i + 1)
                     }
+                    val linePositionStartIndex = transformedText.findPositionStartOfLine(lineIndex)
+                    val rowPositionOffset = rowStartIndex - linePositionStartIndex
                     val renderStartIndex: Int
                     val renderEndIndexExclusive: Int
                     val yOffset: Dp = (-viewportTop + (i/* - firstRowIndex*/) * lineHeight).toDp()
                     val xOffset: Dp
 
                     if (isSoftWrapEnabled) {
-                        renderStartIndex = startIndex
-                        renderEndIndexExclusive = endIndex.coerceIn(
+                        renderStartIndex = rowStartIndex
+                        renderEndIndexExclusive = (rowEndIndex - if (rowEndIndex in (1 .. transformedText.length) && transformedText.substring(rowEndIndex - 1 ..< rowEndIndex).string() == "\n") {
+                            1
+                        } else {
+                            0
+                        }).coerceIn(
                             minimumValue = renderStartIndex,
-                            maximumValue = maxOf(renderStartIndex, endIndex - if (i < numLines - 1) 1 /* exclude the '\n' char */ else 0)
+                            maximumValue = maxOf(renderStartIndex, rowEndIndex)
                         )
                         xOffset = 0.dp
                     } else {
-                        renderStartIndex = binarySearchForMaxIndexOfValueAtMost(startIndex .. maxOf(startIndex, endIndex - 1), viewportLeft.toInt()) {
-                            transformedText.findWidthByColumnRangeOfSameLine(i, 0 .. it - startIndex).toInt()
-                        }.coerceIn(startIndex .. maxOf(startIndex, endIndex - 1))
-                        renderEndIndexExclusive = binarySearchForMinIndexOfValueAtLeast(startIndex + 1  .. endIndex, viewportLeft.toInt() + width) {
-                            transformedText.findWidthByColumnRangeOfSameLine(i, 0 ..< it - startIndex).toInt()
+                        renderStartIndex = binarySearchForMaxIndexOfValueAtMost(rowStartIndex .. maxOf(rowStartIndex, rowEndIndex - 1), viewportLeft.toInt()) {
+                            transformedText.findWidthByColumnRangeOfSameLine(i, 0 .. it - rowStartIndex).toInt()
+                        }.coerceIn(rowStartIndex .. maxOf(rowStartIndex, rowEndIndex - 1))
+                        renderEndIndexExclusive = binarySearchForMinIndexOfValueAtLeast(rowStartIndex + 1  .. rowEndIndex, viewportLeft.toInt() + width) {
+                            transformedText.findWidthByColumnRangeOfSameLine(i, 0 ..< it - rowStartIndex).toInt()
                         }.coerceIn(
                             minimumValue = renderStartIndex,
-                            maximumValue = (endIndex - if (i < numLines - 1) 1 /* exclude the '\n' char */ else 0)
+                            maximumValue = (rowEndIndex - if (i < numLines - 1) 1 /* exclude the '\n' char */ else 0)
                                 .coerceIn(renderStartIndex..transformedText.length)
                         )
 
-                        xOffset = (-viewportLeft + transformedText.findWidthByColumnRangeOfSameLine(i, 0 ..< renderStartIndex - startIndex).toInt()).toDp()
+                        xOffset = (-viewportLeft + transformedText.findWidthByColumnRangeOfSameLine(i, rowPositionOffset ..< rowPositionOffset + (renderStartIndex - rowStartIndex)).toInt()).toDp()
                     }
-                    log.v { "line #$i s=$startIndex e=$endIndex rs=$renderStartIndex re=$renderEndIndexExclusive" }
+                    log.v { "row #$i line #$lineIndex s=$rowStartIndex e=$rowEndIndex rs=$renderStartIndex re=$renderEndIndexExclusive ls=$linePositionStartIndex ro=$rowPositionOffset" }
 
                     if (viewState.hasSelection()) {
                         val intersection = viewState.transformedSelection intersect (renderStartIndex .. renderEndIndexExclusive)
                         if (!intersection.isEmpty()) {
                             log.v { "row #$i - intersection: $intersection" }
-                            Box(
-                                Modifier
-                                    .height(lineHeight.toDp())
-                                    .width(
-                                        getTransformedStringWidth(
-                                            intersection.start,
-                                            intersection.endInclusive + 1
-                                        ).toDp()
-                                    )
-                                    .offset(
-                                        x = xOffset + getTransformedStringWidth(renderStartIndex, intersection.start).toDp(),
-                                        y = yOffset
-                                    )
-                                    .background(color = textSelectionColors.backgroundColor) // `background` modifier must be after `offset` in order to take effect
+                            drawRect(
+                                color = textSelectionColors.backgroundColor,
+                                topLeft = Offset(
+                                    xOffset.toPx() + getTransformedStringWidth(renderStartIndex, intersection.start),
+                                    yOffset.toPx()
+                                ),
+                                size = Size(
+                                    getTransformedStringWidth(
+                                        intersection.start,
+                                        intersection.endInclusive + 1
+                                    ),
+                                    lineHeight,
+                                ),
                             )
+//                            Box(
+//                                Modifier
+//                                    .height(lineHeight.toDp())
+//                                    .width(
+//                                        getTransformedStringWidth(
+//                                            intersection.start,
+//                                            intersection.endInclusive + 1
+//                                        ).toDp()
+//                                    )
+//                                    .offset(
+//                                        x = xOffset + getTransformedStringWidth(renderStartIndex, intersection.start).toDp(),
+//                                        y = yOffset
+//                                    )
+//                                    .background(color = textSelectionColors.backgroundColor) // `background` modifier must be after `offset` in order to take effect
+//                            )
                         }
                     }
 
@@ -1490,20 +1517,50 @@ private fun CoreBigMonospaceText(
                         endIndex = renderEndIndexExclusive,
                     )
 
-                    BasicText(
-                        text = rowText.annotatedString(),
-                        style = textStyle,
-                        maxLines = 1,
-                        softWrap = false,
-                        modifier = Modifier.offset(y = yOffset, x = xOffset)
-                    )
+                    /**
+                     * Draw text char by char rather than whole string or use BasicText(...) or Text(...),
+                     * otherwise the char widths of the text drawn is not consistent with TextMeasurer for non-monospace fonts.
+                     */
+                    var accumulateXOffset = 0f
+                    val rowAnnotatedString = rowText.annotatedString()
+                    log.v { "draw line #$lineIndex row #$i char 0 .. ${rowAnnotatedString.lastIndex}" }
+                    (0 .. rowAnnotatedString.lastIndex).forEach { j ->
+                        val charAnnotated = rowAnnotatedString.subSequence(j, j + 1)
+                        val charWidth = textLayouter.measureCharWidth(charAnnotated.text)
+                        drawText(
+                            textMeasurer = textMeasurer,
+                            text = charAnnotated,
+                            style = textStyle,
+                            softWrap = false,
+                            topLeft = Offset(xOffset.toPx() + accumulateXOffset, yOffset.toPx()),
+                            size = Size(charWidth, lineHeight),
+                        )
+                        accumulateXOffset += charWidth
+                    }
+
+//                    drawText(
+//                        textMeasurer = textMeasurer,
+//                        text = rowText.annotatedString(),
+//                        style = textStyle,
+//                        softWrap = false,
+//                        topLeft = Offset(xOffset.toPx(), yOffset.toPx()),
+//                        size = Size(width - (padding.calculateStartPadding(LayoutDirection.Ltr) + padding.calculateEndPadding(LayoutDirection.Ltr)).toPx(), lineHeight),
+//                    )
+
+//                    BasicText(
+//                        text = rowText.annotatedString(),
+//                        style = textStyle,
+//                        maxLines = 1,
+//                        softWrap = false,
+//                        modifier = Modifier.offset(y = yOffset, x = xOffset)
+//                    )
 
                     log.v { "line = $i, cursor T = ${viewState.transformedCursorIndex}" }
                     if (isEditable && isFocused && viewState.transformedCursorIndex in renderStartIndex .. renderEndIndexExclusive) {
                         val x = if (viewState.transformedCursorIndex - renderStartIndex > 0) {
                             transformedText.findWidthByColumnRangeOfSameLine(
                                 lineIndex,
-                                0..< viewState.transformedCursorIndex - renderStartIndex
+                                rowPositionOffset + renderStartIndex - rowStartIndex..< rowPositionOffset + viewState.transformedCursorIndex - rowStartIndex
                             ).also {
                                 log.v { "find w = $it" }
                             }
@@ -1511,14 +1568,19 @@ private fun CoreBigMonospaceText(
                             0f
                         }.toDp() + xOffset
                         log.v { "cursor x = $x" }
-                        BigTextFieldCursor(
-                            lineHeight = lineHeight.toDp(),
+                        drawRect(
                             color = cursorColor,
-                            modifier = Modifier.offset(
-                                x = x,
-                                y = yOffset,
-                            )
+                            topLeft = Offset(x.toPx(), yOffset.toPx()),
+                            size = Size(2.dp.toPx(), lineHeight),
                         )
+//                        BigTextFieldCursor(
+//                            lineHeight = lineHeight.toDp(),
+//                            color = cursorColor,
+//                            modifier = Modifier.offset(
+//                                x = x,
+//                                y = yOffset,
+//                            )
+//                        )
                     }
                 }
             }
