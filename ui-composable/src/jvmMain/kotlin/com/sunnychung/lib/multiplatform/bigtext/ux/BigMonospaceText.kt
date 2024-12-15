@@ -14,8 +14,11 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.calculateEndPadding
 import androidx.compose.foundation.layout.calculateStartPadding
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.requiredHeight
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.isTypedEvent
 import androidx.compose.foundation.text.selection.LocalTextSelectionColors
@@ -101,6 +104,7 @@ import com.sunnychung.lib.multiplatform.bigtext.extension.binarySearchForMinInde
 import com.sunnychung.lib.multiplatform.bigtext.extension.contains
 import com.sunnychung.lib.multiplatform.bigtext.extension.intersect
 import com.sunnychung.lib.multiplatform.bigtext.extension.isCtrlOrCmdPressed
+import com.sunnychung.lib.multiplatform.bigtext.extension.replaceAll
 import com.sunnychung.lib.multiplatform.bigtext.extension.toTextInput
 import com.sunnychung.lib.multiplatform.bigtext.platform.MacOS
 import com.sunnychung.lib.multiplatform.bigtext.platform.currentOS
@@ -130,6 +134,8 @@ import kotlin.random.Random
 import kotlin.reflect.KMutableProperty
 import kotlin.reflect.full.declaredMemberProperties
 import kotlin.reflect.jvm.isAccessible
+
+private val NEW_LINE_REGEX = "\r?\n".toRegex()
 
 @Composable
 fun BigMonospaceText(
@@ -186,12 +192,13 @@ fun BigMonospaceTextField(
     fontFamily: FontFamily = FontFamily.Monospace,
     color: Color = LocalTextStyle.current.color,
     cursorColor: Color = LocalTextStyle.current.color,
-    isSoftWrapEnabled: Boolean = false,
     contextMenu: @Composable (isVisible: Boolean, onDismiss: () -> Unit, entries: List<ContextMenuItemEntry>, testTag: String) -> Unit =
         { isVisible: Boolean, onDismiss: () -> Unit, entries: List<ContextMenuItemEntry>, testTag: String ->
             DefaultBigTextFieldContextMenu(isVisible = isVisible, onDismiss = onDismiss, entries = entries, testTag = testTag)
         },
     onTextChange: (BigTextChangeEvent) -> Unit = {},
+    isSingleLineInput: Boolean = false,
+    isSoftWrapEnabled: Boolean = !isSingleLineInput,
     inputFilter: BigTextInputFilter? = null,
     textTransformation: IncrementalTextTransformation<*>? = null,
     textDecorator: BigTextDecorator? = null,
@@ -217,6 +224,7 @@ fun BigMonospaceTextField(
             textFieldState.emitValueChange(it.changeId)
         },
         inputFilter = inputFilter,
+        isSingleLineInput = isSingleLineInput,
         textTransformation = textTransformation,
         textDecorator = textDecorator,
         scrollState = scrollState,
@@ -238,12 +246,13 @@ fun BigMonospaceTextField(
     fontFamily: FontFamily = FontFamily.Monospace,
     color: Color = LocalTextStyle.current.color,
     cursorColor: Color = LocalTextStyle.current.color,
-    isSoftWrapEnabled: Boolean = false,
     contextMenu: @Composable (isVisible: Boolean, onDismiss: () -> Unit, entries: List<ContextMenuItemEntry>, testTag: String) -> Unit =
         { isVisible: Boolean, onDismiss: () -> Unit, entries: List<ContextMenuItemEntry>, testTag: String ->
             DefaultBigTextFieldContextMenu(isVisible = isVisible, onDismiss = onDismiss, entries = entries, testTag = testTag)
         },
     onTextChange: (BigTextChangeEvent) -> Unit,
+    isSingleLineInput: Boolean = false,
+    isSoftWrapEnabled: Boolean = !isSingleLineInput,
     inputFilter: BigTextInputFilter? = null,
     textTransformation: IncrementalTextTransformation<*>? = null,
     textDecorator: BigTextDecorator? = null,
@@ -268,6 +277,7 @@ fun BigMonospaceTextField(
     isEditable = true,
     onTextChange = onTextChange,
     inputFilter = inputFilter,
+    isSingleLineInput = isSingleLineInput,
     textTransformation = textTransformation,
     textDecorator = textDecorator,
     scrollState = scrollState,
@@ -298,6 +308,7 @@ private fun CoreBigMonospaceText(
         },
     onTextChange: (BigTextChangeEvent) -> Unit,
     inputFilter: BigTextInputFilter? = null,
+    isSingleLineInput: Boolean = false,
     textTransformation: IncrementalTextTransformation<*>? = null,
     textDecorator: BigTextDecorator? = null,
     scrollState: ScrollState = rememberScrollState(),
@@ -727,7 +738,18 @@ private fun CoreBigMonospaceText(
     }
 
     fun insertAt(insertPos: Int, textInput: CharSequence) {
-        val textInput = inputFilter?.filter(textInput) ?: textInput
+        var textInput = inputFilter?.filter(textInput) ?: textInput
+        if (isSingleLineInput) {
+            val find = NEW_LINE_REGEX.find(textInput)
+            if (find != null) {
+                textInput = if (textInput is AnnotatedString) {
+                    textInput.replaceAll(NEW_LINE_REGEX, " ", find.range.start)
+                } else {
+                    textInput.replace(NEW_LINE_REGEX, " ")
+                }
+            }
+        }
+
         onValuePreChange(BigTextChangeEventType.Insert, insertPos, insertPos + textInput.length)
         text.insertAt(insertPos, textInput)
         onValuePostChange(BigTextChangeEventType.Insert, insertPos, insertPos + textInput.length)
@@ -1018,8 +1040,12 @@ private fun CoreBigMonospaceText(
             }
             isEditable && it.type == KeyEventType.KeyDown -> when {
                 it.key == Key.Enter && !it.isShiftPressed && !it.isCtrlPressed && !it.isAltPressed && !it.isMetaPressed -> {
-                    onType("\n")
-                    true
+                    if (isSingleLineInput) {
+                        false
+                    } else {
+                        onType("\n")
+                        true
+                    }
                 }
                 it.key == Key.Backspace -> when {
                     (currentOS() == MacOS && it.isAltPressed) ||
@@ -1490,7 +1516,15 @@ private fun CoreBigMonospaceText(
 
             val startInstant = KInstant.now()
 
-            Canvas(modifier = Modifier.fillMaxSize()) {
+            Canvas(modifier = Modifier.fillMaxWidth().run {
+                if (isSingleLineInput) {
+                    with (density) {
+                        requiredHeight(lineHeight.toDp())
+                    }
+                } else {
+                    fillMaxHeight()
+                }
+            }) {
                 (firstRowIndex..lastRowIndex).forEach { i ->
                     val lineIndex = transformedText.findOriginalLineIndexByRowIndex(i)
                     val rowStartIndex = transformedText.findRowPositionStartIndexByRowIndex(i)
