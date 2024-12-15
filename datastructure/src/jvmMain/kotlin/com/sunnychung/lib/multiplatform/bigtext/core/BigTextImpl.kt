@@ -22,6 +22,7 @@ import kotlinx.coroutines.runBlocking
 import java.util.WeakHashMap
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
+import kotlin.math.roundToLong
 
 val log = Logger(object : MutableLoggerConfig {
     override var logWriterList: List<LogWriter> = listOf(JvmLogger())
@@ -82,7 +83,7 @@ open class BigTextImpl(
      */
     override var contentWidth: Float? = null
 
-    val widthMultiplier: Long = 10L
+//    override val widthMultiplier: Long = 100L
     override val maxLineWidth: Long
         get() = tree.getRoot().takeIf { it.isNotNil() }?.value?.maxLineWidth?.coerceAtLeast(0L) ?: 0L
 
@@ -1573,7 +1574,7 @@ open class BigTextImpl(
         (fromCharIndex ..< length).forEach { i ->
             val char = buffer.substring(i, i + 1)
             val charWidth = layouter.measureCharWidth(char)
-            extra.widths[i] = (charWidth * widthMultiplier).toLong() + if (i > 0) extra.widths[i - 1] else 0L
+            extra.widths[i] = (charWidth * widthMultiplier).roundToLong() + if (i > 0) extra.widths[i - 1] else 0L
         }
         extra.hasInitialized = true
     }

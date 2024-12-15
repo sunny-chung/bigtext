@@ -1,17 +1,30 @@
 package com.sunnychung.lib.multiplatform.bigtext.compose
 
+import androidx.compose.ui.text.Paragraph
 import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.Density
 import com.sunnychung.lib.multiplatform.bigtext.core.layout.CharMeasurer
 import com.sunnychung.lib.multiplatform.bigtext.util.log
 import java.util.LinkedHashMap
 import java.util.concurrent.ConcurrentHashMap
+import kotlin.math.abs
+import kotlin.math.max
 
-class ComposeUnicodeCharMeasurer(private val measurer: TextMeasurer, private val style: TextStyle) : CharMeasurer {
+class ComposeUnicodeCharMeasurer(private val measurer: TextMeasurer, private val style: TextStyle/*, val density: Density, val fontFamilyResolver: FontFamily.Resolver*/) : CharMeasurer {
     private val charWidth: MutableMap<String, Float> = ConcurrentHashMap<String, Float>(256) //LinkedHashMap<String, Float>(256)
-    private val charHeight: Float = measurer.measure("|\n|").let {
+    private val charHeight: Float = measurer.measure("|\n|", style, softWrap = false).let {
+        log.d { "charHeight ${it.getLineTop(1)} - ${it.getLineTop(0)}" }
         it.getLineTop(1) - it.getLineTop(0)
     }
+    private val refChar = '='
+    private val refCharWidth = measurer.measure("$refChar", style, softWrap = false).let {
+        it.getLineRight(0) - it.getLineLeft(0)
+    }
+    private val numRepeatMeasurePerChar = 1 // 10
 
     /**
      * Time complexity = O(S lg C)
@@ -67,7 +80,7 @@ class ComposeUnicodeCharMeasurer(private val measurer: TextMeasurer, private val
         measureExactWidthOf(chars).forEachIndexed { index, r ->
             charWidth[chars[index]] = r
             if (r < 1f) {
-                log.i { "measure '${chars[index]}' width = $r" }
+                log.w { "measure '${chars[index]}' width = $r" }
             }
         }
     }
@@ -76,9 +89,22 @@ class ComposeUnicodeCharMeasurer(private val measurer: TextMeasurer, private val
 
     fun measureExactWidthOf(targets: List<String>): List<Float> {
         log.d { "measure ${targets.size} targets" }
-        val result = measurer.measure(targets.joinToString("") { "$it\n"}, style, softWrap = false)
+//        return targets.map { measurer.measure(it, style, softWrap = false).getBoundingBox(0).width }
+
+        // wrapping a target is needed because the measurer would trim strings
+        val result = measurer.measure(targets.joinToString("") { "$refChar${it.repeat(numRepeatMeasurePerChar)}$refChar\n"}, style, softWrap = false, maxLines = targets.size + 1, overflow = TextOverflow.Visible)
         return targets.mapIndexed { index, s ->
-            result.getLineRight(index) - result.getLineLeft(index)
+            ((result.getLineRight(index) - result.getLineLeft(index) - 2 * refCharWidth) / numRepeatMeasurePerChar)/*.let {
+                val b = measurer.measure(s, style, softWrap = false, maxLines = 1, overflow = TextOverflow.Visible).getBoundingBox(0)
+//                val b = measurer.measure(s, style, softWrap = false).size
+                val p = Paragraph(s, style, Constraints(), density, fontFamilyResolver).let {
+                    it.getLineRight(0) - it.getLineLeft(0)
+                }
+                if (abs(it - b.width) >= 0.009) {
+                    log.w { "different char measurement on '$s': $it VS ${b.width} VS ${measurer.measure(s, style, softWrap = false, maxLines = 1, overflow = TextOverflow.Visible).let { it.getLineRight(0) - it.getLineLeft(0) }} VS $p" }
+                }
+                b.width
+            }*/
         }
     }
 
@@ -104,10 +130,12 @@ class ComposeUnicodeCharMeasurer(private val measurer: TextMeasurer, private val
     init {
         measureAndIndex(COMPULSORY_MEASURES)
         // hardcode, because calling TextMeasurer#measure() against below characters returns zero width
-        charWidth[" "] = charWidth["_"]!!
-        charWidth["\t"] = charWidth[" "]!!
-        charWidth["?"] = charWidth["!"]!!
-        charWidth["’"] = charWidth["'"]!!
+//        charWidth[" "] = charWidth["_"]!!
+//        charWidth["\t"] = charWidth[" "]!!
+//        charWidth["?"] = charWidth["!"]!!
+//        charWidth["’"] = charWidth["'"]!!
+        log.d { "$this cache: $charWidth" }
+        log.d { "$this space 1=${measureExactWidthOf(listOf(" "))} 2=${measureExactWidthOf(listOf("  "))} 3=${measureExactWidthOf(listOf("   "))}" }
     }
 
     companion object {

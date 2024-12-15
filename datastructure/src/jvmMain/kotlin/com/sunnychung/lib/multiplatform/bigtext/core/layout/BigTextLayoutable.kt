@@ -14,6 +14,9 @@ interface BigTextLayoutable {
 
     val lastRowIndex: Int
 
+    val widthMultiplier: Long
+        get() = 100L // it is common to see char width with 2 decimal places, e.g. 7.87 or 17.31, in Compose
+
     val maxLineWidth: Long
 
     var onLayoutCallback: (() -> Unit)?

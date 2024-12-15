@@ -14,6 +14,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import kotlin.random.Random
 
@@ -27,12 +28,14 @@ val PRELOAD_CONTENT = linkedMapOf(
 )
 
 private enum class DemoView(val displayName: String) {
-    Simple("Simple"), LargeCodeEditor("Large Code Editor")
+    SimpleMonospace("Simple Monospace"),
+    CodeEditor("Code Editor"),
+    SansSerif("Sans Serif"),
 }
 
 @Composable
 fun AppView() {
-    var chosenDemoView by remember { mutableStateOf(DemoView.Simple) }
+    var chosenDemoView by remember { mutableStateOf(DemoView.SimpleMonospace) }
 
     Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -53,8 +56,9 @@ fun AppView() {
                 }
         }
         when (chosenDemoView) {
-            DemoView.Simple -> SimpleDemoView()
-            DemoView.LargeCodeEditor -> LargeCodeEditorDemoView()
+            DemoView.SimpleMonospace -> SimpleDemoView(fontFamily = FontFamily.Monospace)
+            DemoView.CodeEditor -> CodeEditorDemoView()
+            DemoView.SansSerif -> SimpleDemoView(fontFamily = FontFamily.SansSerif)
         }
     }
 }

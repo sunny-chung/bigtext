@@ -45,7 +45,7 @@ import kotlinx.coroutines.withContext
 import org.kotlincrypto.hash.sha2.SHA256
 
 @Composable
-fun LargeCodeEditorDemoView() {
+fun CodeEditorDemoView() {
     var bigTextFieldState by remember {
         mutableStateOf(
             BigTextFieldState(
