@@ -623,12 +623,33 @@ private fun CoreBigMonospaceText(
         )
     }
 
-    fun scrollToCursor() {
+    fun scrollToCursor() = with(density) {
+        val row = transformedText.findRowIndexByPosition(viewState.transformedCursorIndex)
+
+        if (!isSoftWrapEnabled) {
+            val extraPadding = 8.dp // e.g. width of scroll bar
+            val visibleHorizontalRange = horizontalScrollState.value + (padding.calculateLeftPadding(LayoutDirection.Ltr) + extraPadding).toPx() ..<
+                horizontalScrollState.value + width - (padding.calculateRightPadding(LayoutDirection.Ltr) + extraPadding).toPx()
+            val linePositionStart = transformedText.findPositionStartOfLine(row)
+            val cursorXInLine = transformedText.findWidthByPositionRangeOfSameLine(linePositionStart .. viewState.transformedCursorIndex)
+            log.d { "vhr=$visibleHorizontalRange cx=$cursorXInLine h=${horizontalScrollState.value}" }
+            if (cursorXInLine !in visibleHorizontalRange) {
+                // scroll to an offset with a little space
+                val scrollToPosition = if (cursorXInLine < visibleHorizontalRange.start) {
+                    cursorXInLine - (padding.calculateLeftPadding(LayoutDirection.Ltr) + extraPadding + 12.dp).toPx()
+                } else {
+                    cursorXInLine + (12.dp + padding.calculateRightPadding(LayoutDirection.Ltr) + extraPadding).toPx() - width
+                }.roundToInt().coerceIn(0 ..< maxOf(1, horizontalScrollState.maxValue))
+                coroutineScope.launch {
+                    horizontalScrollState.animateScrollTo(scrollToPosition)
+                }
+            }
+        }
+
         val layoutResult = layoutResult ?: return
 
         // scroll to cursor position if out of visible range
         val visibleVerticalRange = scrollState.value .. scrollState.value + height
-        val row = transformedText.findRowIndexByPosition(viewState.transformedCursorIndex)
         val rowVerticalRange = layoutResult.getTopOfRow(row).toInt() .. layoutResult.getBottomOfRow(row).toInt()
         if (rowVerticalRange !in visibleVerticalRange) {
             val scrollToPosition = if (rowVerticalRange.start < visibleVerticalRange.start) {
