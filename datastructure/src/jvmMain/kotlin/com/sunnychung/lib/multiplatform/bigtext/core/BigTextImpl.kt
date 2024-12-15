@@ -1384,13 +1384,21 @@ open class BigTextImpl(
         if (tree.isEmpty && renderPosition == 0) {
             return 0 to 0
         }
-        val node = tree.findNodeByRenderCharIndex(renderPosition)
+        val node = tree.findNodeByRenderCharIndex(renderPosition, isExact = false, isIncludeMarkerNodes = false)
             ?: throw IndexOutOfBoundsException("Node for position $renderPosition not found")
         val nodeStart = findRenderPositionStart(node)
         val lineStart = findLineStart(node)
 
         if (node.renderLength() <= 0) {
-            throw IllegalStateException("Node render length is not positive")
+//            log.e {"Node render length is not positive. renderPosition=$renderPosition, found node: ${node.value.debugKey()}\n${inspect()}" }
+//            throw IllegalStateException("Node render length is not positive")
+
+            val lineIndex = lineStart
+            val (lineStartNode, _) = tree.findNodeByLineBreaks(lineIndex - 1)!!
+            val lineStartPos = findRenderPositionStart(lineStartNode)
+            val columnIndex = renderPosition - lineStartPos
+
+            return lineIndex to columnIndex
         }
 
         val buffer = node.value.buffer

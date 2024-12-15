@@ -46,12 +46,24 @@ open class LengthTree<V>(computations: RedBlackTreeComputations<V>) : RedBlackTr
             ?: lastMatch
     }
 
-    fun findNodeByRenderCharIndex(index: Int): RedBlackTree<V>.Node? {
+    fun findNodeByRenderCharIndex(index: Int, isIncludeMarkerNodes: Boolean = true, isExact: Boolean = true): RedBlackTree<V>.Node? {
         var find = index
+        var lastMatch: RedBlackTree<V>.Node? = null
         return findNode {
             when (find) {
                 in Int.MIN_VALUE until it.value.leftRenderLength -> -1
-                in it.value.leftRenderLength until it.value.leftRenderLength + it.value.currentRenderLength -> 0
+                in it.value.leftRenderLength until it.value.leftRenderLength + it.value.currentRenderLength -> {
+                    lastMatch = it
+                    if (isExact) {
+                        0
+                    } else {
+                        if (isIncludeMarkerNodes) {
+                            -1
+                        } else {
+                            1
+                        }
+                    }
+                }
                 in it.value.leftRenderLength + it.value.currentRenderLength until Int.MAX_VALUE -> (
                     if (it.right.isNotNil()) {
                         1
@@ -66,7 +78,7 @@ open class LengthTree<V>(computations: RedBlackTreeComputations<V>) : RedBlackTr
                 }
                 else -> throw IllegalStateException("what is find? $find")
             }
-        }
+        } ?: lastMatch
     }
 
     fun findPositionStart(node: RedBlackTree<V>.Node): Int {
