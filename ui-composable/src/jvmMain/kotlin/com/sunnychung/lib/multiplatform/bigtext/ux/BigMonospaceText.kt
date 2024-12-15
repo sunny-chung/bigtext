@@ -84,12 +84,6 @@ import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import co.touchlab.kermit.Severity
-import com.sunnychung.lib.multiplatform.bigtext.extension.contains
-import com.sunnychung.lib.multiplatform.bigtext.extension.intersect
-import com.sunnychung.lib.multiplatform.bigtext.extension.isCtrlOrCmdPressed
-import com.sunnychung.lib.multiplatform.bigtext.extension.toTextInput
-import com.sunnychung.lib.multiplatform.bigtext.platform.MacOS
-import com.sunnychung.lib.multiplatform.bigtext.platform.currentOS
 import com.sunnychung.lib.multiplatform.bigtext.compose.ComposeUnicodeCharMeasurer
 import com.sunnychung.lib.multiplatform.bigtext.core.BigText
 import com.sunnychung.lib.multiplatform.bigtext.core.BigTextChangeCallback
@@ -104,6 +98,12 @@ import com.sunnychung.lib.multiplatform.bigtext.core.transform.ConcurrentBigText
 import com.sunnychung.lib.multiplatform.bigtext.core.transform.IncrementalTextTransformation
 import com.sunnychung.lib.multiplatform.bigtext.extension.binarySearchForMaxIndexOfValueAtMost
 import com.sunnychung.lib.multiplatform.bigtext.extension.binarySearchForMinIndexOfValueAtLeast
+import com.sunnychung.lib.multiplatform.bigtext.extension.contains
+import com.sunnychung.lib.multiplatform.bigtext.extension.intersect
+import com.sunnychung.lib.multiplatform.bigtext.extension.isCtrlOrCmdPressed
+import com.sunnychung.lib.multiplatform.bigtext.extension.toTextInput
+import com.sunnychung.lib.multiplatform.bigtext.platform.MacOS
+import com.sunnychung.lib.multiplatform.bigtext.platform.currentOS
 import com.sunnychung.lib.multiplatform.bigtext.util.annotatedString
 import com.sunnychung.lib.multiplatform.bigtext.util.buildTestTag
 import com.sunnychung.lib.multiplatform.bigtext.util.debouncedStateOf
@@ -111,7 +111,20 @@ import com.sunnychung.lib.multiplatform.bigtext.util.string
 import com.sunnychung.lib.multiplatform.bigtext.ux.compose.rememberLast
 import com.sunnychung.lib.multiplatform.kdatetime.KInstant
 import com.sunnychung.lib.multiplatform.kdatetime.extension.milliseconds
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlin.math.roundToInt
 import kotlin.random.Random
 import kotlin.reflect.KMutableProperty
@@ -266,7 +279,7 @@ fun BigMonospaceTextField(
     onTextManipulatorReady = onTextManipulatorReady,
 )
 
-@OptIn(ExperimentalFoundationApi::class, ExperimentalComposeUiApi::class)
+@OptIn(ExperimentalFoundationApi::class, ExperimentalComposeUiApi::class, ExperimentalCoroutinesApi::class)
 @Composable
 private fun CoreBigMonospaceText(
     modifier: Modifier = Modifier,
@@ -335,6 +348,9 @@ private fun CoreBigMonospaceText(
     // if the value of `viewState.isLayoutDisabled` is changed, trigger a recomposition
     viewState.isLayoutDisabledFlow.collectAsState(initial = false).value
     val isLayoutEnabled = !viewState.isLayoutDisabled // not using the value from flow because it is not instantly updated
+
+    var isCursorVisible by remember { mutableStateOf(true) }
+    val cursorShowTrigger = remember { Channel<Unit>(capacity = 1, onBufferOverflow = BufferOverflow.DROP_OLDEST) }
 
     var width by remember { mutableIntStateOf(0) }
     var height by remember { mutableIntStateOf(0) }
@@ -593,6 +609,10 @@ private fun CoreBigMonospaceText(
             .sum()
     }
 
+    fun showCursor() {
+        cursorShowTrigger.trySend(Unit)
+    }
+
     fun generateChangeEvent(eventType: BigTextChangeEventType, changeStartIndex: Int, changeEndExclusiveIndex: Int) : BigTextChangeEvent {
         return BigTextChangeEvent(
             changeId = viewState.version,
@@ -710,6 +730,7 @@ private fun CoreBigMonospaceText(
             text.recordCurrentChangeSequenceIntoUndoHistory()
         }
         scrollToCursor()
+        showCursor()
     }
 
     fun onDelete(direction: TextFBDirection): Boolean {
@@ -1003,11 +1024,13 @@ private fun CoreBigMonospaceText(
                 (currentOS() == MacOS && it.isMetaPressed && it.key == Key.DirectionUp) ||
                         (currentOS() != MacOS && it.isCtrlPressed && it.key == Key.MoveHome) -> {
                     updateOriginalCursorOrSelection(newPosition = 0, isSelection = it.isShiftPressed)
+                    showCursor()
                     true
                 }
                 (currentOS() == MacOS && it.isMetaPressed && it.key == Key.DirectionDown) ||
                         (currentOS() != MacOS && it.isCtrlPressed && it.key == Key.MoveEnd) -> {
                     updateOriginalCursorOrSelection(newPosition = text.length, isSelection = it.isShiftPressed)
+                    showCursor()
                     true
                 }
                 (currentOS() == MacOS && it.isMetaPressed && it.key in listOf(Key.DirectionLeft, Key.DirectionRight)) ||
@@ -1031,6 +1054,7 @@ private fun CoreBigMonospaceText(
                         newTransformedPosition = newTransformedPosition,
                         isSelection = it.isShiftPressed,
                     )
+                    showCursor()
                     true
                 }
                 it.key == Key.DirectionLeft && (
@@ -1039,6 +1063,7 @@ private fun CoreBigMonospaceText(
                         ) -> {
                     val newPosition = findPreviousWordBoundaryPositionFromCursor()
                     updateOriginalCursorOrSelection(newPosition = newPosition, isSelection = it.isShiftPressed)
+                    showCursor()
                     true
                 }
                 it.key == Key.DirectionRight && (
@@ -1047,6 +1072,7 @@ private fun CoreBigMonospaceText(
                         ) -> {
                     val newPosition = findNextWordBoundaryPositionFromCursor()
                     updateOriginalCursorOrSelection(newPosition = newPosition, isSelection = it.isShiftPressed)
+                    showCursor()
                     true
                 }
                 it.key in listOf(Key.DirectionLeft, Key.DirectionRight) -> {
@@ -1079,6 +1105,7 @@ private fun CoreBigMonospaceText(
                             isSelection = it.isShiftPressed,
                         )
                     }
+                    showCursor()
                     true
                 }
                 it.key in listOf(Key.DirectionUp, Key.DirectionDown) -> {
@@ -1108,6 +1135,7 @@ private fun CoreBigMonospaceText(
                         newTransformedPosition = newTransformedPosition,
                         isSelection = it.isShiftPressed,
                     )
+                    showCursor()
                     true
                 }
                 else -> false
@@ -1335,6 +1363,7 @@ private fun CoreBigMonospaceText(
                                 }
                                 log.v { "set cursor pos 1 => ${viewState.cursorIndex} t ${viewState.transformedCursorIndex}" }
 
+                                showCursor()
                                 focusRequester.requestFocus()
                             }
                         }
@@ -1349,6 +1378,7 @@ private fun CoreBigMonospaceText(
                     viewState.updateTransformedSelectionBySelection(transformedText)
                     viewState.cursorIndex = wordEndExclusive
                     viewState.updateTransformedCursorIndexByOriginal(transformedText)
+                    showCursor()
                 })
             }
             .onFocusChanged {
@@ -1386,6 +1416,7 @@ private fun CoreBigMonospaceText(
                             )
                         )
                         log.v { "started text input session" }
+                        showCursor()
 //                        keyboardController?.show()
                     } else {
 //                        keyboardController?.hide()
@@ -1556,7 +1587,7 @@ private fun CoreBigMonospaceText(
 //                    )
 
                     log.v { "line = $i, cursor T = ${viewState.transformedCursorIndex}" }
-                    if (isEditable && isFocused && viewState.transformedCursorIndex in renderStartIndex .. renderEndIndexExclusive) {
+                    if (isEditable && isFocused && viewState.transformedCursorIndex in renderStartIndex .. renderEndIndexExclusive && isCursorVisible) {
                         val x = if (viewState.transformedCursorIndex - renderStartIndex > 0) {
                             transformedText.findWidthByColumnRangeOfSameLine(
                                 lineIndex,
@@ -1604,6 +1635,29 @@ private fun CoreBigMonospaceText(
             ),
             "",
         )
+    }
+
+    LaunchedEffect(Unit) {
+        (cursorShowTrigger
+            .receiveAsFlow()
+            .flatMapLatest {
+                flow {
+                    emit(true)
+                    while (coroutineContext.isActive) {
+                        delay(700.milliseconds().millis)
+                        emit(!isCursorVisible)
+                    }
+                }
+            } as Flow<Boolean>) // IntelliJ IDEA won't work without this redundant cast
+            .onEach {
+                withContext(Dispatchers.Default) {
+                    isCursorVisible = it
+                    log.v { "isCursorVisible changed to : $isCursorVisible" }
+                }
+            }
+            .launchIn(this)
+
+        cursorShowTrigger.send(Unit) // activate the flow
     }
 }
 
