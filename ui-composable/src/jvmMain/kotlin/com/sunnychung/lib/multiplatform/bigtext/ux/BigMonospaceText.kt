@@ -631,7 +631,8 @@ private fun CoreBigMonospaceText(
             val visibleHorizontalRange = horizontalScrollState.value + (padding.calculateLeftPadding(LayoutDirection.Ltr) + extraPadding).toPx() ..<
                 horizontalScrollState.value + width - (padding.calculateRightPadding(LayoutDirection.Ltr) + extraPadding).toPx()
             val linePositionStart = transformedText.findPositionStartOfLine(row)
-            val cursorXInLine = transformedText.findWidthByPositionRangeOfSameLine(linePositionStart .. viewState.transformedCursorIndex)
+            // cursor is right after the character at (viewState.transformedCursorIndex - 1)
+            val cursorXInLine = transformedText.findWidthByPositionRangeOfSameLine(linePositionStart .. viewState.transformedCursorIndex - 1)
             log.d { "vhr=$visibleHorizontalRange cx=$cursorXInLine h=${horizontalScrollState.value}" }
             if (cursorXInLine !in visibleHorizontalRange) {
                 // scroll to an offset with a little space
@@ -640,6 +641,7 @@ private fun CoreBigMonospaceText(
                 } else {
                     cursorXInLine + (12.dp + padding.calculateRightPadding(LayoutDirection.Ltr) + extraPadding).toPx() - width
                 }.roundToInt().coerceIn(0 ..< maxOf(1, horizontalScrollState.maxValue))
+                log.d { "scroll to $scrollToPosition" }
                 coroutineScope.launch {
                     horizontalScrollState.animateScrollTo(scrollToPosition)
                 }
