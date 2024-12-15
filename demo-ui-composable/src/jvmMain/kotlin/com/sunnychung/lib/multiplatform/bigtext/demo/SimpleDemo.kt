@@ -26,13 +26,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import com.sunnychung.lib.multiplatform.bigtext.ux.BigMonospaceTextField
 import com.sunnychung.lib.multiplatform.bigtext.ux.rememberConcurrentLargeAnnotatedBigTextFieldState
 import kotlinx.coroutines.launch
 
 @Composable
-fun SimpleDemoView() {
+fun SimpleDemoView(fontFamily: FontFamily) {
     var cacheKey by remember { mutableStateOf(0) }
     var generateContentKey by remember { mutableStateOf("Empty") }
 
@@ -75,6 +76,7 @@ fun SimpleDemoView() {
                 textFieldState = bigTextFieldState,
                 color = Color.Black,
                 cursorColor = Color.Blue,
+                fontFamily = fontFamily,
                 isSoftWrapEnabled = isSoftWrapEnabled,
                 scrollState = scrollState,
                 horizontalScrollState = horizontalScrollState, // only required for soft wrap disabled
