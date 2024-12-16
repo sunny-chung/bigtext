@@ -199,6 +199,7 @@ fun BigMonospaceTextField(
     onTextChange: (BigTextChangeEvent) -> Unit = {},
     isSingleLineInput: Boolean = false,
     isSoftWrapEnabled: Boolean = !isSingleLineInput,
+    maxInputLength: Long = Long.MAX_VALUE,
     inputFilter: BigTextInputFilter? = null,
     textTransformation: IncrementalTextTransformation<*>? = null,
     textDecorator: BigTextDecorator? = null,
@@ -223,8 +224,9 @@ fun BigMonospaceTextField(
             onTextChange(it)
             textFieldState.emitValueChange(it.changeId)
         },
-        inputFilter = inputFilter,
         isSingleLineInput = isSingleLineInput,
+        maxInputLength = maxInputLength,
+        inputFilter = inputFilter,
         textTransformation = textTransformation,
         textDecorator = textDecorator,
         scrollState = scrollState,
@@ -253,6 +255,7 @@ fun BigMonospaceTextField(
     onTextChange: (BigTextChangeEvent) -> Unit,
     isSingleLineInput: Boolean = false,
     isSoftWrapEnabled: Boolean = !isSingleLineInput,
+    maxInputLength: Long = Long.MAX_VALUE,
     inputFilter: BigTextInputFilter? = null,
     textTransformation: IncrementalTextTransformation<*>? = null,
     textDecorator: BigTextDecorator? = null,
@@ -276,8 +279,9 @@ fun BigMonospaceTextField(
     isSelectable = true,
     isEditable = true,
     onTextChange = onTextChange,
-    inputFilter = inputFilter,
     isSingleLineInput = isSingleLineInput,
+    maxInputLength = maxInputLength,
+    inputFilter = inputFilter,
     textTransformation = textTransformation,
     textDecorator = textDecorator,
     scrollState = scrollState,
@@ -307,8 +311,9 @@ private fun CoreBigMonospaceText(
             DefaultBigTextFieldContextMenu(isVisible = isVisible, onDismiss = onDismiss, entries = entries, testTag = testTag)
         },
     onTextChange: (BigTextChangeEvent) -> Unit,
-    inputFilter: BigTextInputFilter? = null,
     isSingleLineInput: Boolean = false,
+    maxInputLength: Long = Long.MAX_VALUE,
+    inputFilter: BigTextInputFilter? = null,
     textTransformation: IncrementalTextTransformation<*>? = null,
     textDecorator: BigTextDecorator? = null,
     scrollState: ScrollState = rememberScrollState(),
@@ -747,6 +752,14 @@ private fun CoreBigMonospaceText(
                 } else {
                     textInput.replace(NEW_LINE_REGEX, " ")
                 }
+            }
+        }
+        val currentLength = text.length
+        if (currentLength + textInput.length > maxInputLength) {
+            if (currentLength + 1 <= maxInputLength) { // there is still room to input text
+                textInput = textInput.subSequence(0, (maxInputLength - currentLength).toInt())
+            } else {
+                textInput = ""
             }
         }
 

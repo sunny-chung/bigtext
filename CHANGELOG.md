@@ -13,6 +13,7 @@ Common
 UI
 - Support non-monospace fonts
 - Single line input option
+- Max input length
 
 ### Changed
 UI

@@ -53,6 +53,7 @@ fun TransformationDemoView() {
                     cursorColor = Color.Blue,
                     fontFamily = FontFamily.SansSerif,
                     isSingleLineInput = true,
+                    maxInputLength = 3 + 4 + 4,
                     textTransformation = remember { PhoneNumberIncrementalTransformation() },
                     inputFilter = { it.replace("[^0-9]".toRegex(), "") },
                     padding = PaddingValues(all = 8.dp),
