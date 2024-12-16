@@ -601,7 +601,7 @@ private fun CoreBigMonospaceText(
         val absX = (viewportLeft + x).toInt()
         log.v { "viewportLeft=$viewportLeft, x=$x, absX=$absX, r=$row, l=$lineIndex, rs=$rowPositionStart, nrs=$nextRowPositionStart" }
         val pos = binarySearchForMaxIndexOfValueAtMost(rowPositionStart ..< nextRowPositionStart, absX) {
-            transformedText.findWidthByColumnRangeOfSameLine(lineIndex, rowPositionOffset ..< it - rowPositionStart + rowPositionOffset).toInt()
+            transformedText.findWidthByPositionRangeOfSameLine(rowPositionStart ..< it).toInt()
         }
         log.v { "pos=$pos" }
         return pos.coerceIn(0 .. maxIndex)
@@ -1651,9 +1651,8 @@ private fun CoreBigMonospaceText(
                     log.v { "line = $i, cursor T = ${viewState.transformedCursorIndex}" }
                     if (isEditable && isFocused && viewState.transformedCursorIndex in renderStartIndex .. renderEndIndexExclusive && isCursorVisible) {
                         val x = if (viewState.transformedCursorIndex - renderStartIndex > 0) {
-                            transformedText.findWidthByColumnRangeOfSameLine(
-                                lineIndex,
-                                rowPositionOffset + renderStartIndex - rowStartIndex..< rowPositionOffset + viewState.transformedCursorIndex - rowStartIndex
+                            transformedText.findWidthByPositionRangeOfSameLine(
+                                renderStartIndex..< viewState.transformedCursorIndex
                             ).also {
                                 log.v { "find w = $it" }
                             }
@@ -1714,7 +1713,7 @@ private fun CoreBigMonospaceText(
             .onEach {
                 withContext(Dispatchers.Default) {
                     isCursorVisible = it
-                    log.v { "isCursorVisible changed to : $isCursorVisible" }
+//                    log.v { "isCursorVisible changed to : $isCursorVisible" }
                 }
             }
             .launchIn(this)
