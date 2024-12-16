@@ -12,7 +12,7 @@ import com.sunnychung.lib.multiplatform.bigtext.core.transform.BigTextTransforme
 import com.sunnychung.lib.multiplatform.bigtext.core.transform.IncrementalTextTransformation
 import com.sunnychung.lib.multiplatform.bigtext.extension.hasIntersectWith
 
-class VariableTransformation : IncrementalTextTransformation<Unit> {
+class VariableIncrementalTransformation : IncrementalTextTransformation<Unit> {
     private val processLengthLimit = 30
 
     private val variableNameRegex = "[^{}\$\n\r]{1,$processLengthLimit}".toRegex()

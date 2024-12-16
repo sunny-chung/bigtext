@@ -7,6 +7,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -16,6 +17,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.rememberScrollbarAdapter
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.Button
 import androidx.compose.material.Checkbox
 import androidx.compose.material.Text
@@ -36,6 +38,52 @@ import kotlinx.coroutines.launch
 
 @Composable
 fun TransformationDemoView() {
+    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        TransformationTextAreaDemoView(Modifier.weight(1f))
+
+        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.weight(1f)) {
+                val bigTextFieldState by rememberConcurrentLargeAnnotatedBigTextFieldState()
+
+                Text("Phone Number (Transformation + Input Filter + Single Line + Length Limit)")
+
+                BigMonospaceTextField(
+                    textFieldState = bigTextFieldState,
+                    color = Color.Black,
+                    cursorColor = Color.Blue,
+                    fontFamily = FontFamily.SansSerif,
+                    isSingleLineInput = true,
+                    textTransformation = remember { PhoneNumberIncrementalTransformation() },
+                    inputFilter = { it.replace("[^0-9]".toRegex(), "") },
+                    padding = PaddingValues(all = 8.dp),
+                    modifier = Modifier.background(Color(192, 192, 255), RoundedCornerShape(4.dp))
+                        .fillMaxWidth()
+                )
+            }
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.weight(1f)) {
+                val bigTextFieldState by rememberConcurrentLargeAnnotatedBigTextFieldState()
+
+                Text("Password")
+
+                BigMonospaceTextField(
+                    textFieldState = bigTextFieldState,
+                    color = Color.Black,
+                    cursorColor = Color.Blue,
+                    fontFamily = FontFamily.SansSerif,
+                    isSingleLineInput = true,
+                    textTransformation = remember { PasswordIncrementalTransformation() },
+                    padding = PaddingValues(all = 8.dp),
+                    modifier = Modifier.background(Color(160, 160, 160), RoundedCornerShape(4.dp))
+                        .fillMaxWidth()
+                )
+            }
+        }
+    }
+
+}
+
+@Composable
+fun TransformationTextAreaDemoView(modifier: Modifier) {
     var cacheKey by remember { mutableStateOf(0) }
     var generateContentKey by remember { mutableStateOf("Empty") }
 
@@ -46,10 +94,10 @@ fun TransformationDemoView() {
     val coroutineScope = rememberCoroutineScope()
 
     val transformation = remember(bigTextFieldState) {
-        VariableTransformation()
+        VariableIncrementalTransformation()
     }
 
-    Column {
+    Column(modifier) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             PRELOAD_CONTENT
                 .filter { it.value.length <= 32 * 1024 * 1024 }
