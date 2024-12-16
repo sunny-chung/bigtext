@@ -737,7 +737,7 @@ private fun CoreBigMonospaceText(
         }
     }
 
-    fun insertAt(insertPos: Int, textInput: CharSequence) {
+    fun insertAt(insertPos: Int, textInput: CharSequence): CharSequence {
         var textInput = inputFilter?.filter(textInput) ?: textInput
         if (isSingleLineInput) {
             val find = NEW_LINE_REGEX.find(textInput)
@@ -750,18 +750,29 @@ private fun CoreBigMonospaceText(
             }
         }
 
-        onValuePreChange(BigTextChangeEventType.Insert, insertPos, insertPos + textInput.length)
-        text.insertAt(insertPos, textInput)
-        onValuePostChange(BigTextChangeEventType.Insert, insertPos, insertPos + textInput.length)
+        if (textInput.isNotEmpty()) {
+            onValuePreChange(BigTextChangeEventType.Insert, insertPos, insertPos + textInput.length)
+            text.insertAt(insertPos, textInput)
+            onValuePostChange(BigTextChangeEventType.Insert, insertPos, insertPos + textInput.length)
+        }
+        return textInput
     }
 
     fun onType(textInput: CharSequence, isSaveUndoSnapshot: Boolean = true) {
         log.v { "$text key in '$textInput' ${viewState.hasSelection()} ${viewState.selection} ${viewState.transformedSelection}" }
+        var hasManipulatedText = false
         if (viewState.hasSelection()) {
             deleteSelection(isSaveUndoSnapshot = false)
+            hasManipulatedText = true
         }
         val insertPos = viewState.cursorIndex
-        insertAt(insertPos, textInput)
+        val textInput = insertAt(insertPos, textInput)
+        if (textInput.isNotEmpty()) {
+            hasManipulatedText = true
+        }
+        if (!hasManipulatedText) {
+            return
+        }
         updateViewState()
         if (log.config.minSeverity <= Severity.Verbose) {
             (transformedText as? BigTextImpl)?.printDebug("transformedText onType '${textInput.string().replace("\n", "\\n")}'")
