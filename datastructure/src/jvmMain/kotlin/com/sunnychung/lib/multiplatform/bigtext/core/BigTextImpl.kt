@@ -1529,19 +1529,19 @@ open class BigTextImpl(
 //        val endLine = findLineIndexByRowIndex(findRowIndexByPosition(positions.endInclusive))
         require(startLine == endLine) { "positions $positions does not belong to the same line $startLine but $endLine" }
 
-        var node = tree.findNodeByCharIndex(positions.start) ?: if (positions.start == 0 && (positions.isEmpty() || positions.endInclusive <= 0)) {
+        var node = tree.findNodeByRenderCharIndex(positions.start) ?: if (positions.start == 0 && (positions.isEmpty() || positions.endInclusive <= 0)) {
             return 0f
         } else {
             throw IllegalStateException("Cannot find string node for position ${positions.start}")
         }
-        val endNode = tree.findNodeByCharIndex(positions.endInclusive) ?: throw IllegalStateException("Cannot find string node for position ${positions.endInclusive}")
+        val endNode = tree.findNodeByRenderCharIndex(positions.endInclusive) ?: throw IllegalStateException("Cannot find string node for position ${positions.endInclusive}")
         var nodeStartPos = findRenderPositionStart(node)
         val endNodeStartPos = findRenderPositionStart(endNode)
         var roiStartIndex = node.value.renderBufferStart + (positions.start - nodeStartPos)
 
         var accumulatedWidth = 0L
         while (true) {
-            if (roiStartIndex >= 0 && roiStartIndex < node.value.renderBufferEndExclusive) {
+            if (roiStartIndex >= 0 && roiStartIndex < node.value.renderBufferEndExclusive && node.value.renderBufferEndExclusive > node.value.renderBufferStart /* if node has a non-empty render range */) {
                 val roiEndInclusiveIndex = if (node === endNode) {
                     node.value.renderBufferStart + (positions.endInclusive + 1 - endNodeStartPos) - 1
                 } else {

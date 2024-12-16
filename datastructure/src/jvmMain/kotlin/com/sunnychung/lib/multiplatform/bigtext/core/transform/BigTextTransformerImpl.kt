@@ -29,7 +29,7 @@ import com.williamfiset.algorithms.datastructures.balancedtree.RedBlackTree
 
 val logT = Logger(object : MutableLoggerConfig {
     override var logWriterList: List<LogWriter> = listOf(JvmLogger())
-    override var minSeverity: Severity = Severity.Info
+    override var minSeverity: Severity = Severity.Warn
 }, tag = "BigText.Transform")
 
 class BigTextTransformerImpl(override val originalText: BigText) : BigTextImpl(
@@ -410,17 +410,29 @@ class BigTextTransformerImpl(override val originalText: BigText) : BigTextImpl(
         logT.d { "deleteTransformIf($originalRange)" }
         require(originalRange.start <= originalRange.endInclusive + 1) { "start should be <= endExclusive" }
         require(0 <= originalRange.start) { "Invalid start" }
-        require(originalRange.endInclusive + 1 <= originalLength) { "endExclusive is out of bound" }
+        require(originalRange.endInclusive <= originalLength) { "endExclusive is out of bound" }
 
         if (originalRange.start == originalRange.endInclusive + 1) {
             return 0
         }
 
-        val startNode = tree.findNodeByCharIndex(originalRange.start)!!
-        val endNode = tree.findNodeByCharIndex(originalRange.endInclusive + 1)!!
+        val startNode = tree.findNodeByCharIndex(originalRange.start) ?: if (originalRange.start == 0) {
+            return 0
+        } else {
+            throw IndexOutOfBoundsException("Node for char index ${originalRange.start} not found")
+        }
+        val endNode = if (originalRange.endInclusive >= originalLength) {
+            tree.rightmost(tree.getRoot()).takeIf { it.isNotNil() } ?: return 0
+        } else {
+            tree.findNodeByCharIndex(originalRange.endInclusive + 1)!!
+        }
         val renderStartPos = findRenderPositionStart(startNode)
 //        val renderEndPos = findRenderPositionStart(endNode) + endNode.value.currentRenderLength
-        val renderEndPos = findTransformedPositionByOriginalPosition(originalRange.endInclusive + 1)
+        val renderEndPos = if (originalRange.endInclusive >= originalLength) {
+            length
+        } else {
+            findTransformedPositionByOriginalPosition(originalRange.endInclusive + 1)
+        }
 
         var node: RedBlackTree<BigTextNodeValue>.Node? = endNode
         var nodeRange = charIndexRangeOfNode(node!!)
@@ -807,11 +819,20 @@ class BigTextTransformerImpl(override val originalText: BigText) : BigTextImpl(
         val renderPositionAtOriginalEnd = findTransformedPositionByOriginalPosition(range.endInclusive)
 
         deleteTransformIf(range)
-        deleteOriginal(range, isReMapPositionNeeded = false)
+        val originalLength = originalLength
+        if (range.endInclusive >= originalLength) {
+            deleteOriginal(range.start ..< originalLength, isReMapPositionNeeded = false)
+        } else {
+            deleteOriginal(range, isReMapPositionNeeded = false)
+        }
 
         // insert the original text from `delegate`
         val originalNodeStart = originalText.tree.findNodeByCharIndex(range.start)
-            ?: throw IndexOutOfBoundsException("Original node at position ${range.start} not found")
+            ?: if (range.start == 0) {
+                return
+            } else {
+                throw IndexOutOfBoundsException("Original node at position ${range.start} not found")
+            }
         var nodePositionStart = originalText.tree.findPositionStart(originalNodeStart)
         var insertPoint = range.start
         var node = originalNodeStart
@@ -824,7 +845,7 @@ class BigTextTransformerImpl(override val originalText: BigText) : BigTextImpl(
             }
             insertOriginal(insertPoint, node.value, insertOffsetStart, insertOffsetEndExclusive)
 
-            if (insertPoint + (insertOffsetEndExclusive - insertOffsetStart) > range.endInclusive) {
+            if (insertPoint + (insertOffsetEndExclusive - insertOffsetStart) > minOf(originalLength - 1, range.endInclusive)) {
                 break
             }
 
