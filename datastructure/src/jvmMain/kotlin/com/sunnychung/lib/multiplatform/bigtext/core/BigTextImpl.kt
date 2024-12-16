@@ -696,12 +696,12 @@ open class BigTextImpl(
 
         leftNumOfRowBreaks = node?.left?.numRowBreaks() ?: 0
 
-        bufferExtraData[buffer]?.let { extraData ->
+        bufferExtraData[buffer]?.also { extraData ->
             if (!extraData.hasInitialized) {
                 endLineWidth = -1
                 startLineWidth = -1
                 middleMaxLineWidth = -1
-                return@let
+                return@also
             }
 
             fun calculateWidth(range: IntRange): Long {
@@ -821,6 +821,11 @@ open class BigTextImpl(
                 node?.right?.value?.maxLineWidth ?: -1,
             )
             log.v { "node ${debugKey()} line w end=$endLineWidth start=$startLineWidth mid=$middleMaxLineWidth aggEnd=$aggregatedEndLineWidth aggSt=$aggregatedStartLineWidth max=$maxLineWidth" }
+        } ?: run {
+            maxLineWidth = maxOf(
+                node?.left?.value?.maxLineWidth ?: -1,
+                node?.right?.value?.maxLineWidth ?: -1,
+            )
         }
     }
 
