@@ -56,7 +56,7 @@ fun SimpleDemoView(fontFamily: FontFamily) {
                             scrollState.scrollTo(0)
                         }
                     }) {
-                        Text(text = if (key != "Empty") "Random $key" else key)
+                        Text(text = key)
                     }
                 }
         }

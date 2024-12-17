@@ -1,9 +1,11 @@
 package com.sunnychung.lib.multiplatform.bigtext.demo
 
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.Button
 import androidx.compose.material.ButtonDefaults
 import androidx.compose.material.Text
@@ -32,6 +34,7 @@ private enum class DemoView(val displayName: String) {
     CodeEditor("Code Editor"),
     SansSerif("Sans Serif"),
     Transformation("Transformation"),
+    ReadOnly("Read-only"),
     MoreExamples("More Examples"),
 }
 
@@ -40,7 +43,7 @@ fun AppView() {
     var chosenDemoView by remember { mutableStateOf(DemoView.SimpleMonospace) }
 
     Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.horizontalScroll(rememberScrollState())) {
             DemoView
                 .entries
                 .forEach {
@@ -62,6 +65,7 @@ fun AppView() {
             DemoView.CodeEditor -> CodeEditorDemoView()
             DemoView.SansSerif -> SimpleDemoView(fontFamily = FontFamily.SansSerif)
             DemoView.Transformation -> TransformationDemoView()
+            DemoView.ReadOnly -> ReadOnlyDemoView()
             DemoView.MoreExamples -> MoreExamplesDemoView()
         }
     }

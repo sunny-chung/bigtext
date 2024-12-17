@@ -41,11 +41,11 @@ fun TransformationDemoView() {
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         TransformationTextAreaDemoView(Modifier.weight(1f))
 
-        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.Bottom) {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.weight(1f)) {
                 val bigTextFieldState by rememberConcurrentLargeAnnotatedBigTextFieldState()
 
-                Text("Phone Number (Transformation + Input Filter + Single Line + Length Limit)")
+                Text("Phone Number (Transformation + Input Filter + Single Line + Max Input Length)")
 
                 BigMonospaceTextField(
                     textFieldState = bigTextFieldState,

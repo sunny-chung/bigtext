@@ -112,7 +112,7 @@ fun CodeEditorDemoView() {
                     Button(onClick = {
                         loadBigTextInBackground(key)
                     }) {
-                        Text(text = if (key != "Empty") "Random $key" else key)
+                        Text(text = key)
                     }
                 }
         }
