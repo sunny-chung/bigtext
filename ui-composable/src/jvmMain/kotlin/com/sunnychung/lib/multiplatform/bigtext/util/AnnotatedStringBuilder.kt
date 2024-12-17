@@ -396,3 +396,12 @@ class AnnotatedStringBuilder(capacity: Int = 16) : Appendable {
         )
     }
 }
+
+/**
+ * The official buildAnnotatedString implementation does not preserve custom tags. This one fixes the issue.
+ */
+fun buildAnnotatedStringPatched(builder: AnnotatedStringBuilder.() -> Unit): AnnotatedString {
+    return AnnotatedStringBuilder().apply {
+        builder()
+    }.toAnnotatedString()
+}

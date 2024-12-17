@@ -32,7 +32,7 @@ private enum class DemoView(val displayName: String) {
     CodeEditor("Code Editor"),
     SansSerif("Sans Serif"),
     Transformation("Transformation"),
-    MoreOptions("More Options"),
+    MoreExamples("More Examples"),
 }
 
 @Composable
@@ -62,7 +62,7 @@ fun AppView() {
             DemoView.CodeEditor -> CodeEditorDemoView()
             DemoView.SansSerif -> SimpleDemoView(fontFamily = FontFamily.SansSerif)
             DemoView.Transformation -> TransformationDemoView()
-            DemoView.MoreOptions -> MoreOptionsDemoView()
+            DemoView.MoreExamples -> MoreExamplesDemoView()
         }
     }
 }
