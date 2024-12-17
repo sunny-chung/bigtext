@@ -2097,4 +2097,5 @@ private enum class InsertDirection {
 fun BigText.Companion.createFromLargeString(initialContent: String) = BigTextImpl().apply {
     log.d { "createFromLargeString ${initialContent.length}" }
     append(initialContent)
+    isUndoEnabled = true
 }
