@@ -18,6 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
+import com.sunnychung.lib.multiplatform.bigtext.util.hexToUtf8String
 import kotlin.random.Random
 
 val PRELOAD_CONTENT = linkedMapOf(
@@ -27,6 +28,8 @@ val PRELOAD_CONTENT = linkedMapOf(
     "1 MB" to generateRandomContent(1 * 1024 * 1024),
     "10 MB" to generateRandomContent(10 * 1024 * 1024),
     "100 MB" to generateRandomContent(100 * 1024 * 1024),
+    "Unicode 4 KB" to generateRandomUnicodeContent(4 * 1024),
+    "Unicode 10 MB" to generateRandomUnicodeContent(10 * 1024 * 1024),
 )
 
 private enum class DemoView(val displayName: String) {
@@ -36,6 +39,7 @@ private enum class DemoView(val displayName: String) {
     Transformation("Transformation"),
     ReadOnly("Read-only"),
     MoreExamples("More Examples"),
+    Debug("Compare with Jetpack Compose Built-in"),
 }
 
 @Composable
@@ -67,6 +71,7 @@ fun AppView() {
             DemoView.Transformation -> TransformationDemoView()
             DemoView.ReadOnly -> ReadOnlyDemoView()
             DemoView.MoreExamples -> MoreExamplesDemoView()
+            DemoView.Debug -> DebugView()
         }
     }
 }
@@ -80,6 +85,34 @@ fun generateRandomContent(size: Int): String {
             in 52 ..< 62 -> '0'.plus(r - 52)
             in 62 ..< 66 -> ' '
             66 -> '\n'
+            else -> throw RuntimeException("Unexpected random value: $r")
+        }.toString()
+    }
+}
+
+fun generateRandomUnicodeContent(size: Int): String {
+    val random = Random
+    return (0 ..< size).joinToString("") {
+        when (val r = random.nextInt(240)) {
+            in 0 ..< 26 -> 'A'.plus(r - 0)
+            in 26 ..< 52 -> 'a'.plus(r - 26)
+            in 52 ..< 62 -> '0'.plus(r - 52)
+            in 62 ..< 67 -> ' '
+            in 67 ..< 70 -> '\n'
+            in 70 ..< 100 -> '\u2FAC'.plus(r - 70) // Traditional Chinese
+            in 100 ..< 130 -> '\u3041'.plus(r - 100) // Japanese
+            in 130 ..< 160 -> '\uAC00'.plus(r - 130) // Korean
+            in 160 ..< 180 -> hexToUtf8String(0x20f2f + (r - 160)) // Multi-byte Unicode
+            in 180 ..< 200 -> hexToUtf8String(0x22b5 + (r - 180)) // Symbol
+            in 200 ..< 210 -> hexToUtf8String(0x1f315 + (r - 200)) // Emoji
+            in 210 ..< 218 -> hexToUtf8String(0x1f929 + (r - 210)) // Emoji
+            in 218 ..< 220 -> hexToUtf8String(0x231a + (r - 218)) // Emoji
+            in 220 ..< 225 -> hexToUtf8String(0x1f44b) + hexToUtf8String(0x1f3fb + (r - 220)) // Emoji Modifier Sequence
+            in 225 ..< 240 -> hexToUtf8String(0x4e07 + (r - 225)) // Simplified Chinese
+            in 240 ..< 260 -> hexToUtf8String(0x0100 + (r - 240)) // European Latin extended
+            in 260 ..< 290 -> "!@#$%^&*()-=_+[]{}:;\"',./<>?|\\"[r - 260] // Punctuation
+            in 290 ..< 300 -> "π©¥º…≈≤£¢∞"[r - 290] // Symbol
+
             else -> throw RuntimeException("Unexpected random value: $r")
         }.toString()
     }
