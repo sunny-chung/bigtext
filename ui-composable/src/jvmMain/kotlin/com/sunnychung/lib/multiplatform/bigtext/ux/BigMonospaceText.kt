@@ -112,6 +112,7 @@ import com.sunnychung.lib.multiplatform.bigtext.util.AnnotatedStringBuilder
 import com.sunnychung.lib.multiplatform.bigtext.util.annotatedString
 import com.sunnychung.lib.multiplatform.bigtext.util.buildTestTag
 import com.sunnychung.lib.multiplatform.bigtext.util.debouncedStateOf
+import com.sunnychung.lib.multiplatform.bigtext.util.isSurrogatePairFirst
 import com.sunnychung.lib.multiplatform.bigtext.util.string
 import com.sunnychung.lib.multiplatform.bigtext.ux.compose.rememberLast
 import com.sunnychung.lib.multiplatform.kdatetime.KInstant
@@ -618,16 +619,17 @@ private fun CoreBigMonospaceText(
     }
 
     fun getTransformedStringWidth(start: Int, endExclusive: Int): Float {
-        return (start .. endExclusive - 1)
-            .map {
-                val char = transformedText.substring(it..it).string()
-                if (char == "\n") { // selecting \n shows a narrow width
-                    textLayouter.charMeasurer.findCharWidth(" ")
-                } else {
-                    textLayouter.charMeasurer.findCharWidth(char)
-                }
-            }
-            .sum()
+        return transformedText.findWidthByPositionRangeOfSameLine(start .. endExclusive - 1)
+//        return (start .. endExclusive - 1)
+//            .map {
+//                val char = transformedText.substring(it..it).string()
+//                if (char == "\n") { // selecting \n shows a narrow width
+//                    textLayouter.charMeasurer.findCharWidth(" ")
+//                } else {
+//                    textLayouter.charMeasurer.findCharWidth(char)
+//                }
+//            }
+//            .sum()
     }
 
     fun showCursor() {
@@ -1658,17 +1660,33 @@ private fun CoreBigMonospaceText(
                     var accumulateXOffset = 0f
                     val rowAnnotatedString = rowText.annotatedString()
                     log.v { "draw line #$lineIndex row #$i char 0 .. ${rowAnnotatedString.lastIndex}" }
+                    var surrogatePairFirstChar: Char? = null
                     (0 .. rowAnnotatedString.lastIndex).forEach { j ->
                         val charAnnotated = rowAnnotatedString.subSequence(j, j + 1)
-                        val charWidth = textLayouter.measureCharWidth(charAnnotated.text)
+                        if (charAnnotated.first().isSurrogatePairFirst()) {
+                            surrogatePairFirstChar = charAnnotated.first()
+                            return@forEach
+                        }
+
+                        val annotatedUnicode = if (surrogatePairFirstChar == null) {
+                            charAnnotated
+                        } else {
+                            AnnotatedString(
+                                text = "${surrogatePairFirstChar}${charAnnotated.text}",
+                                spanStyles = charAnnotated.spanStyles
+                                    .map { it.copy(start = 0, end = 2) }
+                            )
+                        }
+                        val charWidth = textLayouter.measureCharWidth(annotatedUnicode.text)
                         drawText(
                             textMeasurer = textMeasurer,
-                            text = charAnnotated,
+                            text = annotatedUnicode,
                             style = textStyle,
                             softWrap = false,
                             topLeft = Offset(xOffset.toPx() + accumulateXOffset, yOffset.toPx()),
                             size = Size(charWidth, lineHeight),
                         )
+                        surrogatePairFirstChar = null
                         accumulateXOffset += charWidth
                     }
 

@@ -18,7 +18,29 @@ class MonospaceTextLayouter : TextLayouter {
     }
 
     override fun layoutOneLine(line: CharSequence, contentWidth: Float, firstRowOccupiedWidth: Float, offset: Int): Pair<List<Int>, Float> {
-        val charWidths = line.map { charMeasurer.findCharWidth(it.toString()) }
+        // TODO optimize width measurement and row breaking
+        var surrogatePairFirstChar: Char? = null
+        val charWidths = line.mapIndexed { index, it ->
+//            if (it.isHighSurrogate()) {
+//                surrogatePairFirstChar = it
+//                return@map 0f
+//            }
+//            val char = if (surrogatePairFirstChar == null) {
+//                it.toString()
+//            } else {
+//                "$surrogatePairFirstChar$it".also {
+//                    surrogatePairFirstChar = null
+//                }
+//            }
+            val char = if (it.isHighSurrogate()) { // let the first char to expand width, otherwise the surrogate pair may be broken into two half
+                "$it${line[index + 1]}"
+            } else if (it.isLowSurrogate()) {
+                return@mapIndexed 0f
+            } else {
+                it.toString()
+            }
+            charMeasurer.findCharWidth(char)
+        }
         val isOffsetLastLine = line.endsWith('\n')
         var numCharsPerRow = mutableListOf<Int>()
         var currentRowOccupiedWidth = firstRowOccupiedWidth

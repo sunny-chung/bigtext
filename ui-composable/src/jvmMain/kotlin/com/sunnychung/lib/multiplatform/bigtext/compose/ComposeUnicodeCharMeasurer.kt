@@ -8,6 +8,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Density
 import com.sunnychung.lib.multiplatform.bigtext.core.layout.CharMeasurer
+import com.sunnychung.lib.multiplatform.bigtext.util.isSurrogatePairFirst
+import com.sunnychung.lib.multiplatform.bigtext.util.isSurrogatePairSecond
 import com.sunnychung.lib.multiplatform.bigtext.util.log
 import java.util.LinkedHashMap
 import java.util.concurrent.ConcurrentHashMap
@@ -59,7 +61,7 @@ class ComposeUnicodeCharMeasurer(private val measurer: TextMeasurer, private val
      * TODO: handle surrogate pair correctly
      */
     override fun findCharWidth(char: String): Float {
-        if (char[0].isSurrogatePairFirst()) {
+        if (char[0].isSurrogatePairFirst() && char.length == 1) {
             return 0f
         }
         when (char.codePoints().findFirst().asInt) {
@@ -117,14 +119,6 @@ class ComposeUnicodeCharMeasurer(private val measurer: TextMeasurer, private val
             in 0xAC00..0xD7AF -> false // Hangul Syllables
             else -> true
         }
-    }
-
-    fun Char.isSurrogatePairFirst(): Boolean {
-        return code in (0xD800 .. 0xDBFF)
-    }
-
-    fun Char.isSurrogatePairSecond(): Boolean {
-        return code in (0xDC00 .. 0xDFFF)
     }
 
     init {

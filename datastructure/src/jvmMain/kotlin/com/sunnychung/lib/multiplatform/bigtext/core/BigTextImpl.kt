@@ -1656,10 +1656,20 @@ open class BigTextImpl(
             bufferExtraData[buffer]!!
         }
         val length = buffer.length
+        var surrogatePairFirstChar: Char? = null
         // Use (map + forEachIndexed) VS forEach: 2s VS 0.7s
         (fromCharIndex ..< length).forEach { i ->
             val char = buffer.substring(i, i + 1)
-            val charWidth = layouter.measureCharWidth(char)
+            val charWidth: Float
+            if (char[0].isHighSurrogate()) {
+                surrogatePairFirstChar = char[0]
+                charWidth = 0f
+            } else if (surrogatePairFirstChar != null) {
+                charWidth = layouter.measureCharWidth("$surrogatePairFirstChar$char")
+                surrogatePairFirstChar = null
+            } else {
+                charWidth = layouter.measureCharWidth(char)
+            }
             extra.widths[i] = (charWidth * widthMultiplier).roundToLong() + if (i > 0) extra.widths[i - 1] else 0L
         }
         extra.hasInitialized = true
