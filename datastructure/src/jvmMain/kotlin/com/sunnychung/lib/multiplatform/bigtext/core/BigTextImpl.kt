@@ -1109,7 +1109,7 @@ open class BigTextImpl(
             }
             val available = chunkSize - last
             val append = minOf(available, text.length - start)
-            insertChunkAtPosition(pos + start, text.substring(start until start + append))
+            insertChunkAtPosition(pos + start, text.subSequence(start until start + append))
             start += append
             last = buffers.last().length
         }

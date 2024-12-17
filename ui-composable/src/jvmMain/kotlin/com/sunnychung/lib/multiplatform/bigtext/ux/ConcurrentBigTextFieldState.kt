@@ -17,11 +17,27 @@ import com.sunnychung.lib.multiplatform.bigtext.core.ConcurrentBigText
  */
 @Composable
 fun rememberConcurrentLargeAnnotatedBigTextFieldState(initialValue: String = "", vararg cacheKeys: Any?, initialize: (BigTextFieldState) -> Unit = {}): MutableState<BigTextFieldState> {
+    return rememberConcurrentLargeAnnotatedBigTextFieldState(
+        initialValue = AnnotatedString(initialValue),
+        cacheKeys = cacheKeys,
+        initialize = initialize
+    )
+}
+
+/**
+ * Create a BigTextFieldState with a thread-safe large text buffer. Specifically, only the `BigText` class is thread-safe.
+ *
+ * `BigTextViewState` is NOT thread-safe and can only be manipulated in UI thread.
+ *
+ * The argument `initialValue` is only used when there is a cache miss using the cache key `cacheKey`.
+ */
+@Composable
+fun rememberConcurrentLargeAnnotatedBigTextFieldState(initialValue: AnnotatedString, vararg cacheKeys: Any?, initialize: (BigTextFieldState) -> Unit = {}): MutableState<BigTextFieldState> {
     return rememberSaveable(*cacheKeys) {
         log.i { "cache miss concurrent 1" }
         mutableStateOf(
             BigTextFieldState(
-                ConcurrentBigText(BigText.createFromLargeAnnotatedString(AnnotatedString(initialValue))),
+                ConcurrentBigText(BigText.createFromLargeAnnotatedString(initialValue)),
                 BigTextViewState()
             ).apply(initialize)
         )
