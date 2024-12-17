@@ -1336,7 +1336,13 @@ private fun CoreBigMonospaceText(
                 }
             }
             .focusRequester(focusRequester)
-            .pointerHoverIcon(PointerIcon.Text)
+            .run {
+                if (isSelectable) {
+                    pointerHoverIcon(PointerIcon.Text)
+                } else {
+                    this
+                }
+            }
             .onDrag(
                 enabled = isSelectable,
                 onDragStart = {
@@ -1407,7 +1413,11 @@ private fun CoreBigMonospaceText(
                                 log.v { "press ${position.x} ${position.y} shift=$isHoldingShiftKey" }
 
                                 if (event.button == PointerButton.Secondary) {
-                                    isShowContextMenu = !isShowContextMenu
+                                    isShowContextMenu = if (isSelectable) {
+                                        !isShowContextMenu
+                                    } else {
+                                        false
+                                    }
                                     continue
                                 }
 
@@ -1443,8 +1453,10 @@ private fun CoreBigMonospaceText(
                     }
                 }
             }
-            .pointerInput(transformedText, transformedText.hasLayouted, viewportTop, viewportLeft, lineHeight, contentWidth, viewState) {
+            .pointerInput(transformedText, transformedText.hasLayouted, viewportTop, viewportLeft, lineHeight, contentWidth, viewState, isSelectable) {
                 detectTapGestures(onDoubleTap = {
+                    if (!isSelectable) return@detectTapGestures
+
                     val wordStart = findPreviousWordBoundaryPositionFromCursor(isIncludeCursorPosition = true)
                     val wordEndExclusive = findNextWordBoundaryPositionFromCursor()
                     viewState.selection = wordStart until wordEndExclusive
@@ -1705,21 +1717,23 @@ private fun CoreBigMonospaceText(
             log.d { "Declare BigText content for render took ${endInstant - startInstant}" }
         }
 
-        contextMenu(
-            isShowContextMenu,
-            { isShowContextMenu = false },
-            listOf(
-                ContextMenuItemButton("Copy", viewState.hasSelection(), buildTestTag("Copy")!!) { copySelection() },
-                ContextMenuItemButton("Paste", clipboardManager.hasText(), buildTestTag("Paste")!!) { paste() },
-                ContextMenuItemButton("Cut", viewState.hasSelection(), buildTestTag("Cut")!!) { cutSelection() },
-                ContextMenuItemDivider(),
-                ContextMenuItemButton("Undo", text.isUndoable(), buildTestTag("Undo")!!) { undo() },
-                ContextMenuItemButton("Redo", text.isRedoable(), buildTestTag("Redo")!!) { redo() },
-                ContextMenuItemDivider(),
-                ContextMenuItemButton("Select All", text.isNotEmpty, buildTestTag("Select All")!!) { selectAll() },
-            ),
-            "",
-        )
+        if (isSelectable) {
+            contextMenu(
+                isShowContextMenu,
+                { isShowContextMenu = false },
+                listOfNotNull(
+                    ContextMenuItemButton("Copy", viewState.hasSelection(), buildTestTag("Copy")!!) { copySelection() },
+                    if (isEditable) ContextMenuItemButton("Paste", clipboardManager.hasText(), buildTestTag("Paste")!!) { paste() } else null,
+                    if (isEditable) ContextMenuItemButton("Cut", viewState.hasSelection(), buildTestTag("Cut")!!) { cutSelection() } else null,
+                    ContextMenuItemDivider(),
+                    if (isEditable) ContextMenuItemButton("Undo", text.isUndoable(), buildTestTag("Undo")!!) { undo() } else null,
+                    if (isEditable) ContextMenuItemButton("Redo", text.isRedoable(), buildTestTag("Redo")!!) { redo() } else null,
+                    if (isEditable) ContextMenuItemDivider() else null,
+                    ContextMenuItemButton("Select All", text.isNotEmpty, buildTestTag("Select All")!!) { selectAll() },
+                ),
+                "",
+            )
+        }
     }
 
     LaunchedEffect(Unit) {

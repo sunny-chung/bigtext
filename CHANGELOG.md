@@ -22,11 +22,13 @@ UI
 ### Fixed
 UI
 - Pressing left or right keys without holding [Shift] should cancel selection unconditionally
+- Non-editable texts are still editable in some way
 
 UI (not affecting Hello HTTP)
 - If onTextLayout is null, layout would be incorrect
 - If textTransformation is null, viewState.transformedText would never be set, leading to incorrect layout (always trimmed to single line)
 - Forward deletes in BigMonospaceTextField did not update the UI immediately
+- Non-selectable texts are selectable, and have an incorrect pointer icon
 
 
 ## UI [1.0.0], DS [1.0.0] -- 2024-12-05
