@@ -108,6 +108,7 @@ import com.sunnychung.lib.multiplatform.bigtext.extension.replaceAll
 import com.sunnychung.lib.multiplatform.bigtext.extension.toTextInput
 import com.sunnychung.lib.multiplatform.bigtext.platform.MacOS
 import com.sunnychung.lib.multiplatform.bigtext.platform.currentOS
+import com.sunnychung.lib.multiplatform.bigtext.util.AnnotatedStringBuilder
 import com.sunnychung.lib.multiplatform.bigtext.util.annotatedString
 import com.sunnychung.lib.multiplatform.bigtext.util.buildTestTag
 import com.sunnychung.lib.multiplatform.bigtext.util.debouncedStateOf
@@ -385,7 +386,11 @@ private fun CoreBigMonospaceText(
 
     val transformedText: BigTextTransformed = remember(text, textTransformation) {
         log.d { "CoreBigMonospaceText recreate BigTextTransformed $text $textTransformation" }
-        BigTextTransformerImpl(text)
+        BigTextTransformerImpl(
+            text,
+            charSequenceBuilderFactory = { AnnotatedStringBuilder(it) },
+            charSequenceFactory = { (it as AnnotatedStringBuilder).toAnnotatedString() },
+        )
             .let {
                 if (text.isThreadSafe) {
                     ConcurrentBigTextTransformed(it)

@@ -32,11 +32,17 @@ val logT = Logger(object : MutableLoggerConfig {
     override var minSeverity: Severity = Severity.Warn
 }, tag = "BigText.Transform")
 
-class BigTextTransformerImpl(override val originalText: BigText) : BigTextImpl(
-    chunkSize = originalText.chunkSize,
-    textBufferFactory = originalText.textBufferFactory,
-    charSequenceBuilderFactory = originalText.charSequenceBuilderFactory,
-    charSequenceFactory = originalText.charSequenceFactory,
+class BigTextTransformerImpl(
+    override val originalText: BigText,
+    chunkSize: Int = originalText.chunkSize,
+    textBufferFactory: (capacity: Int) -> TextBuffer = originalText.textBufferFactory,
+    charSequenceBuilderFactory: (capacity: Int) -> Appendable = originalText.charSequenceBuilderFactory,
+    charSequenceFactory: (Appendable) -> CharSequence = originalText.charSequenceFactory,
+) : BigTextImpl(
+    chunkSize = chunkSize,
+    textBufferFactory = textBufferFactory,
+    charSequenceBuilderFactory = charSequenceBuilderFactory,
+    charSequenceFactory = charSequenceFactory,
 ), BigTextTransformed {
 
     override val allBuffers: List<TextBuffer>
