@@ -5,4 +5,6 @@ interface CharMeasurer {
     fun measureFullText(text: String)
 
     fun findCharWidth(char: String): Float
+
+    fun findCharYOffset(char: String): Float
 }

@@ -44,6 +44,8 @@ private enum class DemoView(val displayName: String) {
 
 @Composable
 fun AppView() {
+//    return DebugView()
+
     var chosenDemoView by remember { mutableStateOf(DemoView.SimpleMonospace) }
 
     Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {

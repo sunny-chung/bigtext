@@ -17,6 +17,10 @@ class MonospaceTextLayouter : TextLayouter {
         return charMeasurer.findCharWidth(char)
     }
 
+    override fun measureCharYOffset(char: String): Float {
+        return charMeasurer.findCharYOffset(char)
+    }
+
     override fun layoutOneLine(line: CharSequence, contentWidth: Float, firstRowOccupiedWidth: Float, offset: Int): Pair<List<Int>, Float> {
         // TODO optimize width measurement and row breaking
         var surrogatePairFirstChar: Char? = null

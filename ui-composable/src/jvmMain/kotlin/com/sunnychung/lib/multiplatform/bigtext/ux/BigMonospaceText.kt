@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.calculateEndPadding
 import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredHeight
@@ -1678,12 +1677,14 @@ private fun CoreBigMonospaceText(
                             )
                         }
                         val charWidth = textLayouter.measureCharWidth(annotatedUnicode.text)
+                        val charYOffset = textLayouter.measureCharYOffset(annotatedUnicode.text)
+//                        log.v { "char '$annotatedUnicode' w=$charWidth y=$charYOffset lh=$lineHeight" }
                         drawText(
                             textMeasurer = textMeasurer,
                             text = annotatedUnicode,
                             style = textStyle,
                             softWrap = false,
-                            topLeft = Offset(xOffset.toPx() + accumulateXOffset, yOffset.toPx()),
+                            topLeft = Offset(xOffset.toPx() + accumulateXOffset, yOffset.toPx() + charYOffset),
                             size = Size(charWidth, lineHeight),
                         )
                         surrogatePairFirstChar = null

@@ -1,30 +1,30 @@
 package com.sunnychung.lib.multiplatform.bigtext.compose
 
-import androidx.compose.ui.text.Paragraph
 import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.Constraints
-import androidx.compose.ui.unit.Density
 import com.sunnychung.lib.multiplatform.bigtext.core.layout.CharMeasurer
 import com.sunnychung.lib.multiplatform.bigtext.util.isSurrogatePairFirst
 import com.sunnychung.lib.multiplatform.bigtext.util.isSurrogatePairSecond
 import com.sunnychung.lib.multiplatform.bigtext.util.log
-import java.util.LinkedHashMap
 import java.util.concurrent.ConcurrentHashMap
-import kotlin.math.abs
-import kotlin.math.max
+
+private val charsRequiringWrapping = setOf(" ", "\t")
 
 class ComposeUnicodeCharMeasurer(private val measurer: TextMeasurer, private val style: TextStyle/*, val density: Density, val fontFamilyResolver: FontFamily.Resolver*/) : CharMeasurer {
-    private val charWidth: MutableMap<String, Float> = ConcurrentHashMap<String, Float>(256) //LinkedHashMap<String, Float>(256)
-    private val charHeight: Float = measurer.measure("|\n|", style, softWrap = false).let {
-        log.d { "charHeight ${it.getLineTop(1)} - ${it.getLineTop(0)}" }
+    private val charWidth: MutableMap<String, Float> = ConcurrentHashMap<String, Float>(128) //LinkedHashMap<String, Float>(256)
+    private val charYOffset: MutableMap<String, Float> = ConcurrentHashMap<String, Float>(128) //LinkedHashMap<String, Float>(256)
+    private val refCharHeight: Float = measurer.measure("|${CJK_FULLWIDTH_REPRESENTABLE_CHAR}\n|", style, softWrap = false).let {
+        log.w { "charHeight ${it.getLineTop(1)} - ${it.getLineTop(0)}" }
         it.getLineTop(1) - it.getLineTop(0)
     }
-    private val refChar = '='
-    private val refCharWidth = measurer.measure("$refChar", style, softWrap = false).let {
-        it.getLineRight(0) - it.getLineLeft(0)
+    private val refChar = 'A'
+    private val refCharWidth: Float
+    private val refCharHeightBaselineDiff: Float
+    init {
+        val it = measurer.measure("$refChar", style, softWrap = false)
+        refCharWidth = it.getLineRight(0) - it.getLineLeft(0)
+        refCharHeightBaselineDiff = it.getLineBottom(0) - it.firstBaseline
     }
     private val numRepeatMeasurePerChar = 1 // 10
 
@@ -73,30 +73,58 @@ class ComposeUnicodeCharMeasurer(private val measurer: TextMeasurer, private val
         }
         return charWidth[char] ?: run {
             measureAndIndex(setOf(char))
-            charWidth[char]!!
+            charWidth[char] ?: 0f // it is possible to be not found due to negative widths
+        }
+    }
+
+    override fun findCharYOffset(char: String): Float {
+        if (char[0].isSurrogatePairFirst() && char.length == 1) {
+            return 0f //refCharHeight
+        }
+        return charYOffset[char] ?: run {
+            measureAndIndex(setOf(char))
+            charYOffset[char]!!
         }
     }
 
     private fun measureAndIndex(charSet: Set<String>) {
         val chars = charSet.toList()
-        measureExactWidthOf(chars).forEachIndexed { index, r ->
-            charWidth[chars[index]] = r
-            if (r < 1f) {
+        measure(chars).forEachIndexed { index, r ->
+            if (r.first >= 0f) {
+                charWidth[chars[index]] = r.first
+            }
+            if (r.first < 1f) {
                 log.w { "measure '${chars[index]}' width = $r" }
             }
+            charYOffset[chars[index]] = r.second
         }
     }
 
-    fun getRowHeight(): Float = charHeight
+    fun getRowHeight(): Float = refCharHeight
 
-    fun measureExactWidthOf(targets: List<String>): List<Float> {
+    fun measure(targets: List<String>): List<Pair<Float, Float>> {
         log.d { "measure ${targets.size} targets" }
 //        return targets.map { measurer.measure(it, style, softWrap = false).getBoundingBox(0).width }
 
         // wrapping a target is needed because the measurer would trim strings
-        val result = measurer.measure(targets.joinToString("") { "$refChar${it.repeat(numRepeatMeasurePerChar)}$refChar\n"}, style, softWrap = false, maxLines = targets.size + 1, overflow = TextOverflow.Visible)
+        val result = measurer.measure(targets.joinToString("") {
+            if (it in charsRequiringWrapping) {
+                "$refChar${it.repeat(numRepeatMeasurePerChar)}$refChar\n"
+            } else {
+                "$it\n"
+            }
+        }, style, softWrap = false, maxLines = targets.size + 1, overflow = TextOverflow.Visible)
+        var charIndex = 0
         return targets.mapIndexed { index, s ->
-            ((result.getLineRight(index) - result.getLineLeft(index) - 2 * refCharWidth) / numRepeatMeasurePerChar)/*.let {
+            val indexOffset: Int
+            val w = if (s in charsRequiringWrapping) {
+                indexOffset = 1
+                ((result.getLineRight(index) - result.getLineLeft(index) - 2 * refCharWidth) / numRepeatMeasurePerChar)
+            } else {
+                indexOffset = 0
+                result.getLineRight(index) - result.getLineLeft(index)
+            }
+            /*.let {
                 val b = measurer.measure(s, style, softWrap = false, maxLines = 1, overflow = TextOverflow.Visible).getBoundingBox(0)
 //                val b = measurer.measure(s, style, softWrap = false).size
                 val p = Paragraph(s, style, Constraints(), density, fontFamilyResolver).let {
@@ -107,6 +135,11 @@ class ComposeUnicodeCharMeasurer(private val measurer: TextMeasurer, private val
                 }
                 b.width
             }*/
+            log.w { "char '$s' bl=${result.firstBaseline} r=$result top=${result.getLineTop(index)} bottom=${result.getLineBottom(index)} bound=${result.getBoundingBox(charIndex + indexOffset)} rbound=${result.getBoundingBox(charIndex)}" }
+            w to refCharHeight - result.firstBaseline - refCharHeightBaselineDiff /* from observation, `result.getLineTop()` <= 0 */
+                .also {
+                    charIndex += s.length
+                }
         }
     }
 
@@ -129,7 +162,7 @@ class ComposeUnicodeCharMeasurer(private val measurer: TextMeasurer, private val
 //        charWidth["?"] = charWidth["!"]!!
 //        charWidth["’"] = charWidth["'"]!!
         log.d { "$this cache: $charWidth" }
-        log.d { "$this space 1=${measureExactWidthOf(listOf(" "))} 2=${measureExactWidthOf(listOf("  "))} 3=${measureExactWidthOf(listOf("   "))}" }
+        log.d { "$this space 1=${measure(listOf(" "))} 2=${measure(listOf("  "))} 3=${measure(listOf("   "))}" }
     }
 
     companion object {

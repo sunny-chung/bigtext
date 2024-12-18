@@ -6,5 +6,7 @@ interface TextLayouter {
 
     fun measureCharWidth(char: String): Float
 
+    fun measureCharYOffset(char: String): Float
+
     fun layoutOneLine(line: CharSequence, contentWidth: Float, firstRowOccupiedWidth: Float, offset: Int): Pair<List<Int>, Float>
 }
