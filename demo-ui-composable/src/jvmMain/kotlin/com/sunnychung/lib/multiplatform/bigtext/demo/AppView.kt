@@ -39,7 +39,7 @@ private enum class DemoView(val displayName: String) {
     Transformation("Transformation"),
     ReadOnly("Read-only"),
     MoreExamples("More Examples"),
-    Debug("Compare with Jetpack Compose Built-in"),
+    ComposeText("Compare with Jetpack Compose Built-in"),
 }
 
 @Composable
@@ -71,7 +71,7 @@ fun AppView() {
             DemoView.Transformation -> TransformationDemoView()
             DemoView.ReadOnly -> ReadOnlyDemoView()
             DemoView.MoreExamples -> MoreExamplesDemoView()
-            DemoView.Debug -> DebugView()
+            DemoView.ComposeText -> ComposeTextView()
         }
     }
 }
