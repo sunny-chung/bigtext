@@ -30,6 +30,8 @@ val PRELOAD_CONTENT = linkedMapOf(
     "100 MB" to generateRandomContent(100 * 1024 * 1024),
     "Unicode 4 KB" to generateRandomUnicodeContent(4 * 1024),
     "Unicode 10 MB" to generateRandomUnicodeContent(10 * 1024 * 1024),
+    "Unicode + Emoji 4 KB" to generateRandomUnicodeWithEmojiContent(4 * 1024),
+    "Unicode + Emoji 10 MB" to generateRandomUnicodeWithEmojiContent(10 * 1024 * 1024),
 )
 
 private enum class DemoView(val displayName: String) {
@@ -101,6 +103,31 @@ fun generateRandomUnicodeContent(size: Int): String {
             in 52 ..< 62 -> '0'.plus(r - 52)
             in 62 ..< 67 -> ' '
             in 67 ..< 70 -> '\n'
+            in 70 ..< 100 -> '\u2FAC'.plus(r - 70) // Traditional Chinese
+            in 100 ..< 130 -> '\u3041'.plus(r - 100) // Japanese
+            in 130 ..< 160 -> '\uAC00'.plus(r - 130) // Korean
+            in 160 ..< 180 -> hexToUtf8String(0x20f2f + (r - 160)) // Multi-byte Unicode
+            in 180 ..< 200 -> hexToUtf8String(0x22b5 + (r - 180)) // Symbol
+            in 200 ..< 215 -> hexToUtf8String(0x4e07 + (r - 200)) // Simplified Chinese
+            in 215 ..< 235 -> hexToUtf8String(0x0100 + (r - 215)) // European Latin extended
+            in 235 ..< 265 -> "!@#$%^&*()-=_+[]{}:;\"',./<>?|\\"[r - 235] // Punctuation
+            in 265 ..< 275 -> "π©¥º…≈≤£¢∞"[r - 265] // Symbol
+
+            else -> throw RuntimeException("Unexpected random value: $r")
+        }.toString()
+    }
+}
+
+fun generateRandomUnicodeWithEmojiContent(size: Int): String {
+    val random = Random
+    return (0 ..< size).joinToString("") {
+        when (val r = random.nextInt(240)) {
+            in 0 ..< 26 -> 'A'.plus(r - 0)
+            in 26 ..< 52 -> 'a'.plus(r - 26)
+            in 52 ..< 62 -> '0'.plus(r - 52)
+            in 62 ..< 66 -> ' '
+            in 66 ..< 69 -> '\n'
+            69 -> "\uD83D\uDC68\u200D\uD83D\uDC69\u200D\uD83D\uDC67\u200D\uD83D\uDC67" // Emoji Sequence
             in 70 ..< 100 -> '\u2FAC'.plus(r - 70) // Traditional Chinese
             in 100 ..< 130 -> '\u3041'.plus(r - 100) // Japanese
             in 130 ..< 160 -> '\uAC00'.plus(r - 130) // Korean

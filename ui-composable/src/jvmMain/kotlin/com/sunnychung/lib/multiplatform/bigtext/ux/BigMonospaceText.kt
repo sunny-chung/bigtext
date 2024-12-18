@@ -1598,7 +1598,13 @@ private fun CoreBigMonospaceText(
                     } else {
                         renderStartIndex = binarySearchForMaxIndexOfValueAtMost(rowStartIndex .. maxOf(rowStartIndex, rowEndIndex - 1), viewportLeft.toInt()) {
                             transformedText.findWidthByPositionRangeOfSameLine(rowStartIndex .. it).toInt()
-                        }.coerceIn(rowStartIndex .. maxOf(rowStartIndex, rowEndIndex - 1))
+                        }.coerceIn(rowStartIndex .. maxOf(rowStartIndex, rowEndIndex - 1)).let {
+                            if (it > rowStartIndex && transformedText.subSequence(it, it + 1)[0].isLowSurrogate()) {
+                                it - 1
+                            } else {
+                                it
+                            }
+                        }
                         renderEndIndexExclusive = binarySearchForMinIndexOfValueAtLeast(rowStartIndex + 1  .. rowEndIndex, viewportLeft.toInt() + width) {
                             transformedText.findWidthByPositionRangeOfSameLine(rowStartIndex ..< it).toInt()
                         }.coerceIn(
