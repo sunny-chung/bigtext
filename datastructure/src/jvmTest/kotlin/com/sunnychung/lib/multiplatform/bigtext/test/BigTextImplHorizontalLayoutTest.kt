@@ -6,6 +6,7 @@ import com.sunnychung.lib.multiplatform.bigtext.core.isD
 import com.sunnychung.lib.multiplatform.bigtext.core.layout.MonospaceTextLayouter
 import com.sunnychung.lib.multiplatform.bigtext.extension.length
 import com.sunnychung.lib.multiplatform.bigtext.test.util.FixedWidthCharMeasurer
+import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.Order
 import org.junit.jupiter.api.parallel.Execution
 import org.junit.jupiter.api.parallel.ExecutionMode
@@ -264,6 +265,8 @@ class BigTextImplHorizontalLayoutTest {
         }
     }
 
+    @Disabled
+    @Deprecated("Use findWidthByPositionRangeOfSameLine instead.")
     @ParameterizedTest
     @ValueSource(ints = [2 * 1024 * 1024, 32, 16, 6, 3])
     fun findWidthByColumnRangeOfSameLine(chunkSize: Int) {

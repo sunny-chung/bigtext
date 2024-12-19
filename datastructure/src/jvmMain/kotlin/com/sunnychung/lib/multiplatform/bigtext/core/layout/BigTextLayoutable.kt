@@ -35,6 +35,7 @@ interface BigTextLayoutable {
 
     fun findPositionByRowIndex(index: Int): Int
 
+    @Deprecated("Use findWidthByPositionRangeOfSameLine instead.")
     fun findWidthByColumnRangeOfSameLine(lineIndex: Int, columns: IntRange): Float
 
     fun findWidthByPositionRangeOfSameLine(positions: IntRange): Float

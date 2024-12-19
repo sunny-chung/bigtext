@@ -1468,6 +1468,7 @@ open class BigTextImpl(
         return startCharIndex + columnIndex
     }
 
+    @Deprecated("Use findWidthByPositionRangeOfSameLine instead.")
     override fun findWidthByColumnRangeOfSameLine(lineIndex: Int, columns: IntRange): Float {
         if (columns.start == 0 && columns.last == 0 && length == 0) {
             return 0f
