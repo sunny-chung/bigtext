@@ -14,7 +14,7 @@ private val charsRequiringWrapping = setOf(" ", "\t")
 class ComposeUnicodeCharMeasurer(private val measurer: TextMeasurer, private val style: TextStyle/*, val density: Density, val fontFamilyResolver: FontFamily.Resolver*/) : CharMeasurer {
     private val charWidth: MutableMap<String, Float> = ConcurrentHashMap<String, Float>(128) //LinkedHashMap<String, Float>(256)
     private val charYOffset: MutableMap<String, Float> = ConcurrentHashMap<String, Float>(128) //LinkedHashMap<String, Float>(256)
-    private val refCharHeight: Float = measurer.measure("|${CJK_FULLWIDTH_REPRESENTABLE_CHAR}\n|", style, softWrap = false).let {
+    private val refCharHeight: Float = measurer.measure("|\n|", style, softWrap = false).let {
         log.w { "charHeight ${it.getLineTop(1)} - ${it.getLineTop(0)}" }
         it.getLineTop(1) - it.getLineTop(0)
     }
