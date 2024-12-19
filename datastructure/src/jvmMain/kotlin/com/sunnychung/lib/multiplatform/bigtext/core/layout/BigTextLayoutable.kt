@@ -38,4 +38,8 @@ interface BigTextLayoutable {
     fun findWidthByColumnRangeOfSameLine(lineIndex: Int, columns: IntRange): Float
 
     fun findWidthByPositionRangeOfSameLine(positions: IntRange): Float
+
+    fun findMaxEndPositionOfWidthSumOverPositionRangeAtMost(startPosition: Int, endPositions: IntRange, isEndExclusive: Boolean, maxWidthSum: Int): Int
+
+    fun findMinEndPositionOfWidthSumOverPositionRangeAtLeast(startPosition: Int, endPositions: IntRange, isEndExclusive: Boolean, minWidthSum: Int): Int
 }

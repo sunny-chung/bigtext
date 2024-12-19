@@ -610,9 +610,12 @@ private fun CoreBigMonospaceText(
         val rowPositionOffset = rowPositionStart - linePositionStart
         val absX = (viewportLeft + x).toInt()
         log.v { "viewportLeft=$viewportLeft, x=$x, absX=$absX, r=$row, l=$lineIndex, rs=$rowPositionStart, nrs=$nextRowPositionStart" }
-        val pos = binarySearchForMaxIndexOfValueAtMost(rowPositionStart ..< nextRowPositionStart, absX) {
-            transformedText.findWidthByPositionRangeOfSameLine(rowPositionStart ..< it).toInt()
-        }
+        val pos = transformedText.findMaxEndPositionOfWidthSumOverPositionRangeAtMost(
+            startPosition = rowPositionStart,
+            endPositions = rowPositionStart ..< nextRowPositionStart,
+            isEndExclusive = true,
+            maxWidthSum = absX,
+        )
         log.v { "pos=$pos" }
         return pos.coerceIn(0 .. maxIndex)
     }
@@ -1596,18 +1599,18 @@ private fun CoreBigMonospaceText(
                         )
                         xOffset = 0.dp
                     } else {
-                        renderStartIndex = binarySearchForMaxIndexOfValueAtMost(rowStartIndex .. maxOf(rowStartIndex, rowEndIndex - 1), viewportLeft.toInt()) {
-                            transformedText.findWidthByPositionRangeOfSameLine(rowStartIndex .. it).toInt()
-                        }.coerceIn(rowStartIndex .. maxOf(rowStartIndex, rowEndIndex - 1)).let {
-                            if (it > rowStartIndex && transformedText.subSequence(it, it + 1)[0].isLowSurrogate()) {
-                                it - 1
-                            } else {
-                                it
-                            }
-                        }
-                        renderEndIndexExclusive = binarySearchForMinIndexOfValueAtLeast(rowStartIndex + 1  .. rowEndIndex, viewportLeft.toInt() + width) {
-                            transformedText.findWidthByPositionRangeOfSameLine(rowStartIndex ..< it).toInt()
-                        }.coerceIn(
+                        renderStartIndex = transformedText.findMaxEndPositionOfWidthSumOverPositionRangeAtMost(
+                            startPosition = rowStartIndex,
+                            endPositions = rowStartIndex .. maxOf(rowStartIndex, rowEndIndex - 1),
+                            isEndExclusive = false,
+                            maxWidthSum = viewportLeft.toInt(),
+                        )
+                        renderEndIndexExclusive = transformedText.findMinEndPositionOfWidthSumOverPositionRangeAtLeast(
+                            startPosition = rowStartIndex,
+                            endPositions = rowStartIndex + 1 .. rowEndIndex,
+                            isEndExclusive = true,
+                            minWidthSum = viewportLeft.toInt() + width,
+                        ).coerceIn(
                             minimumValue = renderStartIndex,
                             maximumValue = (rowEndIndex - if (i < numLines - 1) 1 /* exclude the '\n' char */ else 0)
                                 .coerceIn(renderStartIndex..transformedText.length)

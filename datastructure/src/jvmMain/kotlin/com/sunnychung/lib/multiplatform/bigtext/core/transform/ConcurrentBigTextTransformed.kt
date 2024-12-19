@@ -80,4 +80,30 @@ class ConcurrentBigTextTransformed(override val delegate: BigTextTransformed) : 
 
     override fun findWidthByPositionRangeOfSameLine(positions: IntRange): Float
         = lock.read { delegate.findWidthByPositionRangeOfSameLine(positions) }
+
+    override fun findMaxEndPositionOfWidthSumOverPositionRangeAtMost(
+        startPosition: Int,
+        endPositions: IntRange,
+        isEndExclusive: Boolean,
+        maxWidthSum: Int
+    ): Int
+        = lock.read { delegate.findMaxEndPositionOfWidthSumOverPositionRangeAtMost(
+            startPosition = startPosition,
+            endPositions = endPositions,
+            isEndExclusive = isEndExclusive,
+            maxWidthSum = maxWidthSum,
+        ) }
+
+    override fun findMinEndPositionOfWidthSumOverPositionRangeAtLeast(
+        startPosition: Int,
+        endPositions: IntRange,
+        isEndExclusive: Boolean,
+        minWidthSum: Int
+    ): Int
+        = lock.read { delegate.findMinEndPositionOfWidthSumOverPositionRangeAtLeast(
+            startPosition = startPosition,
+            endPositions = endPositions,
+            isEndExclusive = isEndExclusive,
+            minWidthSum = minWidthSum,
+        ) }
 }

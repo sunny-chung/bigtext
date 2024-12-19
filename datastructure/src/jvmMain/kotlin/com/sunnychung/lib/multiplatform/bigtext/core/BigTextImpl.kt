@@ -1576,6 +1576,36 @@ open class BigTextImpl(
         return accumulatedWidthInDouble.toFloat()
     }
 
+    override fun findMaxEndPositionOfWidthSumOverPositionRangeAtMost(startPosition: Int, endPositions: IntRange, isEndExclusive: Boolean, maxWidthSum: Int): Int {
+        return binarySearchForMaxIndexOfValueAtMost(endPositions, maxWidthSum) {
+            findWidthByPositionRangeOfSameLine(
+                if (isEndExclusive) {
+                    startPosition ..< it
+                } else {
+                    startPosition .. it
+                }
+            ).toInt()
+        }.coerceIn(endPositions).let {
+            if (it > startPosition && subSequence(it, it + 1)[0].isLowSurrogate()) {
+                it - 1
+            } else {
+                it
+            }
+        }
+    }
+
+    override fun findMinEndPositionOfWidthSumOverPositionRangeAtLeast(startPosition: Int, endPositions: IntRange, isEndExclusive: Boolean, minWidthSum: Int): Int {
+        return binarySearchForMinIndexOfValueAtLeast(endPositions, minWidthSum) {
+            findWidthByPositionRangeOfSameLine(
+                if (isEndExclusive) {
+                    startPosition ..< it
+                } else {
+                    startPosition .. it
+                }
+            ).toInt()
+        }
+    }
+
     override fun hashCode(): Int {
 //        TODO("Not yet implemented")
         return super.hashCode()
