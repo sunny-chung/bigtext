@@ -18,8 +18,6 @@ interface RedBlackTreeComputations<T : Comparable<T>> {
 
 open class RedBlackTree2<T>(private val computations: RedBlackTreeComputations<T>) : RedBlackTree<T>() where T : Comparable<T>, T : DebuggableNode<in T> {
 
-    fun getRoot() = root
-
     fun setRoot(node: RedBlackTree<T>.Node) {
         root = node
         var numNodes = 0
@@ -39,12 +37,12 @@ open class RedBlackTree2<T>(private val computations: RedBlackTreeComputations<T
         return lastNodeOrNull()?.getValue()
     }
 
-    fun find(comparison: (T) -> Int): T? {
+    inline fun find(comparison: (T) -> Int): T? {
         return findNode { comparison(it.value) }?.getValue()
     }
 
-    fun findNode(comparison: (Node) -> Int): Node? {
-        var child: Node = root
+    inline fun findNode(comparison: (Node) -> Int): Node? {
+        var child: Node = getRoot()
         while (child.isNotNil()) {
             val compareResult = comparison(child)
             if (compareResult == 0) {

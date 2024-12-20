@@ -3,7 +3,6 @@ package com.sunnychung.lib.multiplatform.bigtext.util
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.AnnotatedString.Builder
 import androidx.compose.ui.text.AnnotatedString.Range
-import androidx.compose.ui.text.ExperimentalTextApi
 import androidx.compose.ui.text.ParagraphStyle
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TtsAnnotation
@@ -14,7 +13,7 @@ import androidx.compose.ui.text.UrlAnnotation
 //import androidx.compose.ui.util.fastForEach
 import androidx.compose.ui.util.fastMap
 
-class AnnotatedStringBuilder(capacity: Int = 16) : Appendable {
+class AnnotatedStringBuilder(capacity: Int = 16) : Appendable, GeneralStringBuilder {
 
     private data class MutableRange<T>(
         val item: T,
@@ -394,6 +393,13 @@ class AnnotatedStringBuilder(capacity: Int = 16) : Appendable {
 //                .fastMap { it.toRange(text.length) }
 //                .ifEmpty { null }
         )
+    }
+
+    override fun clear() {
+        text.clear()
+        spanStyles.clear()
+        paragraphStyles.clear()
+        styleStack.clear()
     }
 }
 

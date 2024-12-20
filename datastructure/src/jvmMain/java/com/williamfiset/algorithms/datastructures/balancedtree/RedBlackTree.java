@@ -122,6 +122,10 @@ public class RedBlackTree<T extends Comparable<T>> implements Iterable<T> {
         return size() == 0;
     }
 
+    public Node getRoot() {
+        return root;
+    }
+
     public boolean contains(T value) {
 
         Node node = root;

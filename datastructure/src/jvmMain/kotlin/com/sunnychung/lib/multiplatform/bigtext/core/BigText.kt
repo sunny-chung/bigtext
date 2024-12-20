@@ -1,6 +1,7 @@
 package com.sunnychung.lib.multiplatform.bigtext.core
 
 import com.sunnychung.lib.multiplatform.bigtext.core.layout.TextLayouter
+import com.sunnychung.lib.multiplatform.bigtext.util.GeneralStringBuilder
 
 /**
  * Manipulates large String.
@@ -30,7 +31,7 @@ interface BigText {
     val chunkSize: Int
     val undoHistoryCapacity: Int
     val textBufferFactory: ((capacity: Int) -> TextBuffer)
-    val charSequenceBuilderFactory: ((capacity: Int) -> Appendable)
+    val charSequenceBuilderFactory: ((capacity: Int) -> GeneralStringBuilder)
     val charSequenceFactory: ((Appendable) -> CharSequence)
     val tree: LengthTree<BigTextNodeValue>
     val contentWidth: Float?

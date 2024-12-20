@@ -24,6 +24,7 @@ import com.sunnychung.lib.multiplatform.bigtext.extension.binarySearchForMinInde
 import com.sunnychung.lib.multiplatform.bigtext.extension.intersect
 import com.sunnychung.lib.multiplatform.bigtext.extension.length
 import com.sunnychung.lib.multiplatform.bigtext.extension.toNonEmptyRange
+import com.sunnychung.lib.multiplatform.bigtext.util.GeneralStringBuilder
 import com.sunnychung.lib.multiplatform.bigtext.util.JvmLogger
 import com.williamfiset.algorithms.datastructures.balancedtree.RedBlackTree
 
@@ -36,7 +37,7 @@ class BigTextTransformerImpl(
     override val originalText: BigText,
     chunkSize: Int = originalText.chunkSize,
     textBufferFactory: (capacity: Int) -> TextBuffer = originalText.textBufferFactory,
-    charSequenceBuilderFactory: (capacity: Int) -> Appendable = originalText.charSequenceBuilderFactory,
+    charSequenceBuilderFactory: (capacity: Int) -> GeneralStringBuilder = originalText.charSequenceBuilderFactory,
     charSequenceFactory: (Appendable) -> CharSequence = originalText.charSequenceFactory,
 ) : BigTextImpl(
     chunkSize = chunkSize,

@@ -11,7 +11,9 @@ import com.sunnychung.lib.multiplatform.bigtext.extension.binarySearchForMaxInde
 import com.sunnychung.lib.multiplatform.bigtext.extension.binarySearchForMinIndexOfValueAtLeast
 import com.sunnychung.lib.multiplatform.bigtext.extension.length
 import com.sunnychung.lib.multiplatform.bigtext.util.CircularList
+import com.sunnychung.lib.multiplatform.bigtext.util.GeneralStringBuilder
 import com.sunnychung.lib.multiplatform.bigtext.util.JvmLogger
+import com.sunnychung.lib.multiplatform.bigtext.util.StringBuilder2
 import com.sunnychung.lib.multiplatform.bigtext.util.let
 import com.sunnychung.lib.multiplatform.kdatetime.KInstant
 import com.williamfiset.algorithms.datastructures.balancedtree.RedBlackTree
@@ -21,6 +23,7 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.runBlocking
 import java.util.WeakHashMap
 import java.util.concurrent.locks.ReentrantLock
+import kotlin.concurrent.getOrSet
 import kotlin.concurrent.withLock
 import kotlin.math.roundToLong
 
@@ -55,7 +58,7 @@ open class BigTextImpl(
     override val chunkSize: Int = 2 * 1024 * 1024, // 2 MB
     override val undoHistoryCapacity: Int = 1000,
     override val textBufferFactory: ((capacity: Int) -> TextBuffer) = { StringTextBuffer(it) },
-    override val charSequenceBuilderFactory: ((capacity: Int) -> Appendable) = { StringBuilder(it) },
+    override val charSequenceBuilderFactory: ((capacity: Int) -> GeneralStringBuilder) = { StringBuilder2(it) },
     override val charSequenceFactory: ((Appendable) -> CharSequence) = { it: Appendable -> it.toString() },
 ) : BigText, BigTextLayoutable {
     override val tree: LengthTree<BigTextNodeValue> = LengthTree<BigTextNodeValue>(
@@ -109,6 +112,8 @@ open class BigTextImpl(
     val redoHistory = CircularList<BigTextInputOperation>(undoHistoryCapacity)
 
     override var changeHook: BigTextChangeHook? = null
+
+    var charSequenceBuilder = ThreadLocal<GeneralStringBuilder>()
 
     init {
         require(chunkSize > 0) { "chunkSize must be positive" }
@@ -911,7 +916,8 @@ open class BigTextImpl(
             return ""
         }
 
-        val result = charSequenceBuilderFactory(endExclusive - start)
+//        val result = charSequenceBuilderFactory(endExclusive - start)
+        val result = getCharSequenceBuilder()
         var node = tree.findNodeByRenderCharIndex(start) ?: throw IllegalStateException("Cannot find string node for position $start")
         var nodeStartPos = findRenderPositionStart(node)
         var numRemainCharsToCopy = endExclusive - start
@@ -936,6 +942,13 @@ open class BigTextImpl(
         return charSequenceFactory(result)
     }
 
+    private fun getCharSequenceBuilder(): GeneralStringBuilder {
+        // possible memory leak
+        return charSequenceBuilder
+            .getOrSet { charSequenceBuilderFactory(chunkSize) }
+            .apply { clear() }
+    }
+
     // TODO: refactor not to duplicate implementation of substring
     override fun subSequence(start: Int, endExclusive: Int): CharSequence {
         require(start <= endExclusive) { "start should be <= endExclusive" }
@@ -943,12 +956,14 @@ open class BigTextImpl(
         require(endExclusive <= length) { "endExclusive $endExclusive is out of bound. length = $length" }
 
         if (start == endExclusive) {
-            return charSequenceFactory(charSequenceBuilderFactory(0))
+//            return charSequenceFactory(charSequenceBuilderFactory(0))
+            return charSequenceFactory(getCharSequenceBuilder().also { it.clear() })
         }
 
         log.v { "subSequence start" }
 
-        val result = charSequenceBuilderFactory(endExclusive - start)
+//        val result = charSequenceBuilderFactory(endExclusive - start)
+        val result = getCharSequenceBuilder()
         var node = tree.findNodeByRenderCharIndex(start) ?: throw IllegalStateException("Cannot find string node for position $start")
         var nodeStartPos = findRenderPositionStart(node)
         var numRemainCharsToCopy = endExclusive - start

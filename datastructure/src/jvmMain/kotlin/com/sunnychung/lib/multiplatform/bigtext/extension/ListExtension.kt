@@ -5,13 +5,13 @@ package com.sunnychung.lib.multiplatform.bigtext.extension
  *
  * @param comparison This function should never return 0
  */
-fun <T> List<T>.binarySearchForInsertionPoint(comparison: (T) -> Int): Int {
-    val r = binarySearch(comparison = comparison)
+inline fun <T> List<T>.binarySearchForInsertionPoint(comparison: (T) -> Int): Int {
+    val r = binarySearch(searchRange = indices) { comparison(get(it)) }
     if (r >= 0) throw IllegalArgumentException("Parameter `comparison` should never return 0")
     return -(r + 1)
 }
 
-fun binarySearchForInsertionPoint(searchRange: IntRange, comparison: (Int) -> Int): Int {
+inline fun binarySearchForInsertionPoint(searchRange: IntRange, comparison: (Int) -> Int): Int {
     val r = binarySearch(searchRange = searchRange, comparison = comparison)
     if (r >= 0) throw IllegalArgumentException("Parameter `comparison` should never return 0")
     return -(r + 1)
@@ -20,7 +20,7 @@ fun binarySearchForInsertionPoint(searchRange: IntRange, comparison: (Int) -> In
 /**
  * Modified from Kotlin stdlib 1.9.25.
  */
-fun binarySearch(searchRange: IntRange, comparison: (Int) -> Int): Int {
+inline fun binarySearch(searchRange: IntRange, comparison: (Int) -> Int): Int {
     var low = searchRange.start
     var high = searchRange.endInclusive
 
@@ -61,7 +61,7 @@ fun List<Int>.binarySearchForMaxIndexOfValueAtMost(searchValue: Int): Int {
     }
 }
 
-fun binarySearchForMaxIndexOfValueAtMost(searchRange: IntRange, searchValue: Int, mapValue: (Int) -> Int): Int {
+inline fun binarySearchForMaxIndexOfValueAtMost(searchRange: IntRange, searchValue: Int, mapValue: (Int) -> Int): Int {
     val lastIndex = searchRange.endInclusive
     val insertionPoint = binarySearchForInsertionPoint(searchRange) { if (mapValue(it) >= searchValue) 1 else -1 }
     if (insertionPoint > lastIndex) return lastIndex
@@ -92,7 +92,7 @@ fun List<Int>.binarySearchForMinIndexOfValueAtLeast(searchValue: Int): Int {
     return insertionPoint
 }
 
-fun binarySearchForMinIndexOfValueAtLeast(searchRange: IntRange, searchValue: Int, mapValue: (Int) -> Int): Int {
+inline fun binarySearchForMinIndexOfValueAtLeast(searchRange: IntRange, searchValue: Int, mapValue: (Int) -> Int): Int {
     val insertionPoint = binarySearchForInsertionPoint(searchRange) { if (mapValue(it) >= searchValue) 1 else -1 }
     return insertionPoint
 }

@@ -1,6 +1,7 @@
 package com.sunnychung.lib.multiplatform.bigtext.core
 
 import com.sunnychung.lib.multiplatform.bigtext.core.layout.TextLayouter
+import com.sunnychung.lib.multiplatform.bigtext.util.GeneralStringBuilder
 import java.util.concurrent.locks.ReentrantReadWriteLock
 import kotlin.concurrent.read
 import kotlin.concurrent.write
@@ -35,7 +36,7 @@ open class ConcurrentBigText(open val delegate: BigText) : BigText {
         get() = lock.read { delegate.undoHistoryCapacity }
     override val textBufferFactory: (capacity: Int) -> TextBuffer
         get() = lock.read { delegate.textBufferFactory }
-    override val charSequenceBuilderFactory: (capacity: Int) -> Appendable
+    override val charSequenceBuilderFactory: (capacity: Int) -> GeneralStringBuilder
         get() = lock.read { delegate.charSequenceBuilderFactory }
     override val charSequenceFactory: (Appendable) -> CharSequence
         get() = lock.read { delegate.charSequenceFactory }
