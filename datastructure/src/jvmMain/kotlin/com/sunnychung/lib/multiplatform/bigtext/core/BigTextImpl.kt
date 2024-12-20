@@ -48,6 +48,9 @@ internal var isD = false
 
 private const val EPS = 1e-4f
 
+private val accumulatedWidthCacheInterval = 32
+private val accumulatedWidthCacheHalfInterval = accumulatedWidthCacheInterval / 2
+
 open class BigTextImpl(
     override val chunkSize: Int = 2 * 1024 * 1024, // 2 MB
     override val undoHistoryCapacity: Int = 1000,
@@ -76,7 +79,7 @@ open class BigTextImpl(
     private var isSoftWrapEnabled: Boolean = true
 
     protected val bufferExtraDataLock = ReentrantLock()
-    protected val bufferExtraData: MutableMap<TextBuffer, TextBufferExtraData> = WeakHashMap()
+    internal val bufferExtraData: MutableMap<TextBuffer, TextBufferExtraData> = WeakHashMap()
 
     /**
      * Viewport width.
@@ -704,6 +707,8 @@ open class BigTextImpl(
                 return@also
             }
 
+            val layouter = layouter ?: return@also
+
             fun calculateWidth(range: IntRange): Long {
                 if (range.isEmpty()) {
                     return 0
@@ -711,11 +716,7 @@ open class BigTextImpl(
                     return -1
                 }
 
-                return extraData.widths[range.endInclusive] - if (range.start > 0) {
-                    extraData.widths[range.start - 1]
-                } else {
-                    0
-                }
+                return findWidthSum(buffer, extraData, range.endInclusive) - findWidthSum(buffer, extraData, range.start - 1)
             }
 
             var maxWidth = -1L
@@ -1468,7 +1469,7 @@ open class BigTextImpl(
         return startCharIndex + columnIndex
     }
 
-    @Deprecated("Use findWidthByPositionRangeOfSameLine instead.")
+    @Deprecated("Use findWidthByPositionRangeOfSameLine instead. This implementation is outdated.")
     override fun findWidthByColumnRangeOfSameLine(lineIndex: Int, columns: IntRange): Float {
         if (columns.start == 0 && columns.last == 0 && length == 0) {
             return 0f
@@ -1556,12 +1557,8 @@ open class BigTextImpl(
                 val bufferExtraData = bufferExtraDataLock.withLock {
                     bufferExtraData[node.value.buffer]!!
                 }
-                accumulatedWidth += bufferExtraData.widths[roiEndInclusiveIndex] -
-                    if (roiStartIndex - 1 >= 0 /*node.value.renderBufferStart*/) { // bufferExtraData.widths is monotonically increasing within the same buffer
-                        bufferExtraData.widths[roiStartIndex - 1]
-                    } else {
-                        0L
-                    }
+                accumulatedWidth += findWidthSum(node.value.buffer, bufferExtraData, roiEndInclusiveIndex - node.value.renderBufferStart) -
+                    findWidthSum(node.value.buffer, bufferExtraData, roiStartIndex - node.value.renderBufferStart - 1)
             }
 
             if (node !== endNode) {
@@ -1675,7 +1672,7 @@ open class BigTextImpl(
     protected fun createBufferExtraData(buffer: TextBuffer) {
         bufferExtraDataLock.withLock {
             bufferExtraData.getOrPut(buffer) {
-                TextBufferExtraData(buffer.size)
+                TextBufferExtraData(buffer.size / accumulatedWidthCacheInterval)
             }
         }
     }
@@ -1688,6 +1685,15 @@ open class BigTextImpl(
         }
         val length = buffer.length
         var surrogatePairFirstChar: Char? = null
+        var accumulatedWidth = if ((fromCharIndex - 1) + 1 >= accumulatedWidthCacheInterval) {
+            extra.widths[((fromCharIndex - 1) + 1) / accumulatedWidthCacheInterval - 1]
+        } else {
+            0L
+        }
+        val fromCharIndex = ((fromCharIndex.coerceAtLeast(0) / accumulatedWidthCacheInterval) * accumulatedWidthCacheInterval).also { newFromCharIndex ->
+            log.w { "buildBufferExtraData from $fromCharIndex newFrom=$newFromCharIndex initial=$accumulatedWidth" }
+        }
+
         // Use (map + forEachIndexed) VS forEach: 2s VS 0.7s
         (fromCharIndex ..< length).forEach { i ->
             val char = buffer.substring(i, i + 1)
@@ -1701,9 +1707,68 @@ open class BigTextImpl(
             } else {
                 charWidth = layouter.measureCharWidth(char)
             }
-            extra.widths[i] = (charWidth * widthMultiplier).roundToLong() + if (i > 0) extra.widths[i - 1] else 0L
+            log.w { "buildBufferExtraData c[$i]=$charWidth" }
+            val multipliedCharWidth = (charWidth * widthMultiplier).roundToLong()
+            accumulatedWidth += multipliedCharWidth
+            if ((i + 1) % accumulatedWidthCacheInterval == 0) {
+                log.w { "buildBufferExtraData w[${(i + 1) / accumulatedWidthCacheInterval - 1}]=$accumulatedWidth" }
+                extra.widths[(i + 1) / accumulatedWidthCacheInterval - 1] = accumulatedWidth
+            }
         }
         extra.hasInitialized = true
+    }
+
+    /**
+     * Width of characters at range 0 .. index
+     */
+    internal fun findWidthSum(buffer: TextBuffer, extraData: TextBufferExtraData, index: Int): Long {
+        if (index < 0) return 0L
+        val layouter = layouter!!
+
+        val isForwardSearch: Boolean = (
+            index % accumulatedWidthCacheInterval < accumulatedWidthCacheHalfInterval
+                || ((index + 1) / accumulatedWidthCacheInterval - 1) + 1 > extraData.widths.lastIndex
+                || extraData.widths[((index + 1) / accumulatedWidthCacheInterval - 1) + 1] <= 0L
+        )
+        return if (isForwardSearch) {
+            val dividable = ((index + 1) / accumulatedWidthCacheInterval - 1)
+            var surrogatePairFirstChar = if (dividable >= 0) {
+                buffer.substring(dividable, dividable + 1)[0].takeIf { it.isHighSurrogate() }
+            } else null
+            (if (dividable >= 0) extraData.widths[dividable] else 0L) +
+                (((dividable + 1) * accumulatedWidthCacheInterval - 1) + 1 .. index).sumOf { i ->
+                    val char = buffer.substring(i, i + 1)
+                    val charWidth: Float
+                    if (char[0].isHighSurrogate()) {
+                        surrogatePairFirstChar = char[0]
+                        charWidth = 0f
+                    } else if (surrogatePairFirstChar != null) {
+                        charWidth = layouter.measureCharWidth("$surrogatePairFirstChar$char")
+                        surrogatePairFirstChar = null
+                    } else {
+                        charWidth = layouter.measureCharWidth(char)
+                    }
+                    val multipliedCharWidth = (charWidth * widthMultiplier).roundToLong()
+                    multipliedCharWidth
+                }
+        } else {
+            val dividable = ((index + 1) / accumulatedWidthCacheInterval - 1) + 1
+//                    val surrogatePairSecondChar = buffer.substring(dividable, dividable + 1)[0].takeIf { it.isLowSurrogate() }
+            extraData.widths[dividable] -
+                ((dividable + 1) * accumulatedWidthCacheInterval - 1 downTo  index + 1).sumOf { i ->
+                    val char = buffer.substring(i, i + 1)
+                    val charWidth: Float
+                    if (char[0].isLowSurrogate()) {
+                        charWidth = layouter.measureCharWidth("${buffer.substring(i - 1, i)}$char")
+                    } else if (char[0].isHighSurrogate()) {
+                        charWidth = 0f
+                    } else {
+                        charWidth = layouter.measureCharWidth(char)
+                    }
+                    val multipliedCharWidth = (charWidth * widthMultiplier).roundToLong()
+                    multipliedCharWidth
+                }
+        }
     }
 
     override fun setContentWidth(contentWidth: Float) {

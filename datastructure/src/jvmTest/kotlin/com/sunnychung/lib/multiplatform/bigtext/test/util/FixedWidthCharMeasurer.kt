@@ -8,4 +8,6 @@ class FixedWidthCharMeasurer(private val charWidth: Float) : CharMeasurer {
     }
 
     override fun findCharWidth(char: String): Float = charWidth
+
+    override fun findCharYOffset(char: String): Float = throw NotImplementedError()
 }

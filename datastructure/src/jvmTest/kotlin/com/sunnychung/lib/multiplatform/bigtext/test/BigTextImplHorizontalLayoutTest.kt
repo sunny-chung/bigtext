@@ -4,6 +4,7 @@ import com.sunnychung.lib.multiplatform.bigtext.core.BigText
 import com.sunnychung.lib.multiplatform.bigtext.core.BigTextImpl
 import com.sunnychung.lib.multiplatform.bigtext.core.isD
 import com.sunnychung.lib.multiplatform.bigtext.core.layout.MonospaceTextLayouter
+import com.sunnychung.lib.multiplatform.bigtext.core.layout.TextLayouter
 import com.sunnychung.lib.multiplatform.bigtext.extension.length
 import com.sunnychung.lib.multiplatform.bigtext.test.util.FixedWidthCharMeasurer
 import org.junit.jupiter.api.Disabled
@@ -13,6 +14,7 @@ import org.junit.jupiter.api.parallel.ExecutionMode
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.ValueSource
 import kotlin.random.Random
+import kotlin.test.Test
 import kotlin.test.assertEquals
 
 @Execution(ExecutionMode.CONCURRENT)
@@ -308,6 +310,111 @@ class BigTextImplHorizontalLayoutTest {
             0.01f,
             "end"
         )
+    }
+
+    @Test
+    fun findWidthSum() {
+        val random = Random(234)
+        val charWidths = (0 .. 9).map { random.nextInt(1000) + 1 }
+        val layouter = object : TextLayouter {
+            override fun indexCharWidth(text: String) = throw NotImplementedError()
+
+            override fun measureCharWidth(char: String): Float {
+                if (char == "\n") return 0f
+                return charWidths[(char[0] - '0')].toFloat()
+            }
+
+            override fun measureCharYOffset(char: String): Float = throw NotImplementedError()
+
+            override fun layoutOneLine(
+                line: CharSequence,
+                contentWidth: Float,
+                firstRowOccupiedWidth: Float,
+                offset: Int
+            ): Pair<List<Int>, Float> = throw NotImplementedError()
+
+        }
+
+        val t = BigTextImpl(chunkSize = 1024).apply {
+            append("1234\n1234567890123456\n12345678901234567890123456789\n\n26378942103594682936\n489\n\n\n")
+            setLayouter(layouter)
+            setSoftWrapEnabled(false)
+        }
+        val buffer = t.buffers.first()
+        val bufferExtraData = t.bufferExtraData[buffer]!!
+
+        fun verifyWidths(position: Int) {
+            val measured = t.findWidthSum(buffer, bufferExtraData, position)
+            val expected = (0 .. position).sumOf {
+                (layouter.measureCharWidth(t.substring(it, it + 1).toString()) * 100).toLong()
+            }
+            println("[$position] exp=$expected, mes=$measured")
+            assertEquals(expected, measured, "pos $position")
+        }
+
+        (-1 .. t.lastIndex).forEach {
+            verifyWidths(it)
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = [1 * 1024 * 1024, 32])
+    fun findWidthByPositionRangeOfSameLine(chunkSize: Int) {
+        listOf(
+            "1234\n1234567890123456\n12345678901234567890123456789\n\n26378942103594682936\n5\n1029384756019283457657412895071228537042987590385479290819257214510926782450428902864592150125913597\n489\n\n\n",
+            "145274309673245\n1\n25"
+        ).forEach { testCase ->
+            val random = Random(2345)
+            val charWidths = (0..9).map { random.nextInt(1000) + 1 }
+            val layouter = object : TextLayouter {
+                override fun indexCharWidth(text: String) = throw NotImplementedError()
+
+                override fun measureCharWidth(char: String): Float {
+                    if (char == "\n") return 0f
+                    return charWidths[(char[0] - '0')].toFloat()
+                }
+
+                override fun measureCharYOffset(char: String): Float = throw NotImplementedError()
+
+                override fun layoutOneLine(
+                    line: CharSequence,
+                    contentWidth: Float,
+                    firstRowOccupiedWidth: Float,
+                    offset: Int
+                ): Pair<List<Int>, Float> = throw NotImplementedError()
+
+            }
+
+            val t = BigTextImpl(chunkSize = chunkSize).apply {
+                append(testCase)
+                setLayouter(layouter)
+                setSoftWrapEnabled(false)
+            }
+
+            fun verifyWidths(positions: IntRange) {
+                val measured = t.findWidthByPositionRangeOfSameLine(positions).toDouble()
+                val expected = positions.sumOf {
+                    layouter.measureCharWidth(t.substring(it, it + 1).toString()).toDouble()
+                }
+                println("[$positions] exp=$expected, mes=$measured")
+                assertEquals(expected, measured, 0.0001, "pos $positions")
+            }
+
+            fun findLineIndex(position: Int): Int {
+                if (position <= 0) return 0
+                return t.substring(0..<position).count { it == '\n' }
+            }
+
+            (0..t.lastIndex).forEach { i ->
+                val lineI = findLineIndex(i)
+                (i - 1..t.lastIndex).forEach { j ->
+                    val lineJ = findLineIndex(j)
+                    if (lineI == lineJ) {
+                        verifyWidths(i..j)
+                    }
+                }
+            }
+        }
     }
 
     internal fun BigTextVerifyImpl.verifyMaxLineWidth(message: String? = null) {
