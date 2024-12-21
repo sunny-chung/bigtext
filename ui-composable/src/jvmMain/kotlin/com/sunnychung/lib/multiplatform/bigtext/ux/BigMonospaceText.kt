@@ -23,6 +23,7 @@ import androidx.compose.foundation.text.isTypedEvent
 import androidx.compose.foundation.text.selection.LocalTextSelectionColors
 import androidx.compose.material.LocalTextStyle
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -79,6 +80,7 @@ import androidx.compose.ui.text.input.CommitTextCommand
 import androidx.compose.ui.text.input.ImeOptions
 import androidx.compose.ui.text.input.SetComposingTextCommand
 import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.input.TextInputSession
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
@@ -108,6 +110,7 @@ import com.sunnychung.lib.multiplatform.bigtext.extension.toTextInput
 import com.sunnychung.lib.multiplatform.bigtext.platform.MacOS
 import com.sunnychung.lib.multiplatform.bigtext.platform.currentOS
 import com.sunnychung.lib.multiplatform.bigtext.util.AnnotatedStringBuilder
+import com.sunnychung.lib.multiplatform.bigtext.util.WeakRefKey
 import com.sunnychung.lib.multiplatform.bigtext.util.annotatedString
 import com.sunnychung.lib.multiplatform.bigtext.util.buildTestTag
 import com.sunnychung.lib.multiplatform.bigtext.util.debouncedStateOf
@@ -367,6 +370,8 @@ private fun CoreBigMonospaceText(
     viewState.isLayoutDisabledFlow.collectAsState(initial = false).value
     val isLayoutEnabled = !viewState.isLayoutDisabled // not using the value from flow because it is not instantly updated
 
+    var textInputSessionRef by remember { mutableStateOf<WeakRefKey<TextInputSession>?>(null) }
+
     var isCursorVisible by remember { mutableStateOf(true) }
     val cursorShowTrigger = remember { Channel<Unit>(capacity = 1, onBufferOverflow = BufferOverflow.DROP_OLDEST) }
 
@@ -411,6 +416,7 @@ private fun CoreBigMonospaceText(
 
     val textRef = weakRefOf(text)
     val transformedTextRef = weakRefOf(transformedText)
+    val onTextChangeRef = weakRefOf(onTextChange)
 
 //    log.v { "text = |${text.buildString()}|" }
 //    log.v { "transformedText = |${transformedText.buildString()}|" }
@@ -627,6 +633,8 @@ private fun CoreBigMonospaceText(
     }
 
     fun getTransformedStringWidth(start: Int, endExclusive: Int): Float {
+        val transformedText = transformedTextRef.get() ?: return 0f
+
         return transformedText.findWidthByPositionRangeOfSameLine(start .. endExclusive - 1)
 //        return (start .. endExclusive - 1)
 //            .map {
@@ -721,6 +729,7 @@ private fun CoreBigMonospaceText(
 
     fun onValuePostChange(eventType: BigTextChangeEventType, changeStartIndex: Int, changeEndExclusiveIndex: Int) {
         val transformedText = transformedTextRef.get() ?: return
+        val onTextChange = onTextChangeRef.get() ?: return
         updateViewState()
 
         viewState.version = Random.nextLong()
@@ -1349,7 +1358,10 @@ private fun CoreBigMonospaceText(
 
     val tv = remember { TextFieldValue() } // this value is not used
 
-    LaunchedEffect(transformedText) {
+    LaunchedEffect(weakRefOf(transformedText)) {
+        val text = textRef.get() ?: return@LaunchedEffect
+        val transformedText = transformedTextRef.get() ?: return@LaunchedEffect
+
         if (log.config.minSeverity <= Severity.Verbose) {
             (0..text.length).forEach {
                 log.v { "findTransformedPositionByOriginalPosition($it) = ${transformedText.findTransformedPositionByOriginalPosition(it)}" }
@@ -1525,6 +1537,8 @@ private fun CoreBigMonospaceText(
                 isFocused = it.isFocused
                 if (isEditable) {
                     if (it.isFocused) {
+                        textInputSessionRef?.get()?.dispose()
+
                         val textInputSession = textInputService?.startInput(
                             tv,
                             ImeOptions.Default,
@@ -1554,7 +1568,10 @@ private fun CoreBigMonospaceText(
                                 )
                             )
                         )
-                        log.v { "started text input session" }
+                        if (textInputSession != null) {
+                            textInputSessionRef = weakRefOf(textInputSession)
+                            log.v { "started text input session" }
+                        }
                         showCursor()
 //                        keyboardController?.show()
                     } else {
@@ -1591,6 +1608,7 @@ private fun CoreBigMonospaceText(
             }
 
     ) {
+        val transformedText = transformedTextRef.get() ?: return@Box
         val viewportBottom = viewportTop + height
         if (lineHeight > 0 && transformedText.hasLayouted) {
 
@@ -1617,6 +1635,8 @@ private fun CoreBigMonospaceText(
                     fillMaxHeight()
                 }
             }) {
+                val transformedText = transformedTextRef.get() ?: return@Canvas
+
                 (firstRowIndex..lastRowIndex).forEach { i ->
                     val lineIndex = transformedText.findOriginalLineIndexByRowIndex(i)
                     val rowStartIndex = transformedText.findRowPositionStartIndexByRowIndex(i)
@@ -1837,6 +1857,12 @@ private fun CoreBigMonospaceText(
             .launchIn(this)
 
         cursorShowTrigger.send(Unit) // activate the flow
+    }
+
+    DisposableEffect(textInputSessionRef, weakRefOf(transformedText)) {
+        onDispose {
+            textInputSessionRef?.get()?.dispose()
+        }
     }
 }
 
