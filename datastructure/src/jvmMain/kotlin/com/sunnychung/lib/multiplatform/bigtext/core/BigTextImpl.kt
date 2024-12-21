@@ -1685,6 +1685,8 @@ open class BigTextImpl(
     }
 
     protected fun createBufferExtraData(buffer: TextBuffer) {
+        layouter ?: return
+        
         bufferExtraDataLock.withLock {
             bufferExtraData.getOrPut(buffer) {
                 TextBufferExtraData(buffer.size / accumulatedWidthCacheInterval)
