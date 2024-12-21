@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import com.sunnychung.lib.multiplatform.bigtext.core.BigText
 import com.sunnychung.lib.multiplatform.bigtext.core.ConcurrentBigText
 import com.sunnychung.lib.multiplatform.bigtext.util.emptyToNull
+import com.sunnychung.lib.multiplatform.bigtext.util.string
 import com.sunnychung.lib.multiplatform.bigtext.ux.BigMonospaceTextField
 import com.sunnychung.lib.multiplatform.bigtext.ux.BigTextFieldState
 import com.sunnychung.lib.multiplatform.bigtext.ux.BigTextSimpleLayoutResult
@@ -63,7 +64,7 @@ fun CodeEditorDemoView() {
     var isSoftWrapEnabled by remember { mutableStateOf(false) }
     var isLoading by remember { mutableStateOf(false) }
     var isWaitForMeasure by remember { mutableStateOf(false) }
-    var textHash by remember { mutableStateOf(calculateSha256Hash("")) }
+    var textHash by remember { mutableStateOf(calculateSha256Hash(bigTextFieldState.text)) }
     val scrollState = rememberScrollState()
     val horizontalScrollState = rememberScrollState()
     val coroutineScope1 = rememberCoroutineScope()
@@ -78,10 +79,11 @@ fun CodeEditorDemoView() {
 
             val (textState, hash) = withContext(Dispatchers.IO) {
                 val initialText = PRELOAD_CONTENT[contentKey]!!
-                BigTextFieldState(
+                val textState = BigTextFieldState(
                     ConcurrentBigText(BigText.createFromLargeAnnotatedString(AnnotatedString(initialText))),
                     BigTextViewState()
-                ) to calculateSha256Hash(initialText)
+                )
+                textState to calculateSha256Hash(textState.text)
             }
             bigTextFieldState = textState
             textHash = hash
@@ -95,8 +97,9 @@ fun CodeEditorDemoView() {
             bigTextFieldState.valueChangesFlow
                 .debounce(1000L)
                 .collect {
-                    val fullString = bigTextFieldState.text.buildString()
-                    val hash = calculateSha256Hash(fullString)
+                    val hash = (bigTextFieldState.text as ConcurrentBigText).withReadLock { text ->
+                        calculateSha256Hash(text)
+                    }
                     withContext(Dispatchers.Default) {
                         textHash = hash
                     }
@@ -199,9 +202,14 @@ fun CodeEditorDemoView() {
 }
 
 @OptIn(ExperimentalStdlibApi::class)
-fun calculateSha256Hash(content: String): String {
-    val bytes = content.encodeToByteArray()
+fun calculateSha256Hash(bigText: BigText): String {
     val digest = SHA256()
-    digest.update(bytes)
+    val chunkSize = 2 * 1024 * 1024
+    val length = bigText.length
+    (0 .. length / chunkSize).forEach {
+        val content = bigText.substring(it * chunkSize, ((it + 1) * chunkSize).coerceAtMost(length)).string()
+        val bytes = content.encodeToByteArray()
+        digest.update(bytes)
+    }
     return digest.digest().toHexString()
 }

@@ -128,9 +128,9 @@ open class ConcurrentBigText(open val delegate: BigText) : BigText {
 
     override fun printDebug(label: String) = lock.read { delegate.printDebug(label) }
 
-    fun withWriteLock(operation: (BigText) -> Unit) = lock.write { operation(delegate) }
+    fun <R> withWriteLock(operation: (BigText) -> R) = lock.write { operation(delegate) }
 
-    fun withReadLock(operation: (BigText) -> Unit) = lock.read { operation(delegate) }
+    fun <R> withReadLock(operation: (BigText) -> R) = lock.read { operation(delegate) }
 
     inline fun tryReadLock(operation: (BigText) -> Unit) {
         val isLocked = lock.readLock().tryLock()
