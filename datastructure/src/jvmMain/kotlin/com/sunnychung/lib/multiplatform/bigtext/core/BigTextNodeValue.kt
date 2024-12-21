@@ -1,6 +1,7 @@
 package com.sunnychung.lib.multiplatform.bigtext.core
 
 import com.sunnychung.lib.multiplatform.bigtext.core.transform.BigTextTransformOffsetMapping
+import com.sunnychung.lib.multiplatform.bigtext.util.IntList
 import com.sunnychung.lib.multiplatform.bigtext.util.findAllIndicesOfChar
 import com.williamfiset.algorithms.datastructures.balancedtree.RedBlackTree
 import kotlin.random.Random
@@ -116,12 +117,12 @@ open class BigTextNodeValue : Comparable<BigTextNodeValue>, DebuggableNode<BigTe
 }
 
 abstract class TextBuffer(val size: Int) {
-    private val mutableLineOffsetStarts = mutableListOf<Int>()
+    private val mutableLineOffsetStarts = IntList()
 
     /**
      * Line break positions in the domain of character indices of this buffer.
      */
-    val lineOffsetStarts: List<Int> = mutableLineOffsetStarts
+    val lineOffsetStarts: IntList = mutableLineOffsetStarts
 //    var lineOffsetStarts: SortedSet<Int> = sortedSetOf()
 //    var rowOffsetStarts: List<Int> = emptyList()
 

@@ -51,7 +51,7 @@ internal var isD = false
 
 private const val EPS = 1e-4f
 
-private val accumulatedWidthCacheInterval = 32
+private val accumulatedWidthCacheInterval = 128
 private val accumulatedWidthCacheHalfInterval = accumulatedWidthCacheInterval / 2
 
 open class BigTextImpl(
