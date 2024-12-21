@@ -7,7 +7,7 @@ package com.sunnychung.lib.multiplatform.bigtext.util
  *
  * An java.lang.Integer in List<Int> consumes 16 bytes, while int consumes 4 bytes.
  */
-class IntList(private val initialCapacity: Int = 16) {
+class IntList(initialCapacity: Int = 16) {
 
     private var buffer = IntArray(initialCapacity)
 
@@ -35,7 +35,7 @@ class IntList(private val initialCapacity: Int = 16) {
 
     private fun growIfNeeded(desiredSize: Int) {
         if (desiredSize > buffer.size) {
-            val newSize = 1.shl(32 - Integer.numberOfLeadingZeros(desiredSize))
+            val newSize = 1.shl((32 - Integer.numberOfLeadingZeros(desiredSize)) + 1) // increase by 4x
             val newBuffer = IntArray(newSize)
             System.arraycopy(buffer, 0, newBuffer, 0, buffer.size)
             buffer = newBuffer
