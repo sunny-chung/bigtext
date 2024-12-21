@@ -1672,7 +1672,7 @@ open class BigTextImpl(
                     buildBufferExtraData(buffer, 0)
 
                     val end = KInstant.now()
-                    log.w { "build buffer extra took ${end - start}" }
+                    log.i { "build buffer extra took ${end - start}" }
                 }
             }.awaitAll()
 
@@ -1706,7 +1706,7 @@ open class BigTextImpl(
             0L
         }
         val fromCharIndex = ((fromCharIndex.coerceAtLeast(0) / accumulatedWidthCacheInterval) * accumulatedWidthCacheInterval).also { newFromCharIndex ->
-            log.w { "buildBufferExtraData from $fromCharIndex newFrom=$newFromCharIndex initial=$accumulatedWidth" }
+            log.v { "buildBufferExtraData from $fromCharIndex newFrom=$newFromCharIndex initial=$accumulatedWidth" }
         }
 
         // Use (map + forEachIndexed) VS forEach: 2s VS 0.7s
@@ -1722,11 +1722,11 @@ open class BigTextImpl(
             } else {
                 charWidth = layouter.measureCharWidth(char)
             }
-            log.w { "buildBufferExtraData c[$i]=$charWidth" }
+            log.v { "buildBufferExtraData c[$i]=$charWidth" }
             val multipliedCharWidth = (charWidth * widthMultiplier).roundToLong()
             accumulatedWidth += multipliedCharWidth
             if ((i + 1) % accumulatedWidthCacheInterval == 0) {
-                log.w { "buildBufferExtraData w[${(i + 1) / accumulatedWidthCacheInterval - 1}]=$accumulatedWidth" }
+                log.v { "buildBufferExtraData w[${(i + 1) / accumulatedWidthCacheInterval - 1}]=$accumulatedWidth" }
                 extra.widths[(i + 1) / accumulatedWidthCacheInterval - 1] = accumulatedWidth
             }
         }

@@ -15,7 +15,7 @@ class ComposeUnicodeCharMeasurer(private val measurer: TextMeasurer, private val
     private val charWidth: MutableMap<String, Float> = ConcurrentHashMap<String, Float>(128) //LinkedHashMap<String, Float>(256)
     private val charYOffset: MutableMap<String, Float> = ConcurrentHashMap<String, Float>(128) //LinkedHashMap<String, Float>(256)
     private val refCharHeight: Float = measurer.measure("|\n|", style, softWrap = false).let {
-        log.w { "charHeight ${it.getLineTop(1)} - ${it.getLineTop(0)}" }
+        log.i { "charHeight ${it.getLineTop(1)} - ${it.getLineTop(0)}" }
         it.getLineTop(1) - it.getLineTop(0)
     }
     private val refChar = 'A'
@@ -135,7 +135,7 @@ class ComposeUnicodeCharMeasurer(private val measurer: TextMeasurer, private val
                 }
                 b.width
             }*/
-            log.w { "char '$s' bl=${result.firstBaseline} r=$result top=${result.getLineTop(index)} bottom=${result.getLineBottom(index)} bound=${result.getBoundingBox(charIndex + indexOffset)} rbound=${result.getBoundingBox(charIndex)}" }
+            log.v { "char '$s' bl=${result.firstBaseline} r=$result top=${result.getLineTop(index)} bottom=${result.getLineBottom(index)} bound=${result.getBoundingBox(charIndex + indexOffset)} rbound=${result.getBoundingBox(charIndex)}" }
             w to refCharHeight - result.firstBaseline - refCharHeightBaselineDiff /* from observation, `result.getLineTop()` <= 0 */
                 .also {
                     charIndex += s.length
