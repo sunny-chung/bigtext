@@ -29,8 +29,9 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 
 @Composable
-fun ComposeTextView() {
+fun ComposeTextFieldView() {
     var generateContentKey by remember { mutableStateOf("Empty") }
+    var textContent by remember { mutableStateOf("") }
 
     var isSoftWrapEnabled by remember { mutableStateOf(false) }
     val scrollState = rememberScrollState()
@@ -44,6 +45,7 @@ fun ComposeTextView() {
                 .forEach { key ->
                     Button(onClick = {
                         generateContentKey = key
+                        textContent = PRELOAD_CONTENT[generateContentKey]!!
                         coroutineScope.launch {
                             scrollState.scrollTo(0)
                         }
@@ -60,7 +62,7 @@ fun ComposeTextView() {
                 .padding(end = 16.dp)
         ) {
             Checkbox(checked = isSoftWrapEnabled, onCheckedChange = { isSoftWrapEnabled = it })
-            Text("Soft Wrap")
+            Text("Soft Wrap (Not supported)")
         }
 
         Box(Modifier.fillMaxSize()) {
@@ -76,8 +78,8 @@ fun ComposeTextView() {
 //                }
 //            ) {
                 BasicTextField(
-                    value = PRELOAD_CONTENT[generateContentKey]!!,
-                    onValueChange = {},
+                    value = textContent,
+                    onValueChange = { textContent = it },
                     textStyle = LocalTextStyle.current.copy(
                         color = Color.Black,
                         fontFamily = FontFamily.Monospace,

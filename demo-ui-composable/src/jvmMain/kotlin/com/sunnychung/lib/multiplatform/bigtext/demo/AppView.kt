@@ -32,6 +32,8 @@ val PRELOAD_CONTENT = linkedMapOf(
     "Unicode 10 MB" to generateRandomUnicodeContent(10 * 1024 * 1024),
     "Unicode + Emoji 4 KB" to generateRandomUnicodeWithEmojiContent(4 * 1024),
     "Unicode + Emoji 10 MB" to generateRandomUnicodeWithEmojiContent(10 * 1024 * 1024),
+    "Dense 10 MB" to generateDenseRandomContent(10 * 1024 * 1024),
+    "Single Line 10 MB" to generateSingleLongLine(10 * 1024 * 1024),
 )
 
 private enum class DemoView(val displayName: String) {
@@ -41,7 +43,8 @@ private enum class DemoView(val displayName: String) {
     Transformation("Transformation"),
     ReadOnly("Read-only"),
     MoreExamples("More Examples"),
-    ComposeText("Compare with Jetpack Compose Built-in"),
+    ComposeText("Compare with Jetpack Compose BasicTextField"),
+    ComposeText2("Compare with Jetpack Compose BasicTextField2"),
 }
 
 @Composable
@@ -75,7 +78,8 @@ fun AppView() {
             DemoView.Transformation -> TransformationDemoView()
             DemoView.ReadOnly -> ReadOnlyDemoView()
             DemoView.MoreExamples -> MoreExamplesDemoView()
-            DemoView.ComposeText -> ComposeTextView()
+            DemoView.ComposeText -> ComposeTextFieldView()
+            DemoView.ComposeText2 -> ComposeTextField2View()
         }
     }
 }
@@ -142,6 +146,36 @@ fun generateRandomUnicodeWithEmojiContent(size: Int): String {
             in 260 ..< 290 -> "!@#$%^&*()-=_+[]{}:;\"',./<>?|\\"[r - 260] // Punctuation
             in 290 ..< 300 -> "π©¥º…≈≤£¢∞"[r - 290] // Symbol
 
+            else -> throw RuntimeException("Unexpected random value: $r")
+        }.toString()
+    }
+}
+
+fun generateDenseRandomContent(size: Int): String {
+    val random = Random
+    return (0 ..< size).joinToString("") {
+        if (random.nextInt(100000) < 1) {
+            "\n"
+        } else {
+            when (val r = random.nextInt(64)) {
+                in 0 ..< 26 -> 'A'.plus(r - 0)
+                in 26 ..< 52 -> 'a'.plus(r - 26)
+                in 52 ..< 62 -> '0'.plus(r - 52)
+                in 62 ..< 64 -> ' '
+                else -> throw RuntimeException("Unexpected random value: $r")
+            }.toString()
+        }
+    }
+}
+
+fun generateSingleLongLine(size: Int): String {
+    val random = Random
+    return (0 ..< size).joinToString("") {
+        when (val r = random.nextInt(64)) {
+            in 0 ..< 26 -> 'A'.plus(r - 0)
+            in 26 ..< 52 -> 'a'.plus(r - 26)
+            in 52 ..< 62 -> '0'.plus(r - 52)
+            in 62 ..< 64 -> ' '
             else -> throw RuntimeException("Unexpected random value: $r")
         }.toString()
     }
