@@ -113,6 +113,7 @@ import com.sunnychung.lib.multiplatform.bigtext.util.buildTestTag
 import com.sunnychung.lib.multiplatform.bigtext.util.debouncedStateOf
 import com.sunnychung.lib.multiplatform.bigtext.util.isSurrogatePairFirst
 import com.sunnychung.lib.multiplatform.bigtext.util.string
+import com.sunnychung.lib.multiplatform.bigtext.util.weakRefOf
 import com.sunnychung.lib.multiplatform.bigtext.ux.compose.rememberLast
 import com.sunnychung.lib.multiplatform.kdatetime.KInstant
 import com.sunnychung.lib.multiplatform.kdatetime.extension.milliseconds
@@ -262,7 +263,7 @@ fun BigMonospaceTextField(
     textDecorator: BigTextDecorator? = null,
     scrollState: ScrollState = rememberScrollState(),
     horizontalScrollState: ScrollState = rememberScrollState(),
-    viewState: BigTextViewState = remember(text) { BigTextViewState() },
+    viewState: BigTextViewState = remember(weakRefOf(text)) { BigTextViewState() },
     keyboardInputProcessor: BigTextKeyboardInputProcessor? = null,
     onPointerEvent: ((event: PointerEvent, tag: String?) -> Unit)? = null,
     onTextLayout: ((BigTextSimpleLayoutResult) -> Unit)? = null,
@@ -319,7 +320,7 @@ private fun CoreBigMonospaceText(
     textDecorator: BigTextDecorator? = null,
     scrollState: ScrollState = rememberScrollState(),
     horizontalScrollState: ScrollState = rememberScrollState(),
-    viewState: BigTextViewState = remember(text) { BigTextViewState() },
+    viewState: BigTextViewState = remember(weakRefOf(text)) { BigTextViewState() },
     keyboardInputProcessor: BigTextKeyboardInputProcessor? = null,
     onPointerEvent: ((event: PointerEvent, tag: String?) -> Unit)? = null,
     onTextLayout: ((BigTextSimpleLayoutResult) -> Unit)? = null,
@@ -384,7 +385,7 @@ private fun CoreBigMonospaceText(
 
     viewState.version // observe value changes
 
-    val transformedText: BigTextTransformed = remember(text, textTransformation) {
+    val transformedText: BigTextTransformed = remember(weakRefOf(text), textTransformation) {
         log.d { "CoreBigMonospaceText recreate BigTextTransformed $text $textTransformation" }
         BigTextTransformerImpl(
             text,
@@ -408,10 +409,13 @@ private fun CoreBigMonospaceText(
     transformedText.decorator = textDecorator
     transformedText.setSoftWrapEnabled(isSoftWrapEnabled)
 
+    val textRef = weakRefOf(text)
+    val transformedTextRef = weakRefOf(transformedText)
+
 //    log.v { "text = |${text.buildString()}|" }
 //    log.v { "transformedText = |${transformedText.buildString()}|" }
 
-    remember(text, viewState) {
+    remember(weakRefOf(text), viewState) {
         text.undoMetadataSupplier = {
             BigTextUndoMetadata(
                 cursor = viewState.cursorIndex,
@@ -435,10 +439,11 @@ private fun CoreBigMonospaceText(
     }
 
     if (isLayoutEnabled && contentWidth > 0 && isContentWidthLatest) {
-        remember(transformedText, textLayouter, contentWidth) {
+        remember(weakRefOf(transformedText), textLayouter, contentWidth) {
             log.d { "CoreBigMonospaceText set contentWidth = $contentWidth" }
+            val transformedText = transformedTextRef.get() ?: return@remember
 
-            val layout = {
+            val layout = layout@ {
                 val startInstant = KInstant.now()
 
                 transformedText.onLayoutCallback = {
@@ -526,7 +531,7 @@ private fun CoreBigMonospaceText(
             }
     }
 
-    val transformedState = remember(text, textTransformation) {
+    val transformedState = remember(weakRefOf(text), textTransformation) {
         log.v { "CoreBigMonospaceText text = |${text.buildString()}|" }
         if (textTransformation != null) {
             val startInstant = KInstant.now()
@@ -536,16 +541,16 @@ private fun CoreBigMonospaceText(
                 if (log.config.minSeverity <= Severity.Verbose) {
                     transformedText.printDebug("init transformedState")
                 }
-                viewState.transformedText = transformedText
+                viewState.transformedText = weakRefOf(transformedText)
                 onTransformInit?.invoke(transformedText)
             }
         } else {
-            viewState.transformedText = transformedText
+            viewState.transformedText = weakRefOf(transformedText)
             null
         }
     }
 
-    remember(text, textDecorator) {
+    remember(weakRefOf(text), textDecorator) {
         if (textDecorator != null) {
             val startInstant = KInstant.now()
             textDecorator.initialize(text).also {
@@ -591,6 +596,7 @@ private fun CoreBigMonospaceText(
     val viewportLeft = if (isSoftWrapEnabled) 0f else horizontalScrollState.value.toFloat()
 
     fun getTransformedCharIndex(x: Float, y: Float, mode: ResolveCharPositionMode): Int {
+        val transformedText = transformedTextRef.get() ?: return 0
         val row = ((viewportTop + y) / lineHeight).toInt()
         val maxIndex = maxOf(0, transformedText.length /*- if (mode == ResolveCharPositionMode.Selection) 1 else 0*/)
         if (row > transformedText.lastRowIndex) {
@@ -638,7 +644,8 @@ private fun CoreBigMonospaceText(
         cursorShowTrigger.trySend(Unit)
     }
 
-    fun generateChangeEvent(eventType: BigTextChangeEventType, changeStartIndex: Int, changeEndExclusiveIndex: Int) : BigTextChangeEvent {
+    fun generateChangeEvent(eventType: BigTextChangeEventType, changeStartIndex: Int, changeEndExclusiveIndex: Int) : BigTextChangeEvent? {
+        val text = textRef.get() ?: return null
         return BigTextChangeEvent(
             changeId = viewState.version,
             bigText = text,
@@ -649,6 +656,7 @@ private fun CoreBigMonospaceText(
     }
 
     fun scrollToCursor() = with(density) {
+        val transformedText = transformedTextRef.get() ?: return
         val row = transformedText.findRowIndexByPosition(viewState.transformedCursorIndex)
 
         if (!isSoftWrapEnabled) {
@@ -692,13 +700,15 @@ private fun CoreBigMonospaceText(
     }
 
     fun updateViewState() {
+        val transformedText = transformedTextRef.get() ?: return
         viewState.lastVisibleRow = minOf(viewState.lastVisibleRow, transformedText.lastRowIndex)
         log.d { "lastVisibleRow = ${viewState.lastVisibleRow}, lastRowIndex = ${transformedText.lastRowIndex}" }
     }
 
     fun onValuePreChange(eventType: BigTextChangeEventType, changeStartIndex: Int, changeEndExclusiveIndex: Int) {
+        val transformedText = transformedTextRef.get() ?: return
         viewState.version = Random.nextLong()
-        val event = generateChangeEvent(eventType, changeStartIndex, changeEndExclusiveIndex)
+        val event = generateChangeEvent(eventType, changeStartIndex, changeEndExclusiveIndex) ?: return
 
         // invoke textTransformation listener before deletion, so that it knows what will be deleted and transform accordingly
         (textTransformation as? IncrementalTextTransformation<Any?>)?.beforeTextChange(
@@ -710,10 +720,11 @@ private fun CoreBigMonospaceText(
     }
 
     fun onValuePostChange(eventType: BigTextChangeEventType, changeStartIndex: Int, changeEndExclusiveIndex: Int) {
+        val transformedText = transformedTextRef.get() ?: return
         updateViewState()
 
         viewState.version = Random.nextLong()
-        val event = generateChangeEvent(eventType, changeStartIndex, changeEndExclusiveIndex)
+        val event = generateChangeEvent(eventType, changeStartIndex, changeEndExclusiveIndex) ?: return
         (textTransformation as? IncrementalTextTransformation<Any?>)?.afterTextChange(
             event,
             transformedText,
@@ -728,12 +739,15 @@ private fun CoreBigMonospaceText(
         if (start >= endExclusive) {
             return
         }
+        val text = textRef.get() ?: return
         onValuePreChange(BigTextChangeEventType.Delete, start, endExclusive)
         text.delete(start, endExclusive)
         onValuePostChange(BigTextChangeEventType.Delete, start, endExclusive)
     }
 
     fun deleteSelection(isSaveUndoSnapshot: Boolean) {
+        val text = textRef.get() ?: return
+        val transformedText = transformedTextRef.get() ?: return
         if (viewState.hasSelection()) {
             val start = viewState.selection.start
             val endExclusive = viewState.selection.endInclusive + 1
@@ -752,6 +766,7 @@ private fun CoreBigMonospaceText(
     }
 
     fun insertAt(insertPos: Int, textInput: CharSequence): CharSequence {
+        val text = textRef.get() ?: return ""
         var textInput = inputFilter?.filter(textInput) ?: textInput
         if (isSingleLineInput) {
             val find = NEW_LINE_REGEX.find(textInput)
@@ -781,6 +796,8 @@ private fun CoreBigMonospaceText(
     }
 
     fun onType(textInput: CharSequence, isSaveUndoSnapshot: Boolean = true) {
+        val text = textRef.get() ?: return
+        val transformedText = transformedTextRef.get() ?: return
         log.v { "$text key in '$textInput' ${viewState.hasSelection()} ${viewState.selection} ${viewState.transformedSelection}" }
         var hasManipulatedText = false
         if (viewState.hasSelection()) {
@@ -812,6 +829,8 @@ private fun CoreBigMonospaceText(
     }
 
     fun onDelete(direction: TextFBDirection): Boolean {
+        val text = textRef.get() ?: return false
+        val transformedText = transformedTextRef.get() ?: return false
         val cursor = viewState.cursorIndex
 
         if (viewState.hasSelection()) {
@@ -859,6 +878,7 @@ private fun CoreBigMonospaceText(
     }
 
     fun onUndoRedo(operation: (BigTextChangeCallback) -> Pair<Boolean, Any?>) {
+        val transformedText = transformedTextRef.get() ?: return
         var lastChangeEnd = -1
         val stateToBeRestored = operation(object : BigTextChangeCallback {
             override fun onValuePreChange(
@@ -899,14 +919,17 @@ private fun CoreBigMonospaceText(
     }
 
     fun undo() {
+        val text = textRef.get() ?: return
         onUndoRedo { text.undo(it) }
     }
 
     fun redo() {
+        val text = textRef.get() ?: return
         onUndoRedo { text.redo(it) }
     }
 
     fun copySelection() {
+        val text = textRef.get() ?: return
         if (!viewState.hasSelection()) {
             return
         }
@@ -937,6 +960,8 @@ private fun CoreBigMonospaceText(
     }
 
     fun selectAll() {
+        val text = textRef.get() ?: return
+        val transformedText = transformedTextRef.get() ?: return
         if (text.isNotEmpty) {
             viewState.selection = 0..text.lastIndex
             viewState.updateTransformedSelectionBySelection(transformedText)
@@ -944,6 +969,9 @@ private fun CoreBigMonospaceText(
     }
 
     fun findPreviousWordBoundaryPositionFromCursor(isIncludeCursorPosition: Boolean = false): Int {
+        val text = textRef.get() ?: return 0
+        val transformedText = transformedTextRef.get() ?: return 0
+
         val currentRowIndex = transformedText.findRowIndexByPosition(viewState.transformedCursorIndex)
         val transformedRowStart = transformedText.findRowPositionStartIndexByRowIndex(currentRowIndex)
         val rowStart = transformedText.findOriginalPositionByTransformedPosition(transformedRowStart)
@@ -959,6 +987,9 @@ private fun CoreBigMonospaceText(
     }
 
     fun findNextWordBoundaryPositionFromCursor(): Int {
+        val text = textRef.get() ?: return 0
+        val transformedText = transformedTextRef.get() ?: return 0
+
         val currentRowIndex = transformedText.findRowIndexByPosition(viewState.transformedCursorIndex)
         val transformedRowEnd = if (currentRowIndex + 1 <= transformedText.lastRowIndex) {
             transformedText.findRowPositionStartIndexByRowIndex(currentRowIndex + 1)
@@ -977,6 +1008,8 @@ private fun CoreBigMonospaceText(
     }
 
     fun updateOriginalCursorOrSelection(newPosition: Int, isSelection: Boolean) {
+        val transformedText = transformedTextRef.get() ?: return
+
         val oldCursorPosition = viewState.cursorIndex
         viewState.cursorIndex = newPosition
         viewState.updateTransformedCursorIndexByOriginal(transformedText)
@@ -996,6 +1029,7 @@ private fun CoreBigMonospaceText(
     }
 
     fun updateTransformedCursorOrSelection(newTransformedPosition: Int, isSelection: Boolean) {
+        val transformedText = transformedTextRef.get() ?: return
         val oldTransformedCursorPosition = viewState.transformedCursorIndex
         viewState.transformedCursorIndex = newTransformedPosition
         viewState.updateCursorIndexByTransformed(transformedText)
@@ -1016,6 +1050,8 @@ private fun CoreBigMonospaceText(
     }
 
     fun processKeyboardInput(it: KeyEvent): Boolean {
+        val text = textRef.get() ?: return false
+        val transformedText = transformedTextRef.get() ?: return false
         return when {
             it.type == KeyEventType.KeyDown && it.isCtrlOrCmdPressed() && it.key == Key.C && !viewState.transformedSelection.isEmpty() -> {
                 // Hit Ctrl-C or Cmd-C to copy
@@ -1262,6 +1298,8 @@ private fun CoreBigMonospaceText(
         }
 
         override fun setCursorPosition(position: Int) {
+            val text = textRef.get() ?: return
+            val transformedText = transformedTextRef.get() ?: return
             require(position in 0 .. text.length) { "Cursor position $position is out of range. Text length: ${text.length}" }
             viewState.cursorIndex = position
             viewState.updateTransformedCursorIndexByOriginal(transformedText)
@@ -1270,6 +1308,8 @@ private fun CoreBigMonospaceText(
         }
 
         override fun setSelection(range: IntRange) {
+            val text = textRef.get() ?: return
+            val transformedText = transformedTextRef.get() ?: return
             require(range.start in 0 .. text.length) { "Range start ${range.start} is out of range. Text length: ${text.length}" }
             require(range.endInclusive + 1 in 0 .. text.length) { "Range end ${range.endInclusive} is out of range. Text length: ${text.length}" }
 
@@ -1279,6 +1319,7 @@ private fun CoreBigMonospaceText(
     }
 
     fun onProcessKeyboardInput(keyEvent: KeyEvent): Boolean {
+        val text = textRef.get() ?: return false
         val textManipulator = BigTextManipulatorImpl()
 
         try {
@@ -1299,7 +1340,7 @@ private fun CoreBigMonospaceText(
         }
     }
 
-    remember(text, onTextManipulatorReady) {
+    remember(weakRefOf(text), onTextManipulatorReady) {
         onTextManipulatorReady?.invoke(BigTextManipulatorImpl {
             updateViewState()
             text.recordCurrentChangeSequenceIntoUndoHistory()
@@ -1356,6 +1397,7 @@ private fun CoreBigMonospaceText(
                 enabled = isSelectable,
                 onDragStart = {
                     log.v { "onDragStart ${it.x} ${it.y}" }
+                    val transformedText = transformedTextRef.get() ?: return@onDrag
                     draggedPoint = it
                     if (!isHoldingShiftKey) {
                         val selectedCharIndex = getTransformedCharIndex(x = it.x, y = it.y, mode = ResolveCharPositionMode.Selection)
@@ -1373,6 +1415,7 @@ private fun CoreBigMonospaceText(
                 },
                 onDrag = { // onDragStart happens before onDrag
                     log.v { "onDrag ${it.x} ${it.y}" }
+                    val transformedText = transformedTextRef.get() ?: return@onDrag
                     draggedPoint += it
                     if (transformedText.isEmpty) {
                         viewState.transformedSelection = IntRange.EMPTY
@@ -1401,10 +1444,11 @@ private fun CoreBigMonospaceText(
                     viewState.updateCursorIndexByTransformed(transformedText)
                 }
             )
-            .pointerInput(isEditable, text, transformedText.hasLayouted, viewState, viewportTop, viewportLeft, lineHeight, contentWidth, transformedText.length, transformedText.hashCode(), onPointerEvent) {
+            .pointerInput(isEditable, weakRefOf(text), transformedText.hasLayouted, weakRefOf(viewState), viewportTop, viewportLeft, lineHeight, contentWidth, transformedText.length, transformedText.hashCode(), onPointerEvent) {
                 awaitPointerEventScope {
                     while (true) {
                         val event = awaitPointerEvent()
+                        val transformedText = transformedTextRef.get() ?: return@awaitPointerEventScope
 
                         if (onPointerEvent != null) {
                             val position = event.changes.first().position
@@ -1462,9 +1506,10 @@ private fun CoreBigMonospaceText(
                     }
                 }
             }
-            .pointerInput(transformedText, transformedText.hasLayouted, viewportTop, viewportLeft, lineHeight, contentWidth, viewState, isSelectable) {
+            .pointerInput(weakRefOf(transformedText), transformedText.hasLayouted, viewportTop, viewportLeft, lineHeight, contentWidth, weakRefOf(viewState), isSelectable) {
+                if (!isSelectable) return@pointerInput
                 detectTapGestures(onDoubleTap = {
-                    if (!isSelectable) return@detectTapGestures
+                    val transformedText = transformedTextRef.get() ?: return@detectTapGestures
 
                     val wordStart = findPreviousWordBoundaryPositionFromCursor(isIncludeCursorPosition = true)
                     val wordEndExclusive = findNextWordBoundaryPositionFromCursor()
@@ -1525,6 +1570,8 @@ private fun CoreBigMonospaceText(
             .focusable(isSelectable) // `focusable` should be after callback modifiers that use focus
             .semantics {
                 log.d { "semantic lambda" }
+                val text = textRef.get() ?: return@semantics
+                val transformedText = transformedTextRef.get() ?: return@semantics
                 if (isEditable) {
                     editableText = AnnotatedString(transformedText.buildString())
                     setText {

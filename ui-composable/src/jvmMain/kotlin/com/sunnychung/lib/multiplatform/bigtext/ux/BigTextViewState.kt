@@ -5,6 +5,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.text.input.TransformedText
 import com.sunnychung.lib.multiplatform.bigtext.core.transform.BigTextTransformed
+import com.sunnychung.lib.multiplatform.bigtext.util.WeakRefKey
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 
@@ -160,7 +161,7 @@ class BigTextViewState {
         return result
     }
 
-    var transformedText: BigTextTransformed? = null
+    var transformedText: WeakRefKey<BigTextTransformed>? = null
         internal set
 
     private val isLayoutDisabledMutableStateFlow = MutableStateFlow(false)
@@ -182,7 +183,7 @@ class BigTextViewState {
      * Note that if dependencies are not yet available, this function returns `0 .. 0`.
      */
     fun calculateVisibleRowRange(verticalScrollValue: Int): IntRange {
-        val transformedText = transformedText ?: return 0 .. 0
+        val transformedText = transformedText?.get() ?: return 0 .. 0
         val viewportTop = verticalScrollValue.toFloat()
         val height = visibleSize.height
         val lineHeight = layoutResult?.rowHeight ?: return 0 .. 0
@@ -206,7 +207,7 @@ data class ImmutableBigTextViewState(
     val selection: IntRange = 0 .. -1,
     internal val transformedCursorIndex: Int = 0,
     val cursorIndex: Int = 0,
-    val transformText: BigTextTransformed? = null,
+    val transformText: WeakRefKey<BigTextTransformed>? = null,
 ) {
     constructor(s: BigTextViewState) : this(
         version = s.version,

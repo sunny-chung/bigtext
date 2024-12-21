@@ -4,6 +4,7 @@ import com.sunnychung.lib.multiplatform.bigtext.annotation.TemporaryApi
 import com.sunnychung.lib.multiplatform.bigtext.core.layout.BigTextLayoutable
 import com.sunnychung.lib.multiplatform.bigtext.extension.binarySearchForMaxIndexOfValueAtMost
 import com.sunnychung.lib.multiplatform.bigtext.core.layout.CharMeasurer
+import com.sunnychung.lib.multiplatform.bigtext.util.weakRefOf
 
 @OptIn(TemporaryApi::class)
 @Deprecated("Slow")
@@ -30,9 +31,13 @@ class BigTextLayoutResult(
 }
 
 class BigTextSimpleLayoutResult(
-    val text: BigTextLayoutable,
+    text: BigTextLayoutable,
     val rowHeight: Float
 ) {
+    private val textRef = weakRefOf(text)
+    val text: BigTextLayoutable?
+        get() = textRef.get()
+
     fun getTopOfRow(rowIndex: Int): Float = rowIndex * rowHeight
     fun getBottomOfRow(rowIndex: Int): Float = (rowIndex + 1) * rowHeight
 
@@ -40,5 +45,5 @@ class BigTextSimpleLayoutResult(
         get() = 0f
 
     val bottom: Float
-        get() = getBottomOfRow(text.lastRowIndex)
+        get() = getBottomOfRow(text?.lastRowIndex ?: 0)
 }
