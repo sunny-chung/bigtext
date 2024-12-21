@@ -35,7 +35,7 @@ class IntList(initialCapacity: Int = 16) {
 
     private fun growIfNeeded(desiredSize: Int) {
         if (desiredSize > buffer.size) {
-            val newSize = 1.shl((32 - Integer.numberOfLeadingZeros(desiredSize)) + 1) // increase by 4x
+            val newSize = 1.shl(32 - Integer.numberOfLeadingZeros(desiredSize)) // increase by 2x
             val newBuffer = IntArray(newSize)
             System.arraycopy(buffer, 0, newBuffer, 0, buffer.size)
             buffer = newBuffer
