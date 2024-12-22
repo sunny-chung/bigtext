@@ -180,3 +180,15 @@ fun generateSingleLongLine(size: Int): String {
         }.toString()
     }
 }
+
+fun generateSingleLongLineWithoutSpace(size: Int): String {
+    val random = Random
+    return (0 ..< size).joinToString("") {
+        when (val r = random.nextInt(62)) {
+            in 0 ..< 26 -> 'A'.plus(r - 0)
+            in 26 ..< 52 -> 'a'.plus(r - 26)
+            in 52 ..< 62 -> '0'.plus(r - 52)
+            else -> throw RuntimeException("Unexpected random value: $r")
+        }.toString()
+    }
+}

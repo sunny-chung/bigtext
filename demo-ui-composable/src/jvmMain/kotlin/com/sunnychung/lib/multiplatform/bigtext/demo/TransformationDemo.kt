@@ -33,9 +33,39 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
+import com.sunnychung.lib.multiplatform.bigtext.extension.length
 import com.sunnychung.lib.multiplatform.bigtext.ux.BigMonospaceTextField
+import com.sunnychung.lib.multiplatform.bigtext.ux.BigTextManipulator
 import com.sunnychung.lib.multiplatform.bigtext.ux.rememberConcurrentLargeAnnotatedBigTextFieldState
 import kotlinx.coroutines.launch
+import kotlin.random.Random
+
+private val TRANSFORMATION_PRELOAD_CONTENT = PRELOAD_CONTENT
+    .filter { it.value.length <= 32 * 1024 * 1024 }
+    .map { (key, content) ->
+        val transformationCount = content.length / 300 // approximate a transformation every 300 B
+
+        val random = Random
+        val transformations = (0 ..< transformationCount).map {
+            random.nextInt(0, content.length) to generateSingleLongLineWithoutSpace(random.nextInt(1, 21))
+        }.sortedBy { it.first }
+
+        key to buildString {
+            var last = 0
+
+            transformations.forEach {
+                if (it.first > last) {
+                    append(content.substring(last ..< it.first))
+                }
+                append("\${{${it.second}}}")
+                last = it.first + it.second.length
+            }
+            if (last < content.length) {
+                append(content.substring(last))
+            }
+        }
+    }
+    .toMap(linkedMapOf())
 
 @Composable
 fun TransformationDemoView() {
@@ -89,7 +119,7 @@ fun TransformationTextAreaDemoView(modifier: Modifier) {
     var cacheKey by remember { mutableStateOf(0) }
     var generateContentKey by remember { mutableStateOf("Empty") }
 
-    val bigTextFieldState by rememberConcurrentLargeAnnotatedBigTextFieldState(PRELOAD_CONTENT[generateContentKey]!!, cacheKey)
+    val bigTextFieldState by rememberConcurrentLargeAnnotatedBigTextFieldState(TRANSFORMATION_PRELOAD_CONTENT[generateContentKey]!!, cacheKey)
     var isSoftWrapEnabled by remember { mutableStateOf(false) }
     val scrollState = rememberScrollState()
     val horizontalScrollState = rememberScrollState()
@@ -99,10 +129,15 @@ fun TransformationTextAreaDemoView(modifier: Modifier) {
         VariableIncrementalTransformation()
     }
 
+    var textManipulator by remember { mutableStateOf<BigTextManipulator?>(null) }
+
+    val isTransformButtonEnabled = textManipulator != null &&
+            bigTextFieldState.viewState.selection.length in 1 .. 20 &&
+            !bigTextFieldState.text.substring(bigTextFieldState.viewState.selection).contains("[\${} ]".toRegex())
+
     Column(modifier) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.horizontalScroll(rememberScrollState())) {
-            PRELOAD_CONTENT
-                .filter { it.value.length <= 32 * 1024 * 1024 }
+            TRANSFORMATION_PRELOAD_CONTENT
                 .keys
                 .forEach { key ->
                     Button(onClick = {
@@ -112,22 +147,36 @@ fun TransformationTextAreaDemoView(modifier: Modifier) {
                             scrollState.scrollTo(0)
                         }
                     }) {
-                        Text(text = if (key != "Empty") "Random $key" else key)
+                        Text(text = key)
                     }
                 }
         }
 
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier
-                .clickable { isSoftWrapEnabled = !isSoftWrapEnabled }
-                .padding(end = 16.dp)
-        ) {
-            Checkbox(checked = isSoftWrapEnabled, onCheckedChange = { isSoftWrapEnabled = it })
-            Text("Soft Wrap")
+        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .clickable { isSoftWrapEnabled = !isSoftWrapEnabled }
+                    .padding(end = 16.dp)
+            ) {
+                Checkbox(checked = isSoftWrapEnabled, onCheckedChange = { isSoftWrapEnabled = it })
+                Text("Soft Wrap")
+            }
+
+            Button(
+                onClick = {
+                    val textManipulator = textManipulator ?: return@Button
+                    val selection = bigTextFieldState.viewState.selection
+                    textManipulator.insertAt(selection.last + 1, "}}")
+                    textManipulator.insertAt(selection.first, "\${{")
+                },
+                enabled = isTransformButtonEnabled
+            ) {
+                Text("Transform")
+            }
         }
 
-        Text("Type \${{...}} to create a transformation.")
+        Text("Type \${{...}} to create a transformation. Alternatively, select a word within 20 characters and click the Transform button.")
 
         Spacer(Modifier.height(8.dp))
 
@@ -139,6 +188,7 @@ fun TransformationTextAreaDemoView(modifier: Modifier) {
                 fontFamily = FontFamily.Monospace,
                 isSoftWrapEnabled = isSoftWrapEnabled,
                 textTransformation = transformation,
+                onTextManipulatorReady = { textManipulator = it }, // enables external text modification
                 scrollState = scrollState,
                 horizontalScrollState = horizontalScrollState, // only required for soft wrap disabled
                 modifier = Modifier.background(Color(224, 224, 224))
