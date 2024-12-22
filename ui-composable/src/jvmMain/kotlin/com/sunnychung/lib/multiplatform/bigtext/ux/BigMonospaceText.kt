@@ -729,7 +729,6 @@ private fun CoreBigMonospaceText(
 
     fun onValuePostChange(eventType: BigTextChangeEventType, changeStartIndex: Int, changeEndExclusiveIndex: Int) {
         val transformedText = transformedTextRef.get() ?: return
-        val onTextChange = onTextChangeRef.get() ?: return
         updateViewState()
 
         viewState.version = Random.nextLong()
@@ -740,6 +739,8 @@ private fun CoreBigMonospaceText(
             transformedState
         )
         textDecorator?.afterTextChange(event)
+        
+        val onTextChange = onTextChangeRef.get() ?: return
         log.d { "call onTextChange for ${event.changeId}" }
         onTextChange(event)
     }
