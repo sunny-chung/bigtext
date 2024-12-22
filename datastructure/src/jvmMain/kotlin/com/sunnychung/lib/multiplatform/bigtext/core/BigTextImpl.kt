@@ -1599,7 +1599,7 @@ open class BigTextImpl(
                 }
             ).toInt()
         }.coerceIn(endPositions).let {
-            if (it > startPosition && subSequence(it, it + 1)[0].isLowSurrogate()) {
+            if (it in (startPosition + 1)..< length && subSequence(it, it + 1)[0].isLowSurrogate()) {
                 it - 1
             } else {
                 it
