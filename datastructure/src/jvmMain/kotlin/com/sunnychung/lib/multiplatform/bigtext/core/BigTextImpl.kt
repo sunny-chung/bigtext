@@ -1572,8 +1572,8 @@ open class BigTextImpl(
                 val bufferExtraData = bufferExtraDataLock.withLock {
                     bufferExtraData[node.value.buffer]!!
                 }
-                accumulatedWidth += findWidthSum(node.value.buffer, bufferExtraData, roiEndInclusiveIndex - node.value.renderBufferStart) -
-                    findWidthSum(node.value.buffer, bufferExtraData, roiStartIndex - node.value.renderBufferStart - 1)
+                accumulatedWidth += findWidthSum(node.value.buffer, bufferExtraData, roiEndInclusiveIndex) -
+                    findWidthSum(node.value.buffer, bufferExtraData, roiStartIndex - 1)
             }
 
             if (node !== endNode) {

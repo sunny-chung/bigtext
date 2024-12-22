@@ -1785,13 +1785,13 @@ private fun CoreBigMonospaceText(
 //                        modifier = Modifier.offset(y = yOffset, x = xOffset)
 //                    )
 
-                    log.v { "line = $i, cursor T = ${viewState.transformedCursorIndex}" }
+                    log.v { "line = $i, cursor T = ${viewState.transformedCursorIndex} / O = ${viewState.cursorIndex}" }
                     if (isEditable && isFocused && viewState.transformedCursorIndex in renderStartIndex .. renderEndIndexExclusive && isCursorVisible) {
                         val x = if (viewState.transformedCursorIndex - renderStartIndex > 0) {
                             transformedText.findWidthByPositionRangeOfSameLine(
                                 renderStartIndex..< viewState.transformedCursorIndex
                             ).also {
-                                log.v { "find w = $it" }
+                                log.v { "cursor x find w = $it" }
                             }
                         } else {
                             0f
