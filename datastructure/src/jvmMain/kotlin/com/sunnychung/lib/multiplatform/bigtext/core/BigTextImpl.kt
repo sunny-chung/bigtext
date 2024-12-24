@@ -813,7 +813,7 @@ open class BigTextImpl(
                         }
 
                         maxWidth = maxOf(maxWidth,
-                            (consecutiveWidth).also { log.w { "consider max width L $it" } }
+                            (consecutiveWidth).also { log.v { "consider max width L $it" } }
                         )
                     }
 //                }
