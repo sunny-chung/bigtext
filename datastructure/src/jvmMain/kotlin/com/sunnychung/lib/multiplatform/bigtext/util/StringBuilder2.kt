@@ -5,4 +5,8 @@ class StringBuilder2(capacity: Int, private val delegate: StringBuilder = String
     override fun clear() {
         delegate.clear()
     }
+
+    override fun toString(): String {
+        return delegate.toString()
+    }
 }

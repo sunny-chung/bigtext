@@ -2,6 +2,7 @@ package com.sunnychung.lib.multiplatform.bigtext.core
 
 import com.sunnychung.lib.multiplatform.bigtext.core.layout.TextLayouter
 import com.sunnychung.lib.multiplatform.bigtext.extension.insert
+import com.sunnychung.lib.multiplatform.bigtext.util.GeneralStringBuilder
 
 class InefficientBigText(text: String) : BigText {
     private var string: String = text
@@ -33,7 +34,7 @@ class InefficientBigText(text: String) : BigText {
         get() = TODO("Not yet implemented")
     override val textBufferFactory: (capacity: Int) -> TextBuffer
         get() = TODO("Not yet implemented")
-    override val charSequenceBuilderFactory: (capacity: Int) -> Appendable
+    override val charSequenceBuilderFactory: (capacity: Int) -> GeneralStringBuilder
         get() = TODO("Not yet implemented")
     override val charSequenceFactory: (Appendable) -> CharSequence
         get() = TODO("Not yet implemented")

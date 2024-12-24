@@ -13,6 +13,7 @@ import com.sunnychung.lib.multiplatform.bigtext.core.layout.TextLayouter
 import com.sunnychung.lib.multiplatform.bigtext.core.transform.BigTextTransformOffsetMapping
 import com.sunnychung.lib.multiplatform.bigtext.core.transform.BigTextTransformerImpl
 import com.sunnychung.lib.multiplatform.bigtext.extension.length
+import com.sunnychung.lib.multiplatform.bigtext.util.GeneralStringBuilder
 import java.util.TreeMap
 import kotlin.test.assertEquals
 
@@ -81,7 +82,7 @@ internal class BigTextVerifyImpl(bigTextImpl: BigTextImpl) : BigText {
         get() = TODO("Not yet implemented")
     override val textBufferFactory: (capacity: Int) -> TextBuffer
         get() = TODO("Not yet implemented")
-    override val charSequenceBuilderFactory: (capacity: Int) -> Appendable
+    override val charSequenceBuilderFactory: (capacity: Int) -> GeneralStringBuilder
         get() = TODO("Not yet implemented")
     override val charSequenceFactory: (Appendable) -> CharSequence
         get() = TODO("Not yet implemented")
