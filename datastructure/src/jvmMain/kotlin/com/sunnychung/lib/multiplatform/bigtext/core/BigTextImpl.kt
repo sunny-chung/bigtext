@@ -709,16 +709,19 @@ open class BigTextImpl(
                 endLineWidth = -1
                 startLineWidth = -1
                 middleMaxLineWidth = -1
+                log.v { "node ${debugKey()} line w skipped calc because extraData not initialized" }
                 return@also
             }
 
-            val layouter = layouter ?: return@also
+            layouter ?: return@also
 
             fun calculateWidth(range: IntRange): Long {
                 if (range.isEmpty()) {
                     return 0
                 } else if (range.endInclusive < 0 || range.start < 0) {
-                    return -1
+                    return (-1L).also {
+                        log.v { "node ${debugKey()} line w calc $range return -1" }
+                    }
                 }
 
                 return findWidthSum(buffer, extraData, range.endInclusive) - findWidthSum(buffer, extraData, range.start - 1)
@@ -735,35 +738,37 @@ open class BigTextImpl(
                     aggregatedEndLineWidth = node?.right?.value?.aggregatedEndLineWidth ?: consecutiveWidth
                     aggregatedStartLineWidth = node?.left?.value?.aggregatedStartLineWidth ?: consecutiveWidth
 
-                    val selfIdentifier = Any()
+//                    val selfIdentifier = Any()
 
-                    if (node?.left?.value?.aggregatedStartLineIdentifier != null) {
-                        if (node?.left?.value?.aggregatedStartLineIdentifier === node?.left?.value?.aggregatedEndLineIdentifier) {
-                            aggregatedStartLineWidth = consecutiveWidth
-                            aggregatedStartLineIdentifier = selfIdentifier
-                        } else {
-                            aggregatedStartLineIdentifier = node!!.left!!.value!!.aggregatedStartLineIdentifier
-                        }
-                    } else {
-                        aggregatedStartLineIdentifier = selfIdentifier
-                    }
-//                    if ((node?.left?.numLineBreaks() ?: 0) < 1) {
-//                        aggregatedStartLineWidth = consecutiveWidth
+                    // looks like divide-and-conquer is not possible unless all the dependents are childrens of a node. e.g. ropes have this property.
+//                    if (node?.left?.value?.aggregatedStartLineIdentifier != null) {
+//                        if (node?.left?.value?.aggregatedStartLineIdentifier === node?.left?.value?.aggregatedEndLineIdentifier) {
+//                            aggregatedStartLineWidth = consecutiveWidth
+//                            aggregatedStartLineIdentifier = selfIdentifier
+//                        } else {
+//                            aggregatedStartLineIdentifier = node!!.left!!.value!!.aggregatedStartLineIdentifier
+//                        }
+//                    } else {
+//                        aggregatedStartLineIdentifier = selfIdentifier
 //                    }
+                    // this is not efficient
+                    if ((node?.left?.numLineBreaks() ?: 0) < 1) {
+                        aggregatedStartLineWidth = consecutiveWidth
+                    }
 
-                    if (node?.right?.value?.aggregatedEndLineIdentifier != null) {
-                        if (node?.right?.value?.aggregatedStartLineIdentifier === node?.right?.value?.aggregatedEndLineIdentifier) {
-                            aggregatedEndLineWidth = consecutiveWidth
-                            aggregatedEndLineIdentifier = selfIdentifier
-                        } else {
-                            aggregatedEndLineIdentifier = node!!.right!!.value!!.aggregatedEndLineIdentifier
-                        }
-                    } else {
-                        aggregatedEndLineIdentifier = selfIdentifier
-                    }
-//                    if ((node?.right?.numLineBreaks() ?: 0) < 1) {
-//                        aggregatedEndLineWidth = consecutiveWidth
+//                    if (node?.right?.value?.aggregatedEndLineIdentifier != null) {
+//                        if (node?.right?.value?.aggregatedStartLineIdentifier === node?.right?.value?.aggregatedEndLineIdentifier) {
+//                            aggregatedEndLineWidth = consecutiveWidth
+//                            aggregatedEndLineIdentifier = selfIdentifier
+//                        } else {
+//                            aggregatedEndLineIdentifier = node!!.right!!.value!!.aggregatedEndLineIdentifier
+//                        }
+//                    } else {
+//                        aggregatedEndLineIdentifier = selfIdentifier
 //                    }
+                    if ((node?.right?.numLineBreaks() ?: 0) < 1) {
+                        aggregatedEndLineWidth = consecutiveWidth
+                    }
 
                     maxWidth = maxOf(maxWidth, consecutiveWidth)
                 }
@@ -774,17 +779,17 @@ open class BigTextImpl(
                 if (endLineWidth >= 0) {
                     val consecutiveWidth = endLineWidth + (node?.right?.value?.aggregatedStartLineWidth ?: 0L)
                     aggregatedEndLineWidth = node?.right?.value?.aggregatedEndLineWidth ?: consecutiveWidth
-                    if (node?.right?.value?.aggregatedEndLineIdentifier != null) {
-                        if (node?.right?.value?.aggregatedStartLineIdentifier === node?.right?.value?.aggregatedEndLineIdentifier) {
-                            aggregatedEndLineWidth = consecutiveWidth
-                        }
-                        aggregatedEndLineIdentifier = node!!.right!!.value!!.aggregatedEndLineIdentifier
-                    } else {
-                        aggregatedEndLineIdentifier = Any()
-                    }
-//                    if ((node?.right?.numLineBreaks() ?: 0) < 1) {
-//                        aggregatedEndLineWidth = consecutiveWidth
+//                    if (node?.right?.value?.aggregatedEndLineIdentifier != null) {
+//                        if (node?.right?.value?.aggregatedStartLineIdentifier === node?.right?.value?.aggregatedEndLineIdentifier) {
+//                            aggregatedEndLineWidth = consecutiveWidth
+//                        }
+//                        aggregatedEndLineIdentifier = node!!.right!!.value!!.aggregatedEndLineIdentifier
+//                    } else {
+//                        aggregatedEndLineIdentifier = Any()
 //                    }
+                    if ((node?.right?.numLineBreaks() ?: 0) < 1) {
+                        aggregatedEndLineWidth = consecutiveWidth
+                    }
 
                     maxWidth = maxOf(maxWidth,
                         (consecutiveWidth).also { log.v { "consider max width R $it" } }
@@ -795,26 +800,28 @@ open class BigTextImpl(
                     if (startLineWidth >= 0) {
                         val consecutiveWidth = (node?.left?.value?.aggregatedEndLineWidth ?: 0L) + startLineWidth
                         aggregatedStartLineWidth = node?.left?.value?.aggregatedStartLineWidth ?: consecutiveWidth
-                        if (node?.left?.value?.aggregatedStartLineIdentifier != null) {
-                            if (node?.left?.value?.aggregatedStartLineIdentifier === node?.left?.value?.aggregatedEndLineIdentifier) {
-                                aggregatedStartLineWidth = consecutiveWidth
-                            }
-                            aggregatedStartLineIdentifier = node!!.left!!.value!!.aggregatedStartLineIdentifier
-                        } else {
-                            aggregatedStartLineIdentifier = Any()
-                        }
-//                        if ((node?.left?.numLineBreaks() ?: 0) < 1) {
-//                            aggregatedStartLineWidth = consecutiveWidth
+//                        if (node?.left?.value?.aggregatedStartLineIdentifier != null) {
+//                            if (node?.left?.value?.aggregatedStartLineIdentifier === node?.left?.value?.aggregatedEndLineIdentifier) {
+//                                aggregatedStartLineWidth = consecutiveWidth
+//                            }
+//                            aggregatedStartLineIdentifier = node!!.left!!.value!!.aggregatedStartLineIdentifier
+//                        } else {
+//                            aggregatedStartLineIdentifier = Any()
 //                        }
+                        if ((node?.left?.numLineBreaks() ?: 0) < 1) {
+                            aggregatedStartLineWidth = consecutiveWidth
+                        }
 
                         maxWidth = maxOf(maxWidth,
-                            (consecutiveWidth).also { log.v { "consider max width L $it" } }
+                            (consecutiveWidth).also { log.w { "consider max width L $it" } }
                         )
                     }
 //                }
                 if (middleMaxLineWidth < 0 && renderNumLineBreaksInRange >= 2) {
                     middleMaxLineWidth = (lineOffsetStartIndex until lineOffsetEndIndexExclusive - 1).maxOf {
-                        calculateWidth(buffer.lineOffsetStarts[it] + 1 until buffer.lineOffsetStarts[it + 1])
+                        calculateWidth(buffer.lineOffsetStarts[it] + 1 until buffer.lineOffsetStarts[it + 1]).also { r ->
+                            log.v { "mid line $it w $r" }
+                        }
                     }
                 }
             }
@@ -828,10 +835,25 @@ open class BigTextImpl(
             )
             log.v { "node ${debugKey()} line w end=$endLineWidth start=$startLineWidth mid=$middleMaxLineWidth aggEnd=$aggregatedEndLineWidth aggSt=$aggregatedStartLineWidth max=$maxLineWidth" }
         } ?: run {
+            aggregatedStartLineWidth = if (currentRenderLength == 0 && (node?.left?.numLineBreaks() ?: 0) < 1) {
+                (node?.left?.value?.aggregatedStartLineWidth ?: 0) + (node?.right?.value?.aggregatedStartLineWidth ?: 0)
+            } else {
+                node?.left?.value?.aggregatedStartLineWidth ?: 0
+            }
+            aggregatedStartLineIdentifier = node?.left?.value?.aggregatedStartLineIdentifier ?: Any()
+            aggregatedEndLineWidth = if (currentRenderLength == 0 && (node?.right?.numLineBreaks() ?: 0) < 1) {
+                (node?.left?.value?.aggregatedEndLineWidth ?: 0) + (node?.right?.value?.aggregatedEndLineWidth ?: 0)
+            } else {
+                node?.right?.value?.aggregatedEndLineWidth ?: 0
+            }
+            aggregatedEndLineIdentifier = node?.right?.value?.aggregatedEndLineIdentifier ?: Any()
             maxLineWidth = maxOf(
+                aggregatedStartLineWidth,
+                aggregatedEndLineWidth,
                 node?.left?.value?.maxLineWidth ?: -1,
                 node?.right?.value?.maxLineWidth ?: -1,
             )
+            log.v { "node ${debugKey()} missing extra. max updated to $maxLineWidth" }
         }
     }
 
@@ -960,7 +982,7 @@ open class BigTextImpl(
             return charSequenceFactory(getCharSequenceBuilder().also { it.clear() })
         }
 
-        log.v { "subSequence start" }
+//        log.v { "subSequence start" }
 
 //        val result = charSequenceBuilderFactory(endExclusive - start)
         val result = getCharSequenceBuilder()
@@ -968,7 +990,7 @@ open class BigTextImpl(
         var nodeStartPos = findRenderPositionStart(node)
         var numRemainCharsToCopy = endExclusive - start
         var copyFromBufferIndex = start - nodeStartPos + node.value.renderBufferStart
-        log.v { "subSequence before loop ($numRemainCharsToCopy)" }
+//        log.v { "subSequence before loop ($numRemainCharsToCopy)" }
         while (numRemainCharsToCopy > 0) {
             val copyEndExclusive = minOf(endExclusive, nodeStartPos + node.value.currentRenderLength)
             val copyStart = maxOf(start, nodeStartPos)
@@ -976,7 +998,7 @@ open class BigTextImpl(
             val copyUntilBufferIndex = copyFromBufferIndex + numCharsToCopy
             if (numCharsToCopy > 0) {
                 val bufferSubsequence = node.value.buffer.subSequence(copyFromBufferIndex, copyUntilBufferIndex)
-                log.v { "subSequence loop ($numRemainCharsToCopy) -- obtained sq" }
+//                log.v { "subSequence loop ($numRemainCharsToCopy) -- obtained sq" }
                 val subsequence = if (decorator != null) {
                     decorate(node.value, bufferSubsequence, copyStart until copyEndExclusive).also {
                         if (it.length != numCharsToCopy) {
@@ -986,9 +1008,9 @@ open class BigTextImpl(
                 } else {
                     bufferSubsequence
                 }
-                log.v { "subSequence loop ($numRemainCharsToCopy) -- obtained sq dec" }
+//                log.v { "subSequence loop ($numRemainCharsToCopy) -- obtained sq dec" }
                 result.append(subsequence)
-                log.v { "subSequence loop ($numRemainCharsToCopy) -- appended" }
+//                log.v { "subSequence loop ($numRemainCharsToCopy) -- appended" }
                 numRemainCharsToCopy -= numCharsToCopy
             } /*else {
                 break
@@ -997,12 +1019,12 @@ open class BigTextImpl(
                 nodeStartPos += node.value.currentRenderLength
                 node = tree.nextNode(node) ?: throw IllegalStateException("Cannot find the next string node. Requested = $start ..< $endExclusive. Remain = $numRemainCharsToCopy")
                 copyFromBufferIndex = node.value.renderBufferStart
-                log.v { "subSequence loop ($numRemainCharsToCopy) -- next" }
+//                log.v { "subSequence loop ($numRemainCharsToCopy) -- next" }
             }
         }
 
         return charSequenceFactory(result).also {
-            log.v { "subSequence built" }
+//            log.v { "subSequence built" }
         }
     }
 

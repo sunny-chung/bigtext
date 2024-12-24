@@ -64,6 +64,7 @@ class BigTextTransformNodeValue : BigTextNodeValue() {
         }
         append(" M $incrementalTransformOffsetMappingLength")
         append(" row $leftNumOfRowBreaks/$rowBreakOffsets lw $lastRowWidth $isEndWithForceRowBreak")
+        append(" line w end=$endLineWidth start=$startLineWidth mid=$middleMaxLineWidth aggEnd=$aggregatedEndLineWidth aggSt=$aggregatedStartLineWidth max=$maxLineWidth")
     }
 
 }

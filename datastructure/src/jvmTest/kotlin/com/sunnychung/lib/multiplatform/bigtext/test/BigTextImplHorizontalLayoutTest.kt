@@ -5,6 +5,7 @@ import com.sunnychung.lib.multiplatform.bigtext.core.BigTextImpl
 import com.sunnychung.lib.multiplatform.bigtext.core.isD
 import com.sunnychung.lib.multiplatform.bigtext.core.layout.MonospaceTextLayouter
 import com.sunnychung.lib.multiplatform.bigtext.core.layout.TextLayouter
+import com.sunnychung.lib.multiplatform.bigtext.core.transform.BigTextTransformerImpl
 import com.sunnychung.lib.multiplatform.bigtext.extension.length
 import com.sunnychung.lib.multiplatform.bigtext.test.util.FixedWidthCharMeasurer
 import org.junit.jupiter.api.Disabled
@@ -36,7 +37,7 @@ class BigTextImplHorizontalLayoutTest {
                 setSoftWrapEnabled(false)
             }
 
-            verifyMaxLineWidth(testString, t, "test case #$index")
+            verifyMaxLineWidth(testString, t, message = "test case #$index")
         }
     }
 
@@ -75,7 +76,7 @@ class BigTextImplHorizontalLayoutTest {
                 isD = true
             }
 
-            verifyMaxLineWidth(testString, t, "test case #$index")
+            verifyMaxLineWidth(testString, t, message = "test case #$index")
         }
     }
 
@@ -346,7 +347,7 @@ class BigTextImplHorizontalLayoutTest {
         fun verifyWidths(position: Int) {
             val measured = t.findWidthSum(buffer, bufferExtraData, position)
             val expected = (0 .. position).sumOf {
-                (layouter.measureCharWidth(t.substring(it, it + 1).toString()) * 100).toLong()
+                (layouter.measureCharWidth(t.substring(it, it + 1).toString()) * t.widthMultiplier).toLong()
             }
             println("[$position] exp=$expected, mes=$measured")
             assertEquals(expected, measured, "pos $position")
@@ -417,11 +418,46 @@ class BigTextImplHorizontalLayoutTest {
         }
     }
 
-    internal fun BigTextVerifyImpl.verifyMaxLineWidth(message: String? = null) {
-        verifyMaxLineWidth(stringImpl.buildString(), bigTextImpl, message)
+    @ParameterizedTest
+    @ValueSource(ints = [2 * 1024 * 1024, 1024, 256, 32])
+    fun maxLineWidthOfTransformed(chunkSize: Int) {
+//    @Test
+//    fun maxLineWidthOfTransformed() {
+//        val chunkSize = 2 * 1024 * 1024
+        val testString = """
+            9KHzmFawZdNdy e3NGXV O8Al3YdOO L8247gv91nh4DgELJJvej0eqZnVdAdudt4pGZrQSOc2Nqb8PuJrqdP85zt  fRsh8sELKKyKMf334Fo0L F YDZoLlhrj7piBhDa VtNDU8uxscg0 6ds1 k5xXPWZ3ia eHzAbwAb3YF0SH yy 1wcyPdhGUkaUZTuBCiJJOltOZpJhC9PT3y2Lr6bjQYLfjN0HEvSwNtyy4Cyh6obi9GLbg9aC Ec G7eeXiDvaFMcu2PTO7LBmpeY5R kAJMm3BlmEfrJCqeyL353GY6dSJezGmpGkbQF5WVFQRb4DCT47r8CaTn  CNJWMYp zbIKS ntV5o8CkZN6yPZfscv1vJvOp0HZBL8 fSp${'$'}{{Jx3zwcMab1gpTpGWWQh}}n61 oYjsV5 NFQgr${'$'}{{F45fB2DNYxZy2G0W4j}}Xe71FN1iDWVeKlPQ 6w16J8ZnS8ClSNiVDDL68gbUETUVDFwYY5quU3Rb OpnBA bI3ubqVI0nQ7gxZUcLJgST41Ztj9CpDBEwoDPzAD8
+            cicNL
+            lkamzW0DIMxzlRAQ2b Ph DIqaUVwklNlNff  Jl12n3PJDO6jqK7b0PyuLIfKE3Xp0C7Z5qDrF5uBVC4YT9v84
+            2xhe i y7 FiZcv MjniLD mU8rddDzJJf0 HvwufgFwFXQEKxfLTEnuXG8JZ9fy4SA3UJRpoDQipWFvzirWm nG0UkOp142LXnrH
+             eOcmq0 XeUsROg GRjM5QITAR0nkWenNRiIp4P
+            g pYmpFS RopRfdr r9M p3JJWH9ml n2lhXYKxk8b3zHBfDFP172HSjSRTBLdkk2
+            STgyGIO XrTAOJ
+            YOs6uRfWnVfVdP6RXEKVQhyjAk 40Iqiz6 XMO1DD3 cvo283ZySgM9Nmg4Ky 3r84Zr0shtkD
+
+             deGkn  RggXCxTsfWKQio3n1 AAhTFlwV RVhTNO7azfAUA${'$'}{{S}} Z
+            uVL3i060yEdMSflrTiInVhON7TArEl N
+        """.trimIndent()
+        val t = BigTextImpl(chunkSize = chunkSize).apply {
+            append(testString)
+            setLayouter(MonospaceTextLayouter(FixedWidthCharMeasurer(17.31f)))
+            setSoftWrapEnabled(false)
+        }
+        val tt = BigTextTransformerImpl(t)
+        val transformPattern = "\\$\\{\\{([^}]+)\\}\\}".toRegex()
+        transformPattern.findAll(testString).forEach {
+            val replacement = it.groups[1]!!.value
+            tt.replace(it.range, replacement)
+        }
+        tt.printDebug()
+        val testStringTransformed = testString.replace(transformPattern) { it.groups[1]!!.value }
+        verifyMaxLineWidth(testStringTransformed, tt, charWidth = 17.31f)
     }
 
-    internal fun verifyMaxLineWidth(testString: String, t: BigTextImpl, message: String? = null) {
-        assertEquals(testString.split('\n').maxOf { it.length } * 16L * t.widthMultiplier, t.maxLineWidth, message)
+    internal fun BigTextVerifyImpl.verifyMaxLineWidth(message: String? = null) {
+        verifyMaxLineWidth(stringImpl.buildString(), bigTextImpl, message = message)
+    }
+
+    internal fun verifyMaxLineWidth(testString: String, t: BigTextImpl, charWidth: Float = 16f, message: String? = null) {
+        assertEquals(testString.split('\n').maxOf { it.length } * (charWidth * t.widthMultiplier).toLong(), t.maxLineWidth, message)
     }
 }
