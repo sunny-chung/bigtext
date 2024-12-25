@@ -56,5 +56,7 @@ class AnnotatedStringTextBuffer(size: Int) : TextBuffer(size) {
         )
     }
 
+    override fun get(index: Int): Char = buffer[index]
+
     private class Entry(val range: IntRange, val style: SpanStyle, val tag: String)
 }

@@ -168,6 +168,8 @@ abstract class TextBuffer(val size: Int) {
     abstract fun bufferSubstring(start: Int, endExclusive: Int): String
 
     abstract fun bufferSubSequence(start: Int, endExclusive: Int): CharSequence
+
+    abstract operator fun get(index: Int): Char
 }
 
 enum class BufferOwnership {

@@ -1,5 +1,7 @@
 package com.sunnychung.lib.multiplatform.bigtext.core
 
+import java.nio.CharBuffer
+
 class StringTextBuffer(size: Int) : TextBuffer(size) {
     private val buffer = StringBuilder(size)
 
@@ -15,6 +17,9 @@ class StringTextBuffer(size: Int) : TextBuffer(size) {
     }
 
     override fun bufferSubSequence(start: Int, endExclusive: Int): CharSequence {
-        return buffer.subSequence(start, endExclusive)
+//        return buffer.subSequence(start, endExclusive)
+        return CharBuffer.wrap(buffer, start, endExclusive)
     }
+
+    override fun get(index: Int): Char = buffer[index]
 }
