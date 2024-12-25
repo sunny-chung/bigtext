@@ -70,7 +70,7 @@ private val TRANSFORMATION_PRELOAD_CONTENT = PRELOAD_CONTENT
 @Composable
 fun TransformationDemoView() {
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        TransformationTextAreaDemoView(Modifier.weight(1f))
+        TransformationTextAreaDemoView(Modifier.weight(1f), bodyFontFamily = FontFamily.Monospace)
 
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.Bottom) {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.weight(1f)) {
@@ -115,7 +115,7 @@ fun TransformationDemoView() {
 }
 
 @Composable
-fun TransformationTextAreaDemoView(modifier: Modifier) {
+fun TransformationTextAreaDemoView(modifier: Modifier, bodyFontFamily: FontFamily) {
     var cacheKey by remember { mutableStateOf(0) }
     var generateContentKey by remember { mutableStateOf("Empty") }
 
@@ -185,7 +185,7 @@ fun TransformationTextAreaDemoView(modifier: Modifier) {
                 textFieldState = bigTextFieldState,
                 color = Color.Black,
                 cursorColor = Color.Blue,
-                fontFamily = FontFamily.Monospace,
+                fontFamily = bodyFontFamily,
                 isSoftWrapEnabled = isSoftWrapEnabled,
                 textTransformation = transformation,
                 onTextManipulatorReady = { textManipulator = it }, // enables external text modification

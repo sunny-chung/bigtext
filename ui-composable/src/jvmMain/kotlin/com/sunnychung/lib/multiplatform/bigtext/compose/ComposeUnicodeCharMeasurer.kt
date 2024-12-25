@@ -1,5 +1,7 @@
 package com.sunnychung.lib.multiplatform.bigtext.compose
 
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextOverflow
@@ -7,13 +9,14 @@ import com.sunnychung.lib.multiplatform.bigtext.core.layout.CharMeasurer
 import com.sunnychung.lib.multiplatform.bigtext.util.isSurrogatePairFirst
 import com.sunnychung.lib.multiplatform.bigtext.util.isSurrogatePairSecond
 import com.sunnychung.lib.multiplatform.bigtext.util.log
+import com.sunnychung.lib.multiplatform.bigtext.util.string
 import java.util.concurrent.ConcurrentHashMap
 
 private val charsRequiringWrapping = setOf(" ", "\t")
 
-class ComposeUnicodeCharMeasurer(private val measurer: TextMeasurer, private val style: TextStyle/*, val density: Density, val fontFamilyResolver: FontFamily.Resolver*/) : CharMeasurer {
-    private val charWidth: MutableMap<String, Float> = ConcurrentHashMap<String, Float>(128) //LinkedHashMap<String, Float>(256)
-    private val charYOffset: MutableMap<String, Float> = ConcurrentHashMap<String, Float>(128) //LinkedHashMap<String, Float>(256)
+class ComposeUnicodeCharMeasurer(private val measurer: TextMeasurer, private val style: TextStyle/*, val density: Density, val fontFamilyResolver: FontFamily.Resolver*/) : CharMeasurer<TextStyle> {
+    private val charWidth: MutableMap<CacheKey, Float> = ConcurrentHashMap(128) //LinkedHashMap<String, Float>(256)
+    private val charYOffset: MutableMap<CacheKey, Float> = ConcurrentHashMap(128) //LinkedHashMap<String, Float>(256)
     private val refCharHeight: Float = measurer.measure("|\n|", style, softWrap = false).let {
         log.i { "charHeight ${it.getLineTop(1)} - ${it.getLineTop(0)}" }
         it.getLineTop(1) - it.getLineTop(0)
@@ -31,28 +34,31 @@ class ComposeUnicodeCharMeasurer(private val measurer: TextMeasurer, private val
     /**
      * Time complexity = O(S lg C)
      */
-    override fun measureFullText(text: String) {
-        val charToMeasure = mutableSetOf<String>()
-        var surrogatePairFirst: Char? = null
-        text.forEach {
-            var s = it.toString()
-            if (surrogatePairFirst == null && s[0].isSurrogatePairFirst()) {
-                surrogatePairFirst = s[0]
-                return@forEach
-            } else if (surrogatePairFirst != null) {
-                if (s[0].isSurrogatePairSecond()) {
-                    s = "$surrogatePairFirst${s[0]}"
-                } else {
-                    s = s.substring(0, 1)
-                }
-                surrogatePairFirst = null
-            }
-            if (!charWidth.containsKey(s) && shouldIndexChar(s)) {
-                charToMeasure += s
-            }
-        }
-        measureAndIndex(charToMeasure)
-        log.v { "UnicodeCharMeasurer measureFullText cache size ${charWidth.size}" }
+    @Deprecated("Not maintained")
+    override fun measureFullText(text: CharSequence) {
+        throw NotImplementedError()
+
+//        val charToMeasure = mutableSetOf<String>()
+//        var surrogatePairFirst: Char? = null
+//        text.forEach {
+//            var s = it.toString()
+//            if (surrogatePairFirst == null && s[0].isSurrogatePairFirst()) {
+//                surrogatePairFirst = s[0]
+//                return@forEach
+//            } else if (surrogatePairFirst != null) {
+//                if (s[0].isSurrogatePairSecond()) {
+//                    s = "$surrogatePairFirst${s[0]}"
+//                } else {
+//                    s = s.substring(0, 1)
+//                }
+//                surrogatePairFirst = null
+//            }
+//            if (!charWidth.containsKey(s) && shouldIndexChar(s)) {
+//                charToMeasure += s
+//            }
+//        }
+//        measureAndIndex(charToMeasure, style)
+//        log.v { "UnicodeCharMeasurer measureFullText cache size ${charWidth.size}" }
     }
 
     /**
@@ -60,49 +66,66 @@ class ComposeUnicodeCharMeasurer(private val measurer: TextMeasurer, private val
      *
      * TODO: handle surrogate pair correctly
      */
-    override fun findCharWidth(char: String): Float {
+    override fun findCharWidth(char: CharSequence, style: TextStyle?): Float {
         if (char[0].isSurrogatePairFirst() && char.length == 1) {
             return 0f
         }
-        when (char.codePoints().findFirst().asInt) {
+        val style = mergeStyles(style, char as? AnnotatedString)
+        val spanStyle = style.toSpanStyle()
+        val char = when (char.codePoints().findFirst().asInt) {
             in 0x4E00..0x9FFF,
                 in 0x3400..0x4DBF,
                 in 0x20000..0x2A6DF,
-                in 0xAC00..0xD7AF ->
-                    return charWidth[CJK_FULLWIDTH_REPRESENTABLE_CHAR]!!
+                in 0xAC00..0xD7AF -> CJK_FULLWIDTH_REPRESENTABLE_CHAR
+            else -> char
         }
-        return charWidth[char] ?: run {
-            measureAndIndex(setOf(char))
-            charWidth[char] ?: 0f // it is possible to be not found due to negative widths
+        return charWidth[CacheKey(char.string(), spanStyle)] ?: run {
+            measureAndIndex(setOf(char.string()), style)
+            charWidth[CacheKey(char.string(), spanStyle)] ?: 0f // it is possible to be not found due to negative widths
         }
     }
 
-    override fun findCharYOffset(char: String): Float {
+    override fun findCharYOffset(char: CharSequence, style: TextStyle?): Float {
         if (char[0].isSurrogatePairFirst() && char.length == 1) {
             return 0f //refCharHeight
         }
-        return charYOffset[char] ?: run {
-            measureAndIndex(setOf(char))
-            charYOffset[char]!!
+        val style = mergeStyles(style, char as? AnnotatedString)
+        val spanStyle = style.toSpanStyle()
+        return charYOffset[CacheKey(char.string(), spanStyle)] ?: run {
+            measureAndIndex(setOf(char.string()), style)
+            charYOffset[CacheKey(char.string(), spanStyle)]!!
         }
     }
 
-    private fun measureAndIndex(charSet: Set<String>) {
+    private fun mergeStyles(overrideStyle: TextStyle?, annotatedString: AnnotatedString?): TextStyle {
+        val baseStyle = overrideStyle ?: style
+        if (annotatedString == null) {
+            return baseStyle
+        }
+        var style = baseStyle
+        annotatedString.spanStyles.forEach {
+            style += it.item // assume all span styles apply to the full string
+        }
+        return style
+    }
+
+    private fun measureAndIndex(charSet: Set<String>, style: TextStyle?) {
         val chars = charSet.toList()
-        measure(chars).forEachIndexed { index, r ->
+        val style = style ?: this.style
+        measure(chars, style).forEachIndexed { index, r ->
             if (r.first >= 0f) {
-                charWidth[chars[index]] = r.first
+                charWidth[CacheKey(chars[index], style.toSpanStyle())] = r.first
             }
             if (r.first < 1f) {
-                log.w { "measure '${chars[index]}' width = $r" }
+                log.w { "measure '${chars[index]}' style=$style width = $r" }
             }
-            charYOffset[chars[index]] = r.second
+            charYOffset[CacheKey(chars[index], style.toSpanStyle())] = r.second
         }
     }
 
     fun getRowHeight(): Float = refCharHeight
 
-    fun measure(targets: List<String>): List<Pair<Float, Float>> {
+    fun measure(targets: List<String>, style: TextStyle): List<Pair<Float, Float>> {
         log.d { "measure ${targets.size} targets" }
 //        return targets.map { measurer.measure(it, style, softWrap = false).getBoundingBox(0).width }
 
@@ -155,14 +178,14 @@ class ComposeUnicodeCharMeasurer(private val measurer: TextMeasurer, private val
     }
 
     init {
-        measureAndIndex(COMPULSORY_MEASURES)
+        measureAndIndex(COMPULSORY_MEASURES, style)
         // hardcode, because calling TextMeasurer#measure() against below characters returns zero width
 //        charWidth[" "] = charWidth["_"]!!
 //        charWidth["\t"] = charWidth[" "]!!
 //        charWidth["?"] = charWidth["!"]!!
 //        charWidth["’"] = charWidth["'"]!!
         log.d { "$this cache: $charWidth" }
-        log.d { "$this space 1=${measure(listOf(" "))} 2=${measure(listOf("  "))} 3=${measure(listOf("   "))}" }
+//        log.d { "$this space 1=${measure(listOf(" "))} 2=${measure(listOf("  "))} 3=${measure(listOf("   "))}" }
     }
 
     companion object {
@@ -172,4 +195,6 @@ class ComposeUnicodeCharMeasurer(private val measurer: TextMeasurer, private val
                 CJK_FULLWIDTH_REPRESENTABLE_CHAR
         ).toSet()
     }
+
+    private data class CacheKey(val char: String, val style: SpanStyle)
 }

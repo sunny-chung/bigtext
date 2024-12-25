@@ -1,10 +1,11 @@
 package com.sunnychung.lib.multiplatform.bigtext.core.layout
 
-interface CharMeasurer {
+interface CharMeasurer<S> {
 
-    fun measureFullText(text: String)
+    @Deprecated("Not maintained")
+    fun measureFullText(text: CharSequence)
 
-    fun findCharWidth(char: String): Float
+    fun findCharWidth(char: CharSequence, style: S? = null): Float
 
-    fun findCharYOffset(char: String): Float
+    fun findCharYOffset(char: CharSequence, style: S? = null): Float
 }

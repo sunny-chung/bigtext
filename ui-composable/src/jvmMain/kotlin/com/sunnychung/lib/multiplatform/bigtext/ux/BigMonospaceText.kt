@@ -73,6 +73,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.setText
 import androidx.compose.ui.semantics.text
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontSynthesis
@@ -1753,8 +1754,9 @@ private fun CoreBigMonospaceText(
                                     .map { it.copy(start = 0, end = 2) }
                             )
                         }
-                        val charWidth = textLayouter.measureCharWidth(annotatedUnicode.text)
-                        val charYOffset = textLayouter.measureCharYOffset(annotatedUnicode.text)
+//                        val charStyle = annotatedUnicode.spanStyles.map { it.item }.reduceOrNull { acc, it -> acc + it }?.let { textStyle + it }
+                        val charWidth = textLayouter.measureCharWidth(annotatedUnicode)
+                        val charYOffset = textLayouter.measureCharYOffset(annotatedUnicode)
 //                        log.v { "char '$annotatedUnicode' w=$charWidth y=$charYOffset lh=$lineHeight" }
                         drawText(
                             textMeasurer = textMeasurer,

@@ -1735,13 +1735,14 @@ open class BigTextImpl(
 
         // Use (map + forEachIndexed) VS forEach: 2s VS 0.7s
         (fromCharIndex ..< length).forEach { i ->
-            val char = buffer.substring(i, i + 1)
+            val char = buffer.subSequence(i, i + 1)
             val charWidth: Float
             if (char[0].isHighSurrogate()) {
                 surrogatePairFirstChar = char[0]
                 charWidth = 0f
             } else if (surrogatePairFirstChar != null) {
-                charWidth = layouter.measureCharWidth("$surrogatePairFirstChar$char")
+//                charWidth = layouter.measureCharWidth("$surrogatePairFirstChar$char")
+                charWidth = layouter.measureCharWidth(buffer.subSequence(i - 1, i + 1))
                 surrogatePairFirstChar = null
             } else {
                 charWidth = layouter.measureCharWidth(char)
@@ -1772,17 +1773,18 @@ open class BigTextImpl(
         return if (isForwardSearch) {
             val dividable = ((index + 1) / accumulatedWidthCacheInterval - 1)
             var surrogatePairFirstChar = if (dividable >= 0) {
-                buffer.substring(dividable, dividable + 1)[0].takeIf { it.isHighSurrogate() }
+                buffer.subSequence(dividable, dividable + 1)[0].takeIf { it.isHighSurrogate() }
             } else null
             (if (dividable >= 0) extraData.widths[dividable] else 0L) +
                 (((dividable + 1) * accumulatedWidthCacheInterval - 1) + 1 .. index).sumOf { i ->
-                    val char = buffer.substring(i, i + 1)
+                    val char = buffer.subSequence(i, i + 1)
                     val charWidth: Float
                     if (char[0].isHighSurrogate()) {
                         surrogatePairFirstChar = char[0]
                         charWidth = 0f
                     } else if (surrogatePairFirstChar != null) {
-                        charWidth = layouter.measureCharWidth("$surrogatePairFirstChar$char")
+//                        charWidth = layouter.measureCharWidth("$surrogatePairFirstChar$char")
+                        charWidth = layouter.measureCharWidth(buffer.subSequence(i - 1, i + 1))
                         surrogatePairFirstChar = null
                     } else {
                         charWidth = layouter.measureCharWidth(char)
@@ -1795,10 +1797,11 @@ open class BigTextImpl(
 //                    val surrogatePairSecondChar = buffer.substring(dividable, dividable + 1)[0].takeIf { it.isLowSurrogate() }
             extraData.widths[dividable] -
                 ((dividable + 1) * accumulatedWidthCacheInterval - 1 downTo  index + 1).sumOf { i ->
-                    val char = buffer.substring(i, i + 1)
+                    val char = buffer.subSequence(i, i + 1)
                     val charWidth: Float
                     if (char[0].isLowSurrogate()) {
-                        charWidth = layouter.measureCharWidth("${buffer.substring(i - 1, i)}$char")
+//                        charWidth = layouter.measureCharWidth("${buffer.substring(i - 1, i)}$char")
+                        charWidth = layouter.measureCharWidth(buffer.subSequence(i - 1, i + 1))
                     } else if (char[0].isHighSurrogate()) {
                         charWidth = 0f
                     } else {
@@ -1807,6 +1810,8 @@ open class BigTextImpl(
                     val multipliedCharWidth = (charWidth * widthMultiplier).roundToLong()
                     multipliedCharWidth
                 }
+        }.also {
+            log.v { "findWidthSum($index) = $it" }
         }
     }
 
@@ -1993,7 +1998,7 @@ open class BigTextImpl(
 
             for (lineBreakEntryIndex in lineBreakIndexFrom..lineBreakIndexTo) {
                 val lineBreakCharIndex = buffer.lineOffsetStarts[lineBreakEntryIndex]
-                val subsequence = buffer.substring(charStartIndexInBuffer, lineBreakCharIndex)
+                val subsequence = buffer.subSequence(charStartIndexInBuffer, lineBreakCharIndex)
                 logL.d { "node ${nodeValue.debugKey()} buf #${nodeValue.bufferIndex} line break #$lineBreakEntryIndex seq $charStartIndexInBuffer ..< $lineBreakCharIndex" }
 
                 val (rowCharOffsets, _) = layouter.layoutOneLine(
@@ -2064,7 +2069,7 @@ open class BigTextImpl(
 //                val subsequence = buffer.subSequence(charStartIndexInBuffer, nodeValue.bufferOffsetEndExclusive)
                 val readRowUntilPos = nextBoundary //nodeValue.bufferOffsetEndExclusive //minOf(nodeValue.bufferOffsetEndExclusive, endPosExclusive - nodeStartPos + nodeValue.bufferOffsetStart)
                 logL.d { "node ${nodeValue.debugKey()} last row seq $charStartIndexInBuffer ..< ${readRowUntilPos}. start = $nodeStartPos" }
-                val subsequence = buffer.substring(charStartIndexInBuffer, readRowUntilPos)
+                val subsequence = buffer.subSequence(charStartIndexInBuffer, readRowUntilPos)
                 logL.d { "after substring" }
 
                 val (rowCharOffsets, lastRowOccupiedWidth) = layouter.layoutOneLine(

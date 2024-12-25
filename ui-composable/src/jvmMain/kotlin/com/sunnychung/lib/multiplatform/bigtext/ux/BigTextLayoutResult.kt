@@ -2,8 +2,8 @@ package com.sunnychung.lib.multiplatform.bigtext.ux
 
 import com.sunnychung.lib.multiplatform.bigtext.annotation.TemporaryApi
 import com.sunnychung.lib.multiplatform.bigtext.core.layout.BigTextLayoutable
-import com.sunnychung.lib.multiplatform.bigtext.extension.binarySearchForMaxIndexOfValueAtMost
 import com.sunnychung.lib.multiplatform.bigtext.core.layout.CharMeasurer
+import com.sunnychung.lib.multiplatform.bigtext.extension.binarySearchForMaxIndexOfValueAtMost
 import com.sunnychung.lib.multiplatform.bigtext.util.weakRefOf
 
 @OptIn(TemporaryApi::class)
@@ -19,7 +19,7 @@ class BigTextLayoutResult(
     @Deprecated("Slow") val totalLines: Int,
     @Deprecated("Slow") val totalRows: Int,
     /** Total number of lines before transformation */ val totalLinesBeforeTransformation: Int,
-    private val charMeasurer: CharMeasurer,
+    private val charMeasurer: CharMeasurer<*>,
 ) {
     @Deprecated("Slow") fun findLineNumberByRowNumber(rowNumber: Int): Int {
         return lineFirstRowIndices.binarySearchForMaxIndexOfValueAtMost(rowNumber)

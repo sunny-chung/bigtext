@@ -2,10 +2,10 @@ package com.sunnychung.lib.multiplatform.bigtext.core.layout
 
 private val LINE_BREAK_REGEX = "\n".toRegex()
 
-class MonospaceTextLayouter : TextLayouter {
-    val charMeasurer: CharMeasurer
+class MonospaceTextLayouter<S> : TextLayouter {
+    val charMeasurer: CharMeasurer<S>
 
-    constructor(charMeasurer: CharMeasurer) {
+    constructor(charMeasurer: CharMeasurer<S>) {
         this.charMeasurer = charMeasurer
     }
 
@@ -13,11 +13,11 @@ class MonospaceTextLayouter : TextLayouter {
         charMeasurer.measureFullText(text)
     }
 
-    override fun measureCharWidth(char: String): Float {
+    override fun measureCharWidth(char: CharSequence): Float {
         return charMeasurer.findCharWidth(char)
     }
 
-    override fun measureCharYOffset(char: String): Float {
+    override fun measureCharYOffset(char: CharSequence): Float {
         return charMeasurer.findCharYOffset(char)
     }
 
@@ -37,11 +37,13 @@ class MonospaceTextLayouter : TextLayouter {
 //                }
 //            }
             val char = if (it.isHighSurrogate()) { // let the first char to expand width, otherwise the surrogate pair may be broken into two half
-                "$it${line[index + 1]}"
+//                "$it${line[index + 1]}"
+                line.subSequence(index, index + 2)
             } else if (it.isLowSurrogate()) {
                 return@mapIndexed 0f
             } else {
-                it.toString()
+//                it.toString()
+                line.subSequence(index, index + 1)
             }
             charMeasurer.findCharWidth(char)
         }

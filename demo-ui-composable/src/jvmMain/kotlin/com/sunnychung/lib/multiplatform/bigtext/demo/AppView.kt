@@ -41,6 +41,7 @@ private enum class DemoView(val displayName: String) {
     CodeEditor("Code Editor"),
     SansSerif("Sans Serif"),
     Transformation("Transformation"),
+    MixedFont("Multiple Fonts"),
     ReadOnly("Read-only"),
     MoreExamples("More Examples"),
     ComposeText("Compare with Jetpack Compose BasicTextField"),
@@ -76,6 +77,7 @@ fun AppView() {
             DemoView.CodeEditor -> CodeEditorDemoView()
             DemoView.SansSerif -> SimpleDemoView(fontFamily = FontFamily.SansSerif)
             DemoView.Transformation -> TransformationDemoView()
+            DemoView.MixedFont -> MixedFontDemoView()
             DemoView.ReadOnly -> ReadOnlyDemoView()
             DemoView.MoreExamples -> MoreExamplesDemoView()
             DemoView.ComposeText -> ComposeTextFieldView()
