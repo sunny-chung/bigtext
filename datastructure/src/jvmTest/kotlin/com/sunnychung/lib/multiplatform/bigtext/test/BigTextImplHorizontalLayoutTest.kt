@@ -320,12 +320,12 @@ class BigTextImplHorizontalLayoutTest {
         val layouter = object : TextLayouter {
             override fun indexCharWidth(text: String) = throw NotImplementedError()
 
-            override fun measureCharWidth(char: String): Float {
+            override fun measureCharWidth(char: CharSequence): Float {
                 if (char == "\n") return 0f
                 return charWidths[(char[0] - '0')].toFloat()
             }
 
-            override fun measureCharYOffset(char: String): Float = throw NotImplementedError()
+            override fun measureCharYOffset(char: CharSequence): Float = throw NotImplementedError()
 
             override fun layoutOneLine(
                 line: CharSequence,
@@ -370,12 +370,12 @@ class BigTextImplHorizontalLayoutTest {
             val layouter = object : TextLayouter {
                 override fun indexCharWidth(text: String) = throw NotImplementedError()
 
-                override fun measureCharWidth(char: String): Float {
+                override fun measureCharWidth(char: CharSequence): Float {
                     if (char == "\n") return 0f
                     return charWidths[(char[0] - '0')].toFloat()
                 }
 
-                override fun measureCharYOffset(char: String): Float = throw NotImplementedError()
+                override fun measureCharYOffset(char: CharSequence): Float = throw NotImplementedError()
 
                 override fun layoutOneLine(
                     line: CharSequence,

@@ -2,12 +2,12 @@ package com.sunnychung.lib.multiplatform.bigtext.test.util
 
 import com.sunnychung.lib.multiplatform.bigtext.core.layout.CharMeasurer
 
-class FixedWidthCharMeasurer(private val charWidth: Float) : CharMeasurer {
-    override fun measureFullText(text: String) {
+class FixedWidthCharMeasurer(private val charWidth: Float) : CharMeasurer<Unit> {
+    override fun measureFullText(text: CharSequence) {
         // Nothing
     }
 
-    override fun findCharWidth(char: String): Float = charWidth
+    override fun findCharWidth(char: CharSequence, style: Unit?): Float = charWidth
 
-    override fun findCharYOffset(char: String): Float = throw NotImplementedError()
+    override fun findCharYOffset(char: CharSequence, style: Unit?): Float = throw NotImplementedError()
 }
