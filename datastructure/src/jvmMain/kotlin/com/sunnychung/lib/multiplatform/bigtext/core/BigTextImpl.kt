@@ -1864,19 +1864,29 @@ open class BigTextImpl(
     }
 
     override fun enableAndDoComputations() {
-        isComputationsDisabled = false
+        isComputationsDisabled = true
         isLayoutEnabled = true
+        layout()
+        isComputationsDisabled = false
         tree.visitInPostOrder {
             computeCurrentNodeProperties(it.value, it.left)
         }
-        layout()
     }
 
     override fun layout() {
         val layouter = this.layouter ?: return
         val contentWidth = this.contentWidth ?: return
 
-        return layout(0, length)
+        val oldIsComputationsDisabled = isComputationsDisabled
+        isComputationsDisabled = true
+        return layout(0, length).also {
+            if (!oldIsComputationsDisabled) {
+                isComputationsDisabled = oldIsComputationsDisabled
+                tree.visitInPostOrder {
+                    computeCurrentNodeProperties(it.value, it.left)
+                }
+            }
+        }
         // the code below doesn't pass insertTriggersRelayout3(16)
 
         var lastOccupiedWidth = 0f
