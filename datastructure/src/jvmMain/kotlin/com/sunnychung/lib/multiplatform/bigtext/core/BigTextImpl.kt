@@ -1781,12 +1781,18 @@ open class BigTextImpl(
         )
         return if (isForwardSearch) {
             val dividable = ((index + 1) / accumulatedWidthCacheInterval - 1)
+            val searchRange = (((dividable + 1) * accumulatedWidthCacheInterval - 1) + 1 .. index)
+            val subsequence = if (searchRange.isEmpty()) {
+                ""
+            } else {
+                buffer.subSequence(searchRange.first, searchRange.last + 1)
+            }
 //            var surrogatePairFirstChar = if (dividable >= 0) {
 //                buffer.subSequence(dividable, dividable + 1)[0].takeIf { it.isHighSurrogate() }
 //            } else null
             (if (dividable >= 0) extraData.widths[dividable] else 0L) +
-                (((dividable + 1) * accumulatedWidthCacheInterval - 1) + 1 .. index).sumOf { i ->
-                    val char = buffer.subSequence(i, i + 1)
+                searchRange.sumOf { i ->
+                    val char = subsequence.subSequence(i - searchRange.first, i + 1 - searchRange.first)
                     val charWidth: Float
                     if (char[0].isHighSurrogate()) {
 //                        surrogatePairFirstChar = char[0]
@@ -1794,7 +1800,7 @@ open class BigTextImpl(
 //                    } else if (surrogatePairFirstChar != null) {
                     } else if (char[0].isLowSurrogate() && i > 0) { // FIXME handle i == 0
 //                        charWidth = layouter.measureCharWidth("$surrogatePairFirstChar$char")
-                        charWidth = layouter.measureCharWidth(buffer.subSequence(i - 1, i + 1))
+                        charWidth = layouter.measureCharWidth(subsequence.subSequence(i - 1 - searchRange.first, i + 1 - searchRange.first))
 //                        surrogatePairFirstChar = null
                     } else {
                         charWidth = layouter.measureCharWidth(char)
@@ -1804,14 +1810,20 @@ open class BigTextImpl(
                 }
         } else {
             val dividable = ((index + 1) / accumulatedWidthCacheInterval - 1) + 1
+            val searchProgression = ((dividable + 1) * accumulatedWidthCacheInterval - 1 downTo  index + 1)
+            val subsequence = if (searchProgression.isEmpty()) {
+                ""
+            } else {
+                buffer.subSequence(searchProgression.last, searchProgression.first + 1)
+            }
 //                    val surrogatePairSecondChar = buffer.substring(dividable, dividable + 1)[0].takeIf { it.isLowSurrogate() }
             extraData.widths[dividable] -
-                ((dividable + 1) * accumulatedWidthCacheInterval - 1 downTo  index + 1).sumOf { i ->
-                    val char = buffer.subSequence(i, i + 1)
+                searchProgression.sumOf { i ->
+                    val char = subsequence.subSequence(i - searchProgression.last, i + 1 - searchProgression.last)
                     val charWidth: Float
                     if (char[0].isLowSurrogate() && i > 0) { // FIXME handle i == 0
 //                        charWidth = layouter.measureCharWidth("${buffer.substring(i - 1, i)}$char")
-                        charWidth = layouter.measureCharWidth(buffer.subSequence(i - 1, i + 1))
+                        charWidth = layouter.measureCharWidth(subsequence.subSequence(i - 1 - searchProgression.last, i + 1 - searchProgression.last))
                     } else if (char[0].isHighSurrogate()) {
                         charWidth = 0f
                     } else {
