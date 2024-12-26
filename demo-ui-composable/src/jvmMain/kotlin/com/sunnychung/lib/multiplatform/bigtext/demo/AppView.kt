@@ -30,6 +30,7 @@ val PRELOAD_CONTENT = linkedMapOf(
     "100 MB" to generateRandomContent(100 * 1024 * 1024),
     "Unicode 4 KB" to generateRandomUnicodeContent(4 * 1024),
     "Unicode 10 MB" to generateRandomUnicodeContent(10 * 1024 * 1024),
+    "Unicode 100 MB" to generateRandomUnicodeContent(100 * 1024 * 1024),
     "Unicode + Emoji 4 KB" to generateRandomUnicodeWithEmojiContent(4 * 1024),
     "Unicode + Emoji 10 MB" to generateRandomUnicodeWithEmojiContent(10 * 1024 * 1024),
     "Dense 10 MB" to generateDenseRandomContent(10 * 1024 * 1024),
