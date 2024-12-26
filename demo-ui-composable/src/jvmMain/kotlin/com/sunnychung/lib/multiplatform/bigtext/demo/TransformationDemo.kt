@@ -40,7 +40,7 @@ import com.sunnychung.lib.multiplatform.bigtext.ux.rememberConcurrentLargeAnnota
 import kotlinx.coroutines.launch
 import kotlin.random.Random
 
-private val TRANSFORMATION_PRELOAD_CONTENT = PRELOAD_CONTENT
+val TRANSFORMATION_PRELOAD_CONTENT = PRELOAD_CONTENT
     .filter { it.value.length <= 32 * 1024 * 1024 }
     .map { (key, content) ->
         val transformationCount = content.length / 300 // approximate a transformation every 300 B
