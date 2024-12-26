@@ -26,11 +26,15 @@ class VariableIncrementalTransformation : IncrementalTextTransformation<Unit> {
     )
 
     override fun initialize(text: BigText, transformer: BigTextTransformer) {
+        transformer.disableComputations()
+
         val targets = variableRegex.findAll(text.buildString())
         targets.forEach {
             val name = it.groups[1]!!.value
             transformer.replace(it.range, createSpan(name), BigTextTransformOffsetMapping.WholeBlock)
         }
+
+        transformer.enableAndDoComputations()
     }
 
     override fun afterTextChange(change: BigTextChangeEvent, transformer: BigTextTransformer, context: Unit) {

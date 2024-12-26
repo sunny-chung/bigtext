@@ -148,6 +148,14 @@ class InefficientBigText(text: String) : BigText {
         TODO("Not yet implemented")
     }
 
+    override fun disableComputations() {
+        TODO("Not yet implemented")
+    }
+
+    override fun enableAndDoComputations() {
+        TODO("Not yet implemented")
+    }
+
     override fun hashCode(): Int =
         string.hashCode()
 

@@ -451,6 +451,7 @@ private fun CoreBigMonospaceText(
             val transformedText = transformedTextRef.get() ?: return@remember
 
             val layout = layout@ {
+                log.d { "BigText start layout" }
                 val startInstant = KInstant.now()
 
                 transformedText.onLayoutCallback = {
@@ -539,8 +540,9 @@ private fun CoreBigMonospaceText(
     }
 
     val transformedState = remember(weakRefOf(text), textTransformation) {
-        log.v { "CoreBigMonospaceText text = |${text.buildString()}|" }
+//        log.v { "CoreBigMonospaceText text = |${text.buildString()}|" }
         if (textTransformation != null) {
+            log.d { "CoreBigMonospaceText start init transform" }
             val startInstant = KInstant.now()
             textTransformation.initialize(text, transformedText).also {
                 val endInstant = KInstant.now()

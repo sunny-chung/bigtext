@@ -78,6 +78,7 @@ open class BigTextImpl(
         protected set
 
     internal var isLayoutEnabled: Boolean = true
+    private var isComputationsDisabled: Boolean = false
 
     private var isSoftWrapEnabled: Boolean = true
 
@@ -687,11 +688,13 @@ open class BigTextImpl(
         leftStringLength = left?.length() ?: 0
         log.v { ">> ${node?.value?.debugKey()} -> $leftStringLength (${left?.value?.debugKey()}/ ${left?.length()})" }
 
+        if (isComputationsDisabled) return@with
+
         // recompute leftNumOfLineBreaks
-//        bufferNumLineBreaksInRange = buffers[bufferIndex].lineOffsetStarts.subSet(bufferOffsetStart, bufferOffsetEndExclusive).size
-        bufferNumLineBreaksInRange = buffer.lineOffsetStarts.run {
-            binarySearchForMinIndexOfValueAtLeast(bufferOffsetEndExclusive) - maxOf(0, binarySearchForMinIndexOfValueAtLeast(bufferOffsetStart))
-        }
+////        bufferNumLineBreaksInRange = buffers[bufferIndex].lineOffsetStarts.subSet(bufferOffsetStart, bufferOffsetEndExclusive).size
+//        bufferNumLineBreaksInRange = buffer.lineOffsetStarts.run {
+//            binarySearchForMinIndexOfValueAtLeast(bufferOffsetEndExclusive) - maxOf(0, binarySearchForMinIndexOfValueAtLeast(bufferOffsetStart))
+//        }
         renderNumLineBreaksInRange = if (currentRenderLength > 0) {
             buffer.lineOffsetStarts.run {
                 binarySearchForMinIndexOfValueAtLeast(renderBufferEndExclusive) - maxOf(0, binarySearchForMinIndexOfValueAtLeast(renderBufferStart))
@@ -704,7 +707,9 @@ open class BigTextImpl(
 
         leftNumOfRowBreaks = node?.left?.numRowBreaks() ?: 0
 
-        bufferExtraData[buffer]?.also { extraData ->
+        bufferExtraDataLock.withLock {
+            bufferExtraData[buffer]
+        }?.also { extraData ->
             if (!extraData.hasInitialized) {
                 endLineWidth = -1
                 startLineWidth = -1
@@ -1684,7 +1689,9 @@ open class BigTextImpl(
 
         this.layouter = layouter
 
-        bufferExtraData.clear()
+        bufferExtraDataLock.withLock {
+            bufferExtraData.clear()
+        }
         runBlocking {
             allBuffers.map { buffer ->
                 async(Dispatchers.IO) {
@@ -1766,26 +1773,27 @@ open class BigTextImpl(
         val layouter = layouter!!
 
         val isForwardSearch: Boolean = (
-            index % accumulatedWidthCacheInterval < accumulatedWidthCacheHalfInterval
+            index % accumulatedWidthCacheInterval < maxOf(accumulatedWidthCacheHalfInterval, 1)
                 || ((index + 1) / accumulatedWidthCacheInterval - 1) + 1 > extraData.widths.lastIndex
                 || extraData.widths[((index + 1) / accumulatedWidthCacheInterval - 1) + 1] <= 0L
         )
         return if (isForwardSearch) {
             val dividable = ((index + 1) / accumulatedWidthCacheInterval - 1)
-            var surrogatePairFirstChar = if (dividable >= 0) {
-                buffer.subSequence(dividable, dividable + 1)[0].takeIf { it.isHighSurrogate() }
-            } else null
+//            var surrogatePairFirstChar = if (dividable >= 0) {
+//                buffer.subSequence(dividable, dividable + 1)[0].takeIf { it.isHighSurrogate() }
+//            } else null
             (if (dividable >= 0) extraData.widths[dividable] else 0L) +
                 (((dividable + 1) * accumulatedWidthCacheInterval - 1) + 1 .. index).sumOf { i ->
                     val char = buffer.subSequence(i, i + 1)
                     val charWidth: Float
                     if (char[0].isHighSurrogate()) {
-                        surrogatePairFirstChar = char[0]
+//                        surrogatePairFirstChar = char[0]
                         charWidth = 0f
-                    } else if (surrogatePairFirstChar != null) {
+//                    } else if (surrogatePairFirstChar != null) {
+                    } else if (char[0].isLowSurrogate() && i > 0) { // FIXME handle i == 0
 //                        charWidth = layouter.measureCharWidth("$surrogatePairFirstChar$char")
                         charWidth = layouter.measureCharWidth(buffer.subSequence(i - 1, i + 1))
-                        surrogatePairFirstChar = null
+//                        surrogatePairFirstChar = null
                     } else {
                         charWidth = layouter.measureCharWidth(char)
                     }
@@ -1799,7 +1807,7 @@ open class BigTextImpl(
                 ((dividable + 1) * accumulatedWidthCacheInterval - 1 downTo  index + 1).sumOf { i ->
                     val char = buffer.subSequence(i, i + 1)
                     val charWidth: Float
-                    if (char[0].isLowSurrogate()) {
+                    if (char[0].isLowSurrogate() && i > 0) { // FIXME handle i == 0
 //                        charWidth = layouter.measureCharWidth("${buffer.substring(i - 1, i)}$char")
                         charWidth = layouter.measureCharWidth(buffer.subSequence(i - 1, i + 1))
                     } else if (char[0].isHighSurrogate()) {
@@ -1833,6 +1841,20 @@ open class BigTextImpl(
         }
 
         this.isSoftWrapEnabled = isSoftWrapEnabled
+        layout()
+    }
+
+    override fun disableComputations() {
+        isComputationsDisabled = true
+        isLayoutEnabled = false
+    }
+
+    override fun enableAndDoComputations() {
+        isComputationsDisabled = false
+        isLayoutEnabled = true
+        tree.visitInPostOrder {
+            computeCurrentNodeProperties(it.value, it.left)
+        }
         layout()
     }
 

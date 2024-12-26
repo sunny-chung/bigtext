@@ -117,6 +117,21 @@ interface BigText {
      */
     fun layout()
 
+    /**
+     * Disable computations related to layout. Default it is not disabled.
+     *
+     * This is used to optimize performance when there are a large amount of changes at the same time.
+     * It should be enabled back using [enableAndDoComputations()][enableAndDoComputations] once all the changes are applied.
+     */
+    fun disableComputations()
+
+    /**
+     * Enable and execute computations of all the nodes immediately.
+     *
+     * @see disableComputations
+     */
+    fun enableAndDoComputations()
+
     override fun hashCode(): Int
 
     override fun equals(other: Any?): Boolean

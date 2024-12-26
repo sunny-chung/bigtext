@@ -373,6 +373,14 @@ internal class BigTextVerifyImpl(bigTextImpl: BigTextImpl) : BigText {
         TODO("Not yet implemented")
     }
 
+    override fun disableComputations() {
+        bigTextImpl.disableComputations()
+    }
+
+    override fun enableAndDoComputations() {
+        bigTextImpl.enableAndDoComputations()
+    }
+
     override fun hashCode(): Int {
         val r = bigTextImpl.hashCode()
         val tr = stringImpl.hashCode()

@@ -42,6 +42,7 @@ kotlin {
                 implementation("io.github.sunny-chung:kdatetime-multiplatform:1.0.0")
                 api(project(":bigtext-datastructure"))
                 implementation(kotlin("reflect"))
+                implementation("com.lodborg:interval-tree:1.0.0") // Interval Tree
             }
         }
         jvmMain {

@@ -2,16 +2,15 @@ package com.sunnychung.lib.multiplatform.bigtext.compose
 
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
+import com.lodborg.intervaltree.IntegerInterval
+import com.lodborg.intervaltree.Interval
+import com.lodborg.intervaltree.IntervalTree
 import com.sunnychung.lib.multiplatform.bigtext.core.TextBuffer
-import com.sunnychung.lib.multiplatform.bigtext.extension.hasIntersectWith
-import java.util.TreeMap
 
 class AnnotatedStringTextBuffer(size: Int) : TextBuffer(size) {
     private val buffer = StringBuilder(size)
 
-    // TODO optimize it to use interval tree when styles that change character width are supported
-    // otherwise layout would be very slow
-    private val spanStyles = TreeMap<Int, MutableList<Entry>>()
+    private val spanStyles = IntervalTree<Int>()
 
     override val length: Int
         get() = buffer.length
@@ -22,7 +21,7 @@ class AnnotatedStringTextBuffer(size: Int) : TextBuffer(size) {
             text.spanStyles.forEach {
                 val start = it.start + baseStart
                 val endExclusive = it.end + baseStart
-                spanStyles.getOrPut(start) { mutableListOf() } += Entry(start until endExclusive, it.item, it.tag)
+                spanStyles.add(Entry(start until endExclusive, it.item, it.tag))
             }
             buffer.append(text)
             return
@@ -35,22 +34,17 @@ class AnnotatedStringTextBuffer(size: Int) : TextBuffer(size) {
     }
 
     override fun bufferSubSequence(start: Int, endExclusive: Int): CharSequence {
-        val queryRange = start until endExclusive
         return AnnotatedString(
             text = buffer.substring(start, endExclusive),
-            spanStyles = spanStyles.subMap(0, endExclusive)
-                .flatMap { e ->
-                    e.value.filter {
-                        queryRange hasIntersectWith it.range
-                    }
-                        .map {
-                            AnnotatedString.Range(
-                                item = it.style,
-                                start = maxOf(0, it.range.start - start),
-                                end = minOf(endExclusive - start, it.range.endInclusive + 1 - start),
-                                tag = it.tag
-                            )
-                        }
+            spanStyles = spanStyles.query(IntegerInterval(start, endExclusive - 1, Interval.Bounded.CLOSED))
+                .map { item ->
+                    val it = item as Entry
+                    AnnotatedString.Range(
+                        item = it.style,
+                        start = maxOf(0, it.range.start - start),
+                        end = minOf(endExclusive - start, it.range.endInclusive + 1 - start),
+                        tag = it.tag
+                    )
                 },
             paragraphStyles = emptyList()
         )
@@ -58,5 +52,5 @@ class AnnotatedStringTextBuffer(size: Int) : TextBuffer(size) {
 
     override fun get(index: Int): Char = buffer[index]
 
-    private class Entry(val range: IntRange, val style: SpanStyle, val tag: String)
+    private class Entry(val range: IntRange, val style: SpanStyle, val tag: String) : IntegerInterval(range.start, range.endInclusive, Bounded.CLOSED)
 }

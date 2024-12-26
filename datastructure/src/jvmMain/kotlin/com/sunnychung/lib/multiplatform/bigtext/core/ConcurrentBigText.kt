@@ -112,6 +112,10 @@ open class ConcurrentBigText(open val delegate: BigText) : BigText {
 
     override fun layout() = lock.write { delegate.layout() }
 
+    override fun disableComputations() = lock.write { delegate.disableComputations() }
+
+    override fun enableAndDoComputations() = lock.write { delegate.enableAndDoComputations() }
+
     // the first call to `hashCode()` would write to cache
 //    override fun hashCode(): Int = lock.write { delegate.hashCode() }
     // currently, BigTextImpl has no custom implementation over built-in's one, so no lock is needed.
