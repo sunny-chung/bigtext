@@ -71,17 +71,17 @@ class ComposeUnicodeCharMeasurer(private val measurer: TextMeasurer, private val
             return 0f
         }
         val style = mergeStyles(style, char as? AnnotatedString)
-        val spanStyle = style.toSpanStyle()
-        val char = when (char.codePoints().findFirst().asInt) {
+        val spanStyle = style?.toSpanStyle()
+        val char = when (Character.codePointAt(char, 0)) { // TODO translate Java to KMP
             in 0x4E00..0x9FFF,
                 in 0x3400..0x4DBF,
                 in 0x20000..0x2A6DF,
                 in 0xAC00..0xD7AF -> CJK_FULLWIDTH_REPRESENTABLE_CHAR
             else -> char
         }
-        return charWidth[CacheKey(char.string(), spanStyle)] ?: run {
+        return charWidth[cacheKeyOf(char, spanStyle)] ?: run {
             measureAndIndex(setOf(char.string()), style)
-            charWidth[CacheKey(char.string(), spanStyle)] ?: 0f // it is possible to be not found due to negative widths
+            charWidth[cacheKeyOf(char, spanStyle)] ?: 0f // it is possible to be not found due to negative widths
         }
     }
 
@@ -90,18 +90,18 @@ class ComposeUnicodeCharMeasurer(private val measurer: TextMeasurer, private val
             return 0f //refCharHeight
         }
         val style = mergeStyles(style, char as? AnnotatedString)
-        val spanStyle = style.toSpanStyle()
-        return charYOffset[CacheKey(char.string(), spanStyle)] ?: run {
+        val spanStyle = style?.toSpanStyle()
+        return charYOffset[cacheKeyOf(char, spanStyle)] ?: run {
             measureAndIndex(setOf(char.string()), style)
-            charYOffset[CacheKey(char.string(), spanStyle)]!!
+            charYOffset[cacheKeyOf(char, spanStyle)]!!
         }
     }
 
-    private fun mergeStyles(overrideStyle: TextStyle?, annotatedString: AnnotatedString?): TextStyle {
-        val baseStyle = overrideStyle ?: style
-        if (annotatedString == null) {
-            return baseStyle
+    private fun mergeStyles(overrideStyle: TextStyle?, annotatedString: AnnotatedString?): TextStyle? {
+        if (annotatedString == null || annotatedString.spanStyles.isEmpty()) {
+            return overrideStyle
         }
+        val baseStyle = overrideStyle ?: style
         var style = baseStyle
         annotatedString.spanStyles.forEach {
             style += it.item // assume all span styles apply to the full string
@@ -111,15 +111,15 @@ class ComposeUnicodeCharMeasurer(private val measurer: TextMeasurer, private val
 
     private fun measureAndIndex(charSet: Set<String>, style: TextStyle?) {
         val chars = charSet.toList()
-        val style = style ?: this.style
-        measure(chars, style).forEachIndexed { index, r ->
+        val actualStyle = style ?: this.style
+        measure(chars, actualStyle).forEachIndexed { index, r ->
             if (r.first >= 0f) {
-                charWidth[CacheKey(chars[index], style.toSpanStyle())] = r.first
+                charWidth[cacheKeyOf(chars[index], style?.toSpanStyle())] = r.first
             }
             if (r.first < 1f) {
-                log.w { "measure '${chars[index]}' style=$style width = $r" }
+                log.w { "measure '${chars[index]}' style=$actualStyle width = $r" }
             }
-            charYOffset[CacheKey(chars[index], style.toSpanStyle())] = r.second
+            charYOffset[cacheKeyOf(chars[index], style?.toSpanStyle())] = r.second
         }
     }
 
@@ -177,6 +177,15 @@ class ComposeUnicodeCharMeasurer(private val measurer: TextMeasurer, private val
         }
     }
 
+    private inline fun cacheKeyOf(char: CharSequence, style: SpanStyle?): CacheKey {
+        return CacheKey(char.string(), style)
+//        val length = char.length
+//        if (length <= 1 || (char[0].isHighSurrogate() && length == 2)) {
+//            return CacheKey(Character.codePointAt(char, 0), style)
+//        }
+//        return CacheKey(char.string().hashCode(), style)
+    }
+
     init {
         measureAndIndex(COMPULSORY_MEASURES, style)
         // hardcode, because calling TextMeasurer#measure() against below characters returns zero width
@@ -196,5 +205,6 @@ class ComposeUnicodeCharMeasurer(private val measurer: TextMeasurer, private val
         ).toSet()
     }
 
-    private data class CacheKey(val char: String, val style: SpanStyle)
+    private data class CacheKey(val char: String, val style: SpanStyle?)
+//    private data class CacheKey(val char: Int, val style: SpanStyle)
 }

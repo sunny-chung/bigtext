@@ -1743,15 +1743,16 @@ open class BigTextImpl(
         }
 
         // Use (map + forEachIndexed) VS forEach: 2s VS 0.7s
+        val subsequence = buffer.subSequence(fromCharIndex, length)
         (fromCharIndex ..< length).forEach { i ->
-            val char = buffer.subSequence(i, i + 1)
+            val char = subsequence.subSequence(i - fromCharIndex, i + 1 - fromCharIndex)
             val charWidth: Float
             if (char[0].isHighSurrogate()) {
                 surrogatePairFirstChar = char[0]
                 charWidth = 0f
             } else if (surrogatePairFirstChar != null) {
 //                charWidth = layouter.measureCharWidth("$surrogatePairFirstChar$char")
-                charWidth = layouter.measureCharWidth(buffer.subSequence(i - 1, i + 1))
+                charWidth = layouter.measureCharWidth(subsequence.subSequence(i - 1 - fromCharIndex, i + 1 - fromCharIndex))
                 surrogatePairFirstChar = null
             } else {
                 charWidth = layouter.measureCharWidth(char)

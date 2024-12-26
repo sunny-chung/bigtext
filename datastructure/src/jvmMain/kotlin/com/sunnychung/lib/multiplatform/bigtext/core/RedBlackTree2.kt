@@ -151,7 +151,7 @@ open class RedBlackTree2<T>(private val computations: RedBlackTreeComputations<T
     }
 
     override fun insertFix(z: Node) {
-        computations.recomputeFromLeaf(z)
+        computations.recomputeFromLeaf(z) // TODO Is this call duplicated? Most insertFix calls are followed by `recomputeFromLeaf(z)`
         super.insertFix(z)
         NIL.setParent(NIL)
     }
