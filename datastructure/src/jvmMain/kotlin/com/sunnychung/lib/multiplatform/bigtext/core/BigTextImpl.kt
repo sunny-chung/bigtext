@@ -244,6 +244,8 @@ open class BigTextImpl(
     }
 
     override fun findPositionStartOfLine(lineIndex: Int): Int {
+        return findRenderPositionStartOfLine(lineIndex)
+
         val (node, lineIndexStart) = tree.findNodeByLineBreaksExact(lineIndex)
             ?: if (lineIndex == 0) {
                 return 0

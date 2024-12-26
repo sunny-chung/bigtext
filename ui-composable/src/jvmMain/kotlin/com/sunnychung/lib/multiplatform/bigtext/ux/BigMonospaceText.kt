@@ -621,8 +621,8 @@ private fun CoreBigMonospaceText(
             transformedText.length + 1
         }
         val lineIndex = transformedText.findLineIndexByRowIndex(row)
-        val linePositionStart = transformedText.findPositionStartOfLine(lineIndex)
-        val rowPositionOffset = rowPositionStart - linePositionStart
+//        val linePositionStart = transformedText.findPositionStartOfLine(lineIndex)
+//        val rowPositionOffset = rowPositionStart - linePositionStart
         val absX = (viewportLeft + x).toInt()
         log.v { "viewportLeft=$viewportLeft, x=$x, absX=$absX, r=$row, l=$lineIndex, rs=$rowPositionStart, nrs=$nextRowPositionStart" }
         val pos = transformedText.findMaxEndPositionOfWidthSumOverPositionRangeAtMost(
@@ -1649,14 +1649,15 @@ private fun CoreBigMonospaceText(
                     } else {
                         transformedText.findRowPositionStartIndexByRowIndex(i + 1)
                     }
-                    val linePositionStartIndex = transformedText.findPositionStartOfLine(lineIndex)
-                    val rowPositionOffset = rowStartIndex - linePositionStartIndex
+//                    val linePositionStartIndex = transformedText.findPositionStartOfLine(lineIndex)
+//                    val rowPositionOffset = rowStartIndex - linePositionStartIndex
                     val renderStartIndex: Int
                     val renderEndIndexExclusive: Int
                     val yOffset: Dp = (-viewportTop + (i/* - firstRowIndex*/) * lineHeight).toDp()
                     val xOffset: Dp
 
-                    log.v { "row #$i line #$lineIndex s=$rowStartIndex e=$rowEndIndex ls=$linePositionStartIndex ro=$rowPositionOffset" }
+//                    log.v { "row #$i line #$lineIndex s=$rowStartIndex e=$rowEndIndex ls=$linePositionStartIndex ro=$rowPositionOffset" }
+                    log.v { "row #$i line #$lineIndex s=$rowStartIndex e=$rowEndIndex" }
 
                     if (isSoftWrapEnabled) {
                         renderStartIndex = rowStartIndex
@@ -1689,7 +1690,8 @@ private fun CoreBigMonospaceText(
 
                         xOffset = (-viewportLeft + transformedText.findWidthByPositionRangeOfSameLine(rowStartIndex ..< renderStartIndex).toInt()).toDp()
                     }
-                    log.v { "row #$i line #$lineIndex s=$rowStartIndex e=$rowEndIndex rs=$renderStartIndex re=$renderEndIndexExclusive ls=$linePositionStartIndex ro=$rowPositionOffset" }
+//                    log.v { "row #$i line #$lineIndex s=$rowStartIndex e=$rowEndIndex rs=$renderStartIndex re=$renderEndIndexExclusive ls=$linePositionStartIndex ro=$rowPositionOffset" }
+                    log.v { "row #$i line #$lineIndex s=$rowStartIndex e=$rowEndIndex rs=$renderStartIndex re=$renderEndIndexExclusive" }
 
                     if (viewState.hasSelection()) {
                         val intersection = viewState.transformedSelection intersect (renderStartIndex .. renderEndIndexExclusive)
