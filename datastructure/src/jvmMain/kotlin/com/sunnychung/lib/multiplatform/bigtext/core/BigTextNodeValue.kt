@@ -116,7 +116,7 @@ open class BigTextNodeValue : Comparable<BigTextNodeValue>, DebuggableNode<BigTe
     }
 }
 
-abstract class TextBuffer(val size: Int) {
+abstract class TextBuffer(val size: Int): CharSequence {
     private val mutableLineOffsetStarts = IntList()
 
     /**
@@ -126,7 +126,7 @@ abstract class TextBuffer(val size: Int) {
 //    var lineOffsetStarts: SortedSet<Int> = sortedSetOf()
 //    var rowOffsetStarts: List<Int> = emptyList()
 
-    abstract val length: Int
+    abstract override val length: Int
 
     fun append(text: CharSequence): IntRange {
         log.v { "append ${text.length} start" }
@@ -151,7 +151,7 @@ abstract class TextBuffer(val size: Int) {
         return subSequence(0, length).toString()
     }
 
-    open fun subSequence(start: Int, endExclusive: Int): CharSequence {
+    override open fun subSequence(start: Int, endExclusive: Int): CharSequence {
         if (start >= endExclusive) {
             return ""
         }
@@ -169,7 +169,7 @@ abstract class TextBuffer(val size: Int) {
 
     abstract fun bufferSubSequence(start: Int, endExclusive: Int): CharSequence
 
-    abstract operator fun get(index: Int): Char
+    abstract override operator fun get(index: Int): Char
 }
 
 enum class BufferOwnership {

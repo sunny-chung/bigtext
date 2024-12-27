@@ -18,6 +18,7 @@ import com.sunnychung.lib.multiplatform.bigtext.util.let
 import com.sunnychung.lib.multiplatform.kdatetime.KInstant
 import com.williamfiset.algorithms.datastructures.balancedtree.RedBlackTree
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.runBlocking
@@ -57,6 +58,7 @@ private val accumulatedWidthCacheHalfInterval = accumulatedWidthCacheInterval / 
 open class BigTextImpl(
     override val chunkSize: Int = 2 * 1024 * 1024, // 2 MB
     override val undoHistoryCapacity: Int = 1000,
+    private val parallelism: Int = 30,
     override val textBufferFactory: ((capacity: Int) -> TextBuffer) = { StringTextBuffer(it) },
     override val charSequenceBuilderFactory: ((capacity: Int) -> GeneralStringBuilder) = { StringBuilder2(it) },
     override val charSequenceFactory: ((Appendable) -> CharSequence) = { it: Appendable -> it.toString() },
@@ -1678,6 +1680,7 @@ open class BigTextImpl(
         println(inspect(label))
     }
 
+    @OptIn(ExperimentalCoroutinesApi::class)
     override fun setLayouter(layouter: TextLayouter) {
         if (this.layouter == layouter) {
             return
@@ -1696,7 +1699,7 @@ open class BigTextImpl(
         }
         runBlocking {
             allBuffers.map { buffer ->
-                async(Dispatchers.IO) {
+                async(Dispatchers.IO.limitedParallelism(parallelism)) {
                     val start = KInstant.now()
 
                     createBufferExtraData(buffer)
@@ -1743,7 +1746,7 @@ open class BigTextImpl(
         }
 
         // Use (map + forEachIndexed) VS forEach: 2s VS 0.7s
-        val subsequence = buffer.subSequence(fromCharIndex, length)
+        val subsequence = if (fromCharIndex == 0) buffer else buffer.subSequence(fromCharIndex, length)
         (fromCharIndex ..< length).forEach { i ->
             val char = subsequence.subSequence(i - fromCharIndex, i + 1 - fromCharIndex)
             val charWidth: Float

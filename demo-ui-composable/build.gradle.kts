@@ -68,7 +68,7 @@ kotlin {
 compose.desktop {
     application {
         mainClass = "com.sunnychung.lib.multiplatform.bigtext.demo.MainKt"
-        jvmArgs += listOf("-XX:MaxMetaspaceSize=100m", "-Xmx1024m", "-XX:MinHeapFreeRatio=10", "-XX:MaxHeapFreeRatio=20", "-XX:InitiatingHeapOccupancyPercent=75")
+        jvmArgs += listOf("-XX:MaxMetaspaceSize=100m", "-Xmx1024m", "-XX:MinHeapFreeRatio=10", "-XX:MaxHeapFreeRatio=20", "-XX:InitiatingHeapOccupancyPercent=75", "-XX:+HeapDumpOnOutOfMemoryError")
         jvmArgs += "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005" // to enable debugger for debug use only
     }
 }
