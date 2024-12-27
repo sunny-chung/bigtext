@@ -61,19 +61,27 @@ fun CodeEditorDemoView() {
         )
     }
     var bigTextLayoutResult by remember { mutableStateOf<BigTextSimpleLayoutResult?>(null) }
+    var numOfLinesInitially by remember { mutableStateOf(0) }
     var isSoftWrapEnabled by remember { mutableStateOf(false) }
-    var isLoading by remember { mutableStateOf(false) }
+    var numOfComputations by remember { mutableStateOf(0) }
+    val isLoading = numOfComputations > 0
     var isWaitForMeasure by remember { mutableStateOf(false) }
     var textHash by remember { mutableStateOf(calculateSha256Hash(bigTextFieldState.text)) }
     val scrollState = rememberScrollState()
     val horizontalScrollState = rememberScrollState()
+
     val coroutineScope1 = rememberCoroutineScope()
 
     val isDisableSyntaxHighlighting = bigTextFieldState.text.length > 2 * 1024 * 1024 // 2 MB
 
     fun loadBigTextInBackground(contentKey: String) {
+        ++numOfComputations
+        bigTextFieldState = BigTextFieldState( // clear the text before loading
+            ConcurrentBigText(BigText.createFromLargeAnnotatedString(AnnotatedString(""))),
+            BigTextViewState()
+        )
+        textHash = ""
         coroutineScope1.launch {
-            isLoading = true
             bigTextFieldState.viewState.isLayoutDisabled = true
             isWaitForMeasure = false
 
@@ -87,6 +95,7 @@ fun CodeEditorDemoView() {
             }
             bigTextFieldState = textState
             textHash = hash
+            numOfLinesInitially = textState.text.numOfLines
             scrollState.scrollTo(0)
             isWaitForMeasure = true
         }
@@ -113,9 +122,12 @@ fun CodeEditorDemoView() {
                 .filter { it.value.isEmpty() || it.value.length > 1 * 1024 }
                 .keys
                 .forEach { key ->
-                    Button(onClick = {
-                        loadBigTextInBackground(key)
-                    }) {
+                    Button(
+                        onClick = {
+                            loadBigTextInBackground(key)
+                        },
+                        enabled = numOfComputations == 0
+                    ) {
                         Text(text = key)
                     }
                 }
@@ -145,35 +157,50 @@ fun CodeEditorDemoView() {
                     LineNumbersView(
                         bigTextViewState = bigTextFieldState.viewState,
                         bigText = bigTextFieldState.text,
+                        refTotalLines = numOfLinesInitially,
                         layoutResult = bigTextLayoutResult,
                         scrollState = scrollState,
                         onCorrectMeasured = {
                             if (isWaitForMeasure) {
                                 log.d("onCorrectMeasured")
                                 bigTextFieldState.viewState.isLayoutDisabled = false
-                                isLoading = false
+                                --numOfComputations
                                 isWaitForMeasure = false
                             }
                         },
                     )
-                    if (!isLoading) {
-                        Box {
-                            BigMonospaceTextField(
-                                textFieldState = bigTextFieldState,
-                                cursorColor = Color.Black,
-                                textDecorator = if (isDisableSyntaxHighlighting) {
-                                    null
-                                } else {
-                                    remember(bigTextFieldState) { DemoSyntaxHighlightDecorator() }
-                                },
-                                onTextChange = { textHash = "" },
-                                scrollState = scrollState,
-                                horizontalScrollState = horizontalScrollState,
-                                onTextLayout = { bigTextLayoutResult = it },
-                                isSoftWrapEnabled = isSoftWrapEnabled,
-                                modifier = Modifier.background(Color(224, 224, 224))
-                                    .fillMaxSize()
-                            )
+                    Box {
+                        BigMonospaceTextField(
+                            textFieldState = bigTextFieldState,
+                            cursorColor = Color.Black,
+                            textDecorator = if (isDisableSyntaxHighlighting) {
+                                null
+                            } else {
+                                remember(bigTextFieldState) { DemoSyntaxHighlightDecorator() }
+                            },
+                            onTextChange = { textHash = "" },
+                            scrollState = scrollState,
+                            horizontalScrollState = horizontalScrollState,
+                            onTextLayout = { bigTextLayoutResult = it },
+                            isSoftWrapEnabled = isSoftWrapEnabled,
+                            onHeavyComputation = { computation -> // compute in background and display a "loading" spinner
+                                withContext(coroutineScope1.coroutineContext) {
+                                    ++numOfComputations
+                                    log.d { "numOfComputations = $numOfComputations" }
+                                }
+                                withContext(Dispatchers.IO) {
+                                    log.d { "compute in IO" }
+                                    computation()
+                                }
+                                withContext(coroutineScope1.coroutineContext) {
+                                    --numOfComputations
+                                    log.d { "numOfComputations = $numOfComputations" }
+                                }
+                            },
+                            modifier = Modifier.background(Color(224, 224, 224))
+                                .fillMaxSize()
+                        )
+                        if (!isLoading) {
                             VerticalScrollbar(
                                 adapter = rememberScrollbarAdapter(scrollState),
                                 modifier = Modifier.align(Alignment.TopEnd).fillMaxHeight()

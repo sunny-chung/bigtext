@@ -23,22 +23,22 @@ class ConcurrentBigTextTransformed(override val delegate: BigTextTransformed) : 
     }
 
     override val originalText: BigText
-        get() = lock.read { delegate.originalText }
+        get() = withReadLock { delegate.originalText }
 
     override val originalLength: Int
-        get() = lock.read { delegate.originalLength }
+        get() = withReadLock { delegate.originalLength }
 
     override fun findTransformedPositionByOriginalPosition(originalPosition: Int): Int
-        = lock.read { delegate.findTransformedPositionByOriginalPosition(originalPosition) }
+        = withReadLock { delegate.findTransformedPositionByOriginalPosition(originalPosition) }
 
     override fun findOriginalPositionByTransformedPosition(transformedPosition: Int): Int
-        = lock.read { delegate.findOriginalPositionByTransformedPosition(transformedPosition) }
+        = withReadLock { delegate.findOriginalPositionByTransformedPosition(transformedPosition) }
 
     override fun findFirstRowIndexByOriginalLineIndex(originalLineIndex: Int): Int
-        = lock.read { delegate.findFirstRowIndexByOriginalLineIndex(originalLineIndex) }
+        = withReadLock { delegate.findFirstRowIndexByOriginalLineIndex(originalLineIndex) }
 
     override fun findOriginalLineIndexByRowIndex(rowIndex: Int): Int
-        = lock.read { delegate.findOriginalLineIndexByRowIndex(rowIndex) }
+        = withReadLock { delegate.findOriginalLineIndexByRowIndex(rowIndex) }
 
     override fun requestReapplyTransformation(originalRange: IntRange)
         = lock.write { delegate.requestReapplyTransformation(originalRange) }
@@ -48,38 +48,38 @@ class ConcurrentBigTextTransformed(override val delegate: BigTextTransformed) : 
         nodeValue: BigTextNodeValue,
         bufferOffsetStart: Int,
         bufferOffsetEndExclusive: Int
-    ) = lock.write { delegate.insertOriginal(pos, nodeValue, bufferOffsetStart, bufferOffsetEndExclusive) }
+    ) = withWriteLock { delegate.insertOriginal(pos, nodeValue, bufferOffsetStart, bufferOffsetEndExclusive) }
 
     override fun deleteOriginal(originalRange: IntRange, isReMapPositionNeeded: Boolean)
-        = lock.write { delegate.deleteOriginal(originalRange, isReMapPositionNeeded) }
+        = withWriteLock { delegate.deleteOriginal(originalRange, isReMapPositionNeeded) }
 
     override fun replace(range: IntRange, text: CharSequence, offsetMapping: BigTextTransformOffsetMapping)
-        = lock.write { delegate.replace(range, text, offsetMapping) }
+        = withWriteLock { delegate.replace(range, text, offsetMapping) }
 
     override fun restoreToOriginal(range: IntRange)
-        = lock.write { delegate.restoreToOriginal(range) }
+        = withWriteLock { delegate.restoreToOriginal(range) }
 
     override val maxLineWidth: Long
-        get() = lock.read { delegate.maxLineWidth }
+        get() = withReadLock { delegate.maxLineWidth }
 
     override var onLayoutCallback: (() -> Unit)?
-        get() = lock.read { delegate.onLayoutCallback }
-        set(value) { lock.write { delegate.onLayoutCallback = value } }
+        get() = delegate.onLayoutCallback // locking getter has no benefit but performance degrade
+        set(value) { withWriteLock { delegate.onLayoutCallback = value } }
 
     override fun findRowPositionStartIndexByRowIndex(index: Int): Int
-        = lock.read { delegate.findRowPositionStartIndexByRowIndex(index) }
+        = withReadLock { delegate.findRowPositionStartIndexByRowIndex(index) }
 
     override fun findRowIndexByPosition(position: Int): Int
-        = lock.read { delegate.findRowIndexByPosition(position) }
+        = withReadLock { delegate.findRowIndexByPosition(position) }
 
     override fun findPositionByRowIndex(index: Int): Int
-        = lock.read { delegate.findPositionByRowIndex(index) }
+        = withReadLock { delegate.findPositionByRowIndex(index) }
 
     override fun findWidthByColumnRangeOfSameLine(lineIndex: Int, columns: IntRange): Float
-        = lock.read { delegate.findWidthByColumnRangeOfSameLine(lineIndex, columns) }
+        = withReadLock { delegate.findWidthByColumnRangeOfSameLine(lineIndex, columns) }
 
     override fun findWidthByPositionRangeOfSameLine(positions: IntRange): Float
-        = lock.read { delegate.findWidthByPositionRangeOfSameLine(positions) }
+        = withReadLock { delegate.findWidthByPositionRangeOfSameLine(positions) }
 
     override fun findMaxEndPositionOfWidthSumOverPositionRangeAtMost(
         startPosition: Int,
@@ -87,7 +87,7 @@ class ConcurrentBigTextTransformed(override val delegate: BigTextTransformed) : 
         isEndExclusive: Boolean,
         maxWidthSum: Int
     ): Int
-        = lock.read { delegate.findMaxEndPositionOfWidthSumOverPositionRangeAtMost(
+        = withReadLock { delegate.findMaxEndPositionOfWidthSumOverPositionRangeAtMost(
             startPosition = startPosition,
             endPositions = endPositions,
             isEndExclusive = isEndExclusive,
@@ -100,7 +100,7 @@ class ConcurrentBigTextTransformed(override val delegate: BigTextTransformed) : 
         isEndExclusive: Boolean,
         minWidthSum: Int
     ): Int
-        = lock.read { delegate.findMinEndPositionOfWidthSumOverPositionRangeAtLeast(
+        = withReadLock { delegate.findMinEndPositionOfWidthSumOverPositionRangeAtLeast(
             startPosition = startPosition,
             endPositions = endPositions,
             isEndExclusive = isEndExclusive,

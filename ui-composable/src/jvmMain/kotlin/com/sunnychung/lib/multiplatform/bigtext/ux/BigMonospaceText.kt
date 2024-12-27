@@ -107,6 +107,7 @@ import com.sunnychung.lib.multiplatform.bigtext.extension.contains
 import com.sunnychung.lib.multiplatform.bigtext.extension.intersect
 import com.sunnychung.lib.multiplatform.bigtext.extension.isCtrlOrCmdPressed
 import com.sunnychung.lib.multiplatform.bigtext.extension.replaceAll
+import com.sunnychung.lib.multiplatform.bigtext.extension.runIf
 import com.sunnychung.lib.multiplatform.bigtext.extension.toTextInput
 import com.sunnychung.lib.multiplatform.bigtext.platform.MacOS
 import com.sunnychung.lib.multiplatform.bigtext.platform.currentOS
@@ -121,6 +122,7 @@ import com.sunnychung.lib.multiplatform.bigtext.util.weakRefOf
 import com.sunnychung.lib.multiplatform.bigtext.ux.compose.rememberLast
 import com.sunnychung.lib.multiplatform.kdatetime.KInstant
 import com.sunnychung.lib.multiplatform.kdatetime.extension.milliseconds
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.BufferOverflow
@@ -215,6 +217,7 @@ fun BigMonospaceTextField(
     onPointerEvent: ((event: PointerEvent, tag: String?) -> Unit)? = null,
     onTextLayout: ((BigTextSimpleLayoutResult) -> Unit)? = null,
     onTextManipulatorReady: ((BigTextManipulator) -> Unit)? = null,
+    onHeavyComputation: suspend (computation: suspend () -> Unit) -> Unit = { it() },
 ) {
     BigMonospaceTextField(
         modifier = modifier,
@@ -242,6 +245,7 @@ fun BigMonospaceTextField(
         onPointerEvent = onPointerEvent,
         onTextLayout = onTextLayout,
         onTextManipulatorReady = onTextManipulatorReady,
+        onHeavyComputation = onHeavyComputation,
     )
 }
 
@@ -272,6 +276,7 @@ fun BigMonospaceTextField(
     onPointerEvent: ((event: PointerEvent, tag: String?) -> Unit)? = null,
     onTextLayout: ((BigTextSimpleLayoutResult) -> Unit)? = null,
     onTextManipulatorReady: ((BigTextManipulator) -> Unit)? = null,
+    onHeavyComputation: suspend (computation: suspend () -> Unit) -> Unit = { it() },
 ) = CoreBigMonospaceText(
     modifier = modifier,
     text = text,
@@ -297,6 +302,7 @@ fun BigMonospaceTextField(
     onPointerEvent = onPointerEvent,
     onTextLayout = onTextLayout,
     onTextManipulatorReady = onTextManipulatorReady,
+    onHeavyComputation = onHeavyComputation,
 )
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalComposeUiApi::class, ExperimentalCoroutinesApi::class)
@@ -329,6 +335,7 @@ private fun CoreBigMonospaceText(
     onPointerEvent: ((event: PointerEvent, tag: String?) -> Unit)? = null,
     onTextLayout: ((BigTextSimpleLayoutResult) -> Unit)? = null,
     onTextManipulatorReady: ((BigTextManipulator) -> Unit)? = null,
+    onHeavyComputation: suspend (computation: suspend () -> Unit) -> Unit = { it() },
     onTransformInit: ((BigTextTransformed) -> Unit)? = null,
 ) {
     log.d { "CoreBigMonospaceText recompose" }
@@ -348,7 +355,7 @@ private fun CoreBigMonospaceText(
         fontSynthesis = FontSynthesis.None,
     )
 
-    val coroutineScope = rememberCoroutineScope() // for scrolling
+    val coroutineScope = rememberCoroutineScope()
     val focusRequester = remember { FocusRequester() }
     val textMeasurer = rememberTextMeasurer(0)
     val textLayouter = remember(density, fontFamilyResolver, textStyle, textMeasurer) {
@@ -386,10 +393,25 @@ private fun CoreBigMonospaceText(
     }
     var lineHeight by remember { mutableStateOf(0f) }
     var layoutResult by remember(textLayouter, width) { mutableStateOf<BigTextSimpleLayoutResult?>(null) }
+    var numOfComputationsInProgress by remember { mutableStateOf(0) }
+    var isTransformedStateReady by remember(weakRefOf(text), textTransformation) {
+        mutableStateOf(false)
+    }
+    val isComponentReady = numOfComputationsInProgress <= 0 && isTransformedStateReady
     var forceRecompose by remember { mutableStateOf(0L) }
     forceRecompose
 
     viewState.version // observe value changes
+
+    fun heavyCompute(computation: suspend () -> Unit) {
+        ++numOfComputationsInProgress
+        ++viewState.numOfComputationsInProgress
+        coroutineScope.launch {
+            onHeavyComputation(computation)
+            --numOfComputationsInProgress
+            --viewState.numOfComputationsInProgress
+        }
+    }
 
     val transformedText: BigTextTransformed = remember(weakRefOf(text), textTransformation) {
         log.d { "CoreBigMonospaceText recreate BigTextTransformed $text $textTransformation" }
@@ -412,8 +434,10 @@ private fun CoreBigMonospaceText(
                 }
             }
     }
-    transformedText.decorator = textDecorator
-    transformedText.setSoftWrapEnabled(isSoftWrapEnabled)
+    if (numOfComputationsInProgress <= 0) {
+        transformedText.decorator = textDecorator
+//        transformedText.setSoftWrapEnabled(isSoftWrapEnabled)
+    }
 
     val textRef = weakRefOf(text)
     val transformedTextRef = weakRefOf(transformedText)
@@ -446,7 +470,7 @@ private fun CoreBigMonospaceText(
     }
 
     if (isLayoutEnabled && contentWidth > 0 && isContentWidthLatest) {
-        remember(weakRefOf(transformedText), textLayouter, contentWidth) {
+        remember(weakRefOf(transformedText), textLayouter, contentWidth, isSoftWrapEnabled) {
             log.d { "CoreBigMonospaceText set contentWidth = $contentWidth" }
             val transformedText = transformedTextRef.get() ?: return@remember
 
@@ -454,27 +478,31 @@ private fun CoreBigMonospaceText(
                 log.d { "BigText start layout" }
                 val startInstant = KInstant.now()
 
-                transformedText.onLayoutCallback = {
-                    if (transformedText.isThreadSafe) {
+                heavyCompute {
+                    transformedText.onLayoutCallback = {
+                        if (transformedText.isThreadSafe) {
 //                        coroutineScope.launch(context = Dispatchers.Main) {
-                            fireOnLayout()
+                                fireOnLayout()
 //                        }
-                    } else {
-                        fireOnLayout()
+                        } else {
+                            fireOnLayout()
+                        }
+                    }
+                    transformedText.setSoftWrapEnabled(isSoftWrapEnabled)
+                    transformedText.setLayouter(textLayouter)
+                    transformedText.setContentWidth(contentWidth)
+
+                    val endInstant = KInstant.now()
+                    log.i { "BigText layout took ${endInstant - startInstant} at ${Thread.currentThread().name}" }
+
+                    if (log.config.minSeverity <= Severity.Verbose) {
+                        (transformedText as? BigTextImpl)?.printDebug("after init layout")
+                    }
+
+                    withContext(coroutineScope.coroutineContext) {
+                        transformedText.onLayoutCallback?.invoke()
                     }
                 }
-                transformedText.setSoftWrapEnabled(isSoftWrapEnabled)
-                transformedText.setLayouter(textLayouter)
-                transformedText.setContentWidth(contentWidth)
-
-                val endInstant = KInstant.now()
-                log.i { "BigText layout took ${endInstant - startInstant}" }
-
-                if (log.config.minSeverity <= Severity.Verbose) {
-                    (transformedText as? BigTextImpl)?.printDebug("after init layout")
-                }
-
-                transformedText.onLayoutCallback?.invoke()
             }
             if (transformedText.isThreadSafe) {
                 // TODO: support asynchronous layout without illegal states / race conditions and blocking locks. consider query calls by BigText consumers.
@@ -487,84 +515,102 @@ private fun CoreBigMonospaceText(
         }
     }
 
-    rememberLast(height, transformedText.numOfRows, lineHeight) {
-        scrollState::class.declaredMemberProperties.first { it.name == "maxValue" }
-            .apply {
-                (this as KMutableProperty<Int>)
-                setter.isAccessible = true
-                val scrollableHeight = maxOf(
-                    0f,
-                    transformedText.numOfRows * lineHeight - height +
-                        with (density) {
-                            (padding.calculateTopPadding() + padding.calculateBottomPadding()).toPx()
-                        }
-                )
-                setter.call(scrollState, scrollableHeight.roundToInt())
-            }
+    if (isComponentReady) {
+        rememberLast(height, transformedText.numOfRows, lineHeight) {
+            scrollState::class.declaredMemberProperties.first { it.name == "maxValue" }
+                .apply {
+                    (this as KMutableProperty<Int>)
+                    setter.isAccessible = true
+                    val scrollableHeight = maxOf(
+                        0f,
+                        transformedText.numOfRows * lineHeight - height +
+                                with(density) {
+                                    (padding.calculateTopPadding() + padding.calculateBottomPadding()).toPx()
+                                }
+                    )
+                    setter.call(scrollState, scrollableHeight.roundToInt())
+                }
 
-        scrollState::class.declaredMemberProperties.first { it.name == "viewportSize" }
-            .apply {
-                (this as KMutableProperty<Int>)
-                setter.isAccessible = true
-                setter.call(scrollState, height)
-            }
+            scrollState::class.declaredMemberProperties.first { it.name == "viewportSize" }
+                .apply {
+                    (this as KMutableProperty<Int>)
+                    setter.isAccessible = true
+                    setter.call(scrollState, height)
+                }
+        }
+
+        rememberLast(width, transformedText.maxLineWidth) {
+            horizontalScrollState::class.declaredMemberProperties.first { it.name == "maxValue" }
+                .apply {
+                    (this as KMutableProperty<Int>)
+                    setter.isAccessible = true
+                    val scrollableWidth = maxOf(
+                        0f,
+                        (transformedText.maxLineWidth / transformedText.widthMultiplier.toFloat()) - width +
+                                with(density) {
+                                    2 * (padding.calculateLeftPadding(LayoutDirection.Ltr) + padding.calculateRightPadding(
+                                        LayoutDirection.Ltr
+                                    )).toPx() +
+                                            20.dp.toPx()
+                                }
+                    )
+                    log.d { "scrollableWidth = $scrollableWidth, maxLineWidth = ${transformedText.maxLineWidth}, width = $width" }
+                    setter.call(horizontalScrollState, scrollableWidth.roundToInt())
+                }
+
+            horizontalScrollState::class.declaredMemberProperties.first { it.name == "viewportSize" }
+                .apply {
+                    (this as KMutableProperty<Int>)
+                    setter.isAccessible = true
+                    val viewportLength = width -
+                            with(density) {
+                                (padding.calculateLeftPadding(LayoutDirection.Ltr) + padding.calculateRightPadding(
+                                    LayoutDirection.Ltr
+                                )).toPx()
+                            }
+                    setter.call(horizontalScrollState, viewportLength.roundToInt())
+                }
+        }
     }
 
-    rememberLast(width, transformedText.maxLineWidth) {
-        horizontalScrollState::class.declaredMemberProperties.first { it.name == "maxValue" }
-            .apply {
-                (this as KMutableProperty<Int>)
-                setter.isAccessible = true
-                val scrollableWidth = maxOf(
-                    0f,
-                    (transformedText.maxLineWidth / transformedText.widthMultiplier.toFloat()) - width +
-                        with (density) {
-                            2 * (padding.calculateLeftPadding(LayoutDirection.Ltr) + padding.calculateRightPadding(LayoutDirection.Ltr)).toPx() +
-                                20.dp.toPx()
-                        }
-                )
-                log.d { "scrollableWidth = $scrollableWidth, maxLineWidth = ${transformedText.maxLineWidth}, width = $width" }
-                setter.call(horizontalScrollState, scrollableWidth.roundToInt())
-            }
-
-        horizontalScrollState::class.declaredMemberProperties.first { it.name == "viewportSize" }
-            .apply {
-                (this as KMutableProperty<Int>)
-                setter.isAccessible = true
-                val viewportLength = width -
-                    with (density) {
-                        (padding.calculateLeftPadding(LayoutDirection.Ltr) + padding.calculateRightPadding(LayoutDirection.Ltr)).toPx()
-                    }
-                setter.call(horizontalScrollState, viewportLength.roundToInt())
-            }
+    var transformedState by remember(weakRefOf(text), textTransformation) {
+        mutableStateOf<Any?>(null)
     }
-
-    val transformedState = remember(weakRefOf(text), textTransformation) {
+    remember(weakRefOf(text), textTransformation) {
 //        log.v { "CoreBigMonospaceText text = |${text.buildString()}|" }
         if (textTransformation != null) {
             log.d { "CoreBigMonospaceText start init transform" }
-            val startInstant = KInstant.now()
-            textTransformation.initialize(text, transformedText).also {
-                val endInstant = KInstant.now()
-                log.d { "CoreBigMonospaceText init transformedState ${it.hashCode()} took ${endInstant - startInstant}" }
-                if (log.config.minSeverity <= Severity.Verbose) {
-                    transformedText.printDebug("init transformedState")
+            heavyCompute {
+                val startInstant = KInstant.now()
+                textTransformation.initialize(text, transformedText).also {
+                    val endInstant = KInstant.now()
+                    log.d { "CoreBigMonospaceText init transformedState ${it.hashCode()} took ${endInstant - startInstant}" }
+                    if (log.config.minSeverity <= Severity.Verbose) {
+                        transformedText.printDebug("init transformedState")
+                    }
+                    withContext(coroutineScope.coroutineContext) {
+                        viewState.transformedText = weakRefOf(transformedText)
+                        transformedState = it
+                        isTransformedStateReady = true
+                        onTransformInit?.invoke(transformedText)
+                    }
                 }
-                viewState.transformedText = weakRefOf(transformedText)
-                onTransformInit?.invoke(transformedText)
             }
         } else {
             viewState.transformedText = weakRefOf(transformedText)
-            null
+            transformedState = null
+            isTransformedStateReady = true
         }
     }
 
     remember(weakRefOf(text), textDecorator) {
         if (textDecorator != null) {
-            val startInstant = KInstant.now()
-            textDecorator.initialize(text).also {
-                val endInstant = KInstant.now()
-                log.i { "CoreBigMonospaceText init textDecorator took ${endInstant - startInstant}" }
+            heavyCompute {
+                val startInstant = KInstant.now()
+                textDecorator.initialize(text).also {
+                    val endInstant = KInstant.now()
+                    log.i { "CoreBigMonospaceText init textDecorator took ${endInstant - startInstant}" }
+                }
             }
         }
     }
@@ -1393,204 +1439,200 @@ private fun CoreBigMonospaceText(
             }
             .clipToBounds()
             .padding(padding)
-            .scrollable(scrollableState, orientation = Orientation.Vertical)
-            .run {
-                if (!isSoftWrapEnabled) {
-                    scrollable(horizontalScrollState, orientation = Orientation.Horizontal, reverseDirection = true)
-                } else {
-                    this
-                }
+            .runIf(isComponentReady) {
+                scrollable(scrollableState, orientation = Orientation.Vertical)
+                    .runIf(!isSoftWrapEnabled) {
+                        scrollable(horizontalScrollState, orientation = Orientation.Horizontal, reverseDirection = true)
+                    }
             }
             .focusRequester(focusRequester)
-            .run {
-                if (isSelectable) {
-                    pointerHoverIcon(PointerIcon.Text)
-                } else {
-                    this
-                }
+            .runIf(isComponentReady && isSelectable) {
+                pointerHoverIcon(PointerIcon.Text)
             }
-            .onDrag(
-                enabled = isSelectable,
-                onDragStart = {
-                    log.v { "onDragStart ${it.x} ${it.y}" }
-                    val transformedText = transformedTextRef.get() ?: return@onDrag
-                    draggedPoint = it
-                    if (!isHoldingShiftKey) {
-                        val selectedCharIndex = getTransformedCharIndex(x = it.x, y = it.y, mode = ResolveCharPositionMode.Selection)
-                            .let {
-                                log.d { "getTransformedCharIndex = $it" }
-                                viewState.roundedTransformedCursorIndex(it, CursorAdjustDirection.Bidirectional, transformedText, it, true)
-                            }
-                            .also { log.d { "onDragStart selected=$it" } }
-                        viewState.transformedSelection = selectedCharIndex..selectedCharIndex
-                        viewState.updateSelectionByTransformedSelection(transformedText)
-                        viewState.transformedSelectionStart = selectedCharIndex
-                    }
-                    focusRequester.requestFocus()
+            .runIf(isComponentReady) {
+                onDrag(
+                    enabled = isSelectable,
+                    onDragStart = {
+                        log.v { "onDragStart ${it.x} ${it.y}" }
+                        val transformedText = transformedTextRef.get() ?: return@onDrag
+                        draggedPoint = it
+                        if (!isHoldingShiftKey) {
+                            val selectedCharIndex = getTransformedCharIndex(x = it.x, y = it.y, mode = ResolveCharPositionMode.Selection)
+                                .let {
+                                    log.d { "getTransformedCharIndex = $it" }
+                                    viewState.roundedTransformedCursorIndex(it, CursorAdjustDirection.Bidirectional, transformedText, it, true)
+                                }
+                                .also { log.d { "onDragStart selected=$it" } }
+                            viewState.transformedSelection = selectedCharIndex..selectedCharIndex
+                            viewState.updateSelectionByTransformedSelection(transformedText)
+                            viewState.transformedSelectionStart = selectedCharIndex
+                        }
+                        focusRequester.requestFocus()
 //                    focusRequester.captureFocus()
-                },
-                onDrag = { // onDragStart happens before onDrag
-                    log.v { "onDrag ${it.x} ${it.y}" }
-                    val transformedText = transformedTextRef.get() ?: return@onDrag
-                    draggedPoint += it
-                    if (transformedText.isEmpty) {
-                        viewState.transformedSelection = IntRange.EMPTY
-                        viewState.selection = EMPTY_SELECTION_RANGE
-                        viewState.transformedCursorIndex = 0
-                        viewState.cursorIndex = 0
-                        return@onDrag
-                    }
-                    val selectionStart = viewState.transformedSelectionStart
-                    val selectedCharIndex = getTransformedCharIndex(x = draggedPoint.x, y = draggedPoint.y, mode = ResolveCharPositionMode.Selection)
-                        .let {
-                            if (it >= selectionStart) {
-                                viewState.roundedTransformedCursorIndex(it, CursorAdjustDirection.Forward, transformedText, it, true)
-                            } else {
-                                viewState.roundedTransformedCursorIndex(it, CursorAdjustDirection.Backward, transformedText, it, true)
-                            }
+                    },
+                    onDrag = { // onDragStart happens before onDrag
+                        log.v { "onDrag ${it.x} ${it.y}" }
+                        val transformedText = transformedTextRef.get() ?: return@onDrag
+                        draggedPoint += it
+                        if (transformedText.isEmpty) {
+                            viewState.transformedSelection = IntRange.EMPTY
+                            viewState.selection = EMPTY_SELECTION_RANGE
+                            viewState.transformedCursorIndex = 0
+                            viewState.cursorIndex = 0
+                            return@onDrag
                         }
-                    selectionEnd = selectedCharIndex
-                    viewState.transformedSelection = minOf(selectionStart, selectionEnd) until maxOf(selectionStart, selectionEnd)
-                    log.d { "t sel = ${viewState.transformedSelection}" }
-                    viewState.updateSelectionByTransformedSelection(transformedText)
-                    viewState.transformedCursorIndex = minOf(
-                        transformedText.length,
-                        selectionEnd + if (selectionEnd == viewState.transformedSelection.last) 1 else 0
-                    )
-                    viewState.updateCursorIndexByTransformed(transformedText)
-                }
-            )
-            .pointerInput(isEditable, weakRefOf(text), transformedText.hasLayouted, weakRefOf(viewState), viewportTop, viewportLeft, lineHeight, contentWidth, transformedText.length, transformedText.hashCode(), onPointerEvent) {
-                awaitPointerEventScope {
-                    while (true) {
-                        val event = awaitPointerEvent()
-                        val transformedText = transformedTextRef.get() ?: return@awaitPointerEventScope
-
-                        if (onPointerEvent != null) {
-                            val position = event.changes.first().position
-                            val transformedCharIndex = getTransformedCharIndex(x = position.x, y = position.y, mode = ResolveCharPositionMode.Cursor)
-                            val tag = if (transformedCharIndex in 0 .. transformedText.lastIndex) {
-                                val charSequenceUnderPointer = transformedText.subSequence(transformedCharIndex, transformedCharIndex + 1)
-                                (charSequenceUnderPointer as? AnnotatedString)?.spanStyles?.firstOrNull { it.tag.isNotEmpty() }?.tag
-                            } else null
-                            onPointerEvent(event, tag)
-                        }
-
-                        when (event.type) {
-                            PointerEventType.Press -> {
-                                val position = event.changes.first().position
-                                log.v { "press ${position.x} ${position.y} shift=$isHoldingShiftKey" }
-
-                                if (event.button == PointerButton.Secondary) {
-                                    isShowContextMenu = if (isSelectable) {
-                                        !isShowContextMenu
-                                    } else {
-                                        false
-                                    }
-                                    continue
-                                }
-
-                                if (isHoldingShiftKey) {
-                                    val selectionStart = viewState.transformedSelectionStart
-                                    selectionEnd = getTransformedCharIndex(x = position.x, y = position.y, mode = ResolveCharPositionMode.Selection)
-                                        .let {
-                                            log.d { "getTransformedCharIndex = $it" }
-                                            viewState.roundedTransformedCursorIndex(it, CursorAdjustDirection.Bidirectional, transformedText, it, true)
-                                        }
-                                    log.d { "shift press selectionStart = $selectionStart, selectionEnd = $selectionEnd" }
-                                    viewState.transformedSelection = minOf(selectionStart, selectionEnd) until maxOf(selectionStart, selectionEnd)
-                                    viewState.updateSelectionByTransformedSelection(transformedText)
+                        val selectionStart = viewState.transformedSelectionStart
+                        val selectedCharIndex = getTransformedCharIndex(x = draggedPoint.x, y = draggedPoint.y, mode = ResolveCharPositionMode.Selection)
+                            .let {
+                                if (it >= selectionStart) {
+                                    viewState.roundedTransformedCursorIndex(it, CursorAdjustDirection.Forward, transformedText, it, true)
                                 } else {
-                                    viewState.transformedSelection = IntRange.EMPTY
-                                    viewState.selection = EMPTY_SELECTION_RANGE
+                                    viewState.roundedTransformedCursorIndex(it, CursorAdjustDirection.Backward, transformedText, it, true)
+                                }
+                            }
+                        selectionEnd = selectedCharIndex
+                        viewState.transformedSelection = minOf(selectionStart, selectionEnd) until maxOf(selectionStart, selectionEnd)
+                        log.d { "t sel = ${viewState.transformedSelection}" }
+                        viewState.updateSelectionByTransformedSelection(transformedText)
+                        viewState.transformedCursorIndex = minOf(
+                            transformedText.length,
+                            selectionEnd + if (selectionEnd == viewState.transformedSelection.last) 1 else 0
+                        )
+                        viewState.updateCursorIndexByTransformed(transformedText)
+                    }
+                )
+                    .pointerInput(isEditable, weakRefOf(text), transformedText.hasLayouted, weakRefOf(viewState), viewportTop, viewportLeft, lineHeight, contentWidth, transformedText.length, transformedText.hashCode(), onPointerEvent) {
+                        awaitPointerEventScope {
+                            while (true) {
+                                val event = awaitPointerEvent()
+                                val transformedText = transformedTextRef.get() ?: return@awaitPointerEventScope
+
+                                if (onPointerEvent != null) {
+                                    val position = event.changes.first().position
+                                    val transformedCharIndex = getTransformedCharIndex(x = position.x, y = position.y, mode = ResolveCharPositionMode.Cursor)
+                                    val tag = if (transformedCharIndex in 0 .. transformedText.lastIndex) {
+                                        val charSequenceUnderPointer = transformedText.subSequence(transformedCharIndex, transformedCharIndex + 1)
+                                        (charSequenceUnderPointer as? AnnotatedString)?.spanStyles?.firstOrNull { it.tag.isNotEmpty() }?.tag
+                                    } else null
+                                    onPointerEvent(event, tag)
+                                }
+
+                                when (event.type) {
+                                    PointerEventType.Press -> {
+                                        val position = event.changes.first().position
+                                        log.v { "press ${position.x} ${position.y} shift=$isHoldingShiftKey" }
+
+                                        if (event.button == PointerButton.Secondary) {
+                                            isShowContextMenu = if (isSelectable) {
+                                                !isShowContextMenu
+                                            } else {
+                                                false
+                                            }
+                                            continue
+                                        }
+
+                                        if (isHoldingShiftKey) {
+                                            val selectionStart = viewState.transformedSelectionStart
+                                            selectionEnd = getTransformedCharIndex(x = position.x, y = position.y, mode = ResolveCharPositionMode.Selection)
+                                                .let {
+                                                    log.d { "getTransformedCharIndex = $it" }
+                                                    viewState.roundedTransformedCursorIndex(it, CursorAdjustDirection.Bidirectional, transformedText, it, true)
+                                                }
+                                            log.d { "shift press selectionStart = $selectionStart, selectionEnd = $selectionEnd" }
+                                            viewState.transformedSelection = minOf(selectionStart, selectionEnd) until maxOf(selectionStart, selectionEnd)
+                                            viewState.updateSelectionByTransformedSelection(transformedText)
+                                        } else {
+                                            viewState.transformedSelection = IntRange.EMPTY
+                                            viewState.selection = EMPTY_SELECTION_RANGE
 //                                    focusRequester.freeFocus()
-                                }
+                                        }
 
-                                viewState.transformedCursorIndex = getTransformedCharIndex(x = position.x, y = position.y, mode = ResolveCharPositionMode.Cursor)
-                                viewState.roundTransformedCursorIndex(CursorAdjustDirection.Bidirectional, transformedText, viewState.transformedCursorIndex, true)
-                                viewState.updateCursorIndexByTransformed(transformedText)
-                                if (!isHoldingShiftKey) {
-                                    // for selection, max possible index is 1 less than that for cursor
-                                    viewState.transformedSelectionStart = getTransformedCharIndex(x = position.x, y = position.y, mode = ResolveCharPositionMode.Selection)
-                                }
-                                log.v { "set cursor pos 1 => ${viewState.cursorIndex} t ${viewState.transformedCursorIndex}" }
+                                        viewState.transformedCursorIndex = getTransformedCharIndex(x = position.x, y = position.y, mode = ResolveCharPositionMode.Cursor)
+                                        viewState.roundTransformedCursorIndex(CursorAdjustDirection.Bidirectional, transformedText, viewState.transformedCursorIndex, true)
+                                        viewState.updateCursorIndexByTransformed(transformedText)
+                                        if (!isHoldingShiftKey) {
+                                            // for selection, max possible index is 1 less than that for cursor
+                                            viewState.transformedSelectionStart = getTransformedCharIndex(x = position.x, y = position.y, mode = ResolveCharPositionMode.Selection)
+                                        }
+                                        log.v { "set cursor pos 1 => ${viewState.cursorIndex} t ${viewState.transformedCursorIndex}" }
 
-                                showCursor()
-                                focusRequester.requestFocus()
+                                        showCursor()
+                                        focusRequester.requestFocus()
+                                    }
+                                }
                             }
                         }
                     }
-                }
-            }
-            .pointerInput(weakRefOf(transformedText), transformedText.hasLayouted, viewportTop, viewportLeft, lineHeight, contentWidth, weakRefOf(viewState), isSelectable) {
-                if (!isSelectable) return@pointerInput
-                detectTapGestures(onDoubleTap = {
-                    val transformedText = transformedTextRef.get() ?: return@detectTapGestures
+                    .pointerInput(weakRefOf(transformedText), transformedText.hasLayouted, viewportTop, viewportLeft, lineHeight, contentWidth, weakRefOf(viewState), isSelectable) {
+                        if (!isSelectable) return@pointerInput
+                        detectTapGestures(onDoubleTap = {
+                            val transformedText = transformedTextRef.get() ?: return@detectTapGestures
 
-                    val wordStart = findPreviousWordBoundaryPositionFromCursor(isIncludeCursorPosition = true)
-                    val wordEndExclusive = findNextWordBoundaryPositionFromCursor()
-                    viewState.selection = wordStart until wordEndExclusive
-                    viewState.updateTransformedSelectionBySelection(transformedText)
-                    viewState.cursorIndex = wordEndExclusive
-                    viewState.updateTransformedCursorIndexByOriginal(transformedText)
-                    showCursor()
-                })
-            }
-            .onFocusChanged {
-                log.v { "BigMonospaceText onFocusChanged ${it.isFocused} ${it.hasFocus} ${it.isCaptured}" }
-                isFocused = it.isFocused
-                if (isEditable) {
-                    if (it.isFocused) {
-                        textInputSessionRef?.get()?.dispose()
+                            val wordStart = findPreviousWordBoundaryPositionFromCursor(isIncludeCursorPosition = true)
+                            val wordEndExclusive = findNextWordBoundaryPositionFromCursor()
+                            viewState.selection = wordStart until wordEndExclusive
+                            viewState.updateTransformedSelectionBySelection(transformedText)
+                            viewState.cursorIndex = wordEndExclusive
+                            viewState.updateTransformedCursorIndexByOriginal(transformedText)
+                            showCursor()
+                        })
+                    }
+                    .onFocusChanged {
+                        log.v { "BigMonospaceText onFocusChanged ${it.isFocused} ${it.hasFocus} ${it.isCaptured}" }
+                        isFocused = it.isFocused
+                        if (isEditable) {
+                            if (it.isFocused) {
+                                textInputSessionRef?.get()?.dispose()
 
-                        val textInputSession = textInputService?.startInput(
-                            tv,
-                            ImeOptions.Default,
-                            { ed ->
-                                log.v { "onEditCommand [$ed] ${ed.joinToString { it::class.simpleName!! }} $tv" }
-                                ed.forEach {
-                                    when (it) {
-                                        is CommitTextCommand -> {
-                                            if (it.text.isNotEmpty()) {
-                                                onType(it.text)
+                                val textInputSession = textInputService?.startInput(
+                                    tv,
+                                    ImeOptions.Default,
+                                    { ed ->
+                                        log.v { "onEditCommand [$ed] ${ed.joinToString { it::class.simpleName!! }} $tv" }
+                                        ed.forEach {
+                                            when (it) {
+                                                is CommitTextCommand -> {
+                                                    if (it.text.isNotEmpty()) {
+                                                        onType(it.text)
+                                                    }
+                                                }
+                                                is SetComposingTextCommand -> { // temporary text, e.g. SetComposingTextCommand(text='竹戈', newCursorPosition=1)
+                                                    // TODO
+                                                }
                                             }
                                         }
-                                        is SetComposingTextCommand -> { // temporary text, e.g. SetComposingTextCommand(text='竹戈', newCursorPosition=1)
-                                            // TODO
-                                        }
-                                    }
-                                }
-                            },
-                            { a -> log.v { "onImeActionPerformed $a" } },
-                        )
-                        textInputSession?.notifyFocusedRect(
-                            Rect(
-                                layoutCoordinates!!.positionInRoot(),
-                                Size(
-                                    layoutCoordinates!!.size.width.toFloat(),
-                                    layoutCoordinates!!.size.height.toFloat()
+                                    },
+                                    { a -> log.v { "onImeActionPerformed $a" } },
                                 )
-                            )
-                        )
-                        if (textInputSession != null) {
-                            textInputSessionRef = weakRefOf(textInputSession)
-                            log.v { "started text input session" }
-                        }
-                        showCursor()
+                                textInputSession?.notifyFocusedRect(
+                                    Rect(
+                                        layoutCoordinates!!.positionInRoot(),
+                                        Size(
+                                            layoutCoordinates!!.size.width.toFloat(),
+                                            layoutCoordinates!!.size.height.toFloat()
+                                        )
+                                    )
+                                )
+                                if (textInputSession != null) {
+                                    textInputSessionRef = weakRefOf(textInputSession)
+                                    log.v { "started text input session" }
+                                }
+                                showCursor()
 //                        keyboardController?.show()
-                    } else {
+                            } else {
 //                        keyboardController?.hide()
+                            }
+                        }
                     }
-                }
-            }
-            .onPreviewKeyEvent {
-                log.v { "BigMonospaceText onPreviewKeyEvent ${it.type} ${it.key} ${it.key.nativeKeyCode} ${it.key.keyCode}" }
-                onProcessKeyboardInput(it)
+                    .onPreviewKeyEvent {
+                        log.v { "BigMonospaceText onPreviewKeyEvent ${it.type} ${it.key} ${it.key.nativeKeyCode} ${it.key.keyCode}" }
+                        onProcessKeyboardInput(it)
+                    }
             }
 //            .then(BigTextInputModifierElement(1))
-            .focusable(isSelectable) // `focusable` should be after callback modifiers that use focus
+            .focusable(isComponentReady && isSelectable) // `focusable` should be after callback modifiers that use focus
             .semantics {
-                log.d { "semantic lambda" }
+                log.w { "semantic lambda" }
                 val text = textRef.get() ?: return@semantics
                 val transformedText = transformedTextRef.get() ?: return@semantics
                 if (isEditable) {
@@ -1612,6 +1654,8 @@ private fun CoreBigMonospaceText(
             }
 
     ) {
+        if (!isComponentReady) return@Box
+
         val transformedText = transformedTextRef.get() ?: return@Box
         val viewportBottom = viewportTop + height
         if (lineHeight > 0 && transformedText.hasLayouted) {

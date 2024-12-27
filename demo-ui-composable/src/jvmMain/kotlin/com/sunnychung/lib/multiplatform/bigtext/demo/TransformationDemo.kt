@@ -21,6 +21,7 @@ import androidx.compose.foundation.rememberScrollbarAdapter
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.Button
 import androidx.compose.material.Checkbox
+import androidx.compose.material.CircularProgressIndicator
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -37,7 +38,9 @@ import com.sunnychung.lib.multiplatform.bigtext.extension.length
 import com.sunnychung.lib.multiplatform.bigtext.ux.BigMonospaceTextField
 import com.sunnychung.lib.multiplatform.bigtext.ux.BigTextManipulator
 import com.sunnychung.lib.multiplatform.bigtext.ux.rememberConcurrentLargeAnnotatedBigTextFieldState
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlin.random.Random
 
 val TRANSFORMATION_PRELOAD_CONTENT = PRELOAD_CONTENT
@@ -125,6 +128,8 @@ fun TransformationTextAreaDemoView(modifier: Modifier, bodyFontFamily: FontFamil
     val horizontalScrollState = rememberScrollState()
     val coroutineScope = rememberCoroutineScope()
 
+    var numOfComputations by remember { mutableStateOf(0) }
+
     val transformation = remember(bigTextFieldState) {
         VariableIncrementalTransformation()
     }
@@ -140,13 +145,16 @@ fun TransformationTextAreaDemoView(modifier: Modifier, bodyFontFamily: FontFamil
             TRANSFORMATION_PRELOAD_CONTENT
                 .keys
                 .forEach { key ->
-                    Button(onClick = {
-                        generateContentKey = key
-                        ++cacheKey
-                        coroutineScope.launch {
-                            scrollState.scrollTo(0)
-                        }
-                    }) {
+                    Button(
+                        onClick = {
+                            generateContentKey = key
+                            ++cacheKey
+                            coroutineScope.launch {
+                                scrollState.scrollTo(0)
+                            }
+                        },
+                        enabled = numOfComputations == 0
+                    ) {
                         Text(text = key)
                     }
                 }
@@ -189,20 +197,35 @@ fun TransformationTextAreaDemoView(modifier: Modifier, bodyFontFamily: FontFamil
                 isSoftWrapEnabled = isSoftWrapEnabled,
                 textTransformation = transformation,
                 onTextManipulatorReady = { textManipulator = it }, // enables external text modification
+                onHeavyComputation = { computation -> // compute in background and display a "loading" spinner
+                    withContext(coroutineScope.coroutineContext) {
+                        ++numOfComputations
+                    }
+                    withContext(Dispatchers.IO) {
+                        computation()
+                    }
+                    withContext(coroutineScope.coroutineContext) {
+                        --numOfComputations
+                    }
+                },
                 scrollState = scrollState,
                 horizontalScrollState = horizontalScrollState, // only required for soft wrap disabled
                 modifier = Modifier.background(Color(224, 224, 224))
                     .fillMaxSize()
             )
-            VerticalScrollbar(
-                adapter = rememberScrollbarAdapter(scrollState),
-                modifier = Modifier.align(Alignment.TopEnd).fillMaxHeight()
-            )
-            if (!isSoftWrapEnabled) {
-                HorizontalScrollbar(
-                    adapter = rememberScrollbarAdapter(horizontalScrollState),
-                    modifier = Modifier.align(Alignment.BottomStart).fillMaxWidth()
+            if (numOfComputations > 0) {
+                CircularProgressIndicator(Modifier.align(Alignment.Center))
+            } else {
+                VerticalScrollbar(
+                    adapter = rememberScrollbarAdapter(scrollState),
+                    modifier = Modifier.align(Alignment.TopEnd).fillMaxHeight()
                 )
+                if (!isSoftWrapEnabled) {
+                    HorizontalScrollbar(
+                        adapter = rememberScrollbarAdapter(horizontalScrollState),
+                        modifier = Modifier.align(Alignment.BottomStart).fillMaxWidth()
+                    )
+                }
             }
         }
     }

@@ -177,12 +177,22 @@ class BigTextViewState {
     var layoutResult: BigTextSimpleLayoutResult? = null
     var visibleSize: Size = Size(0, 0)
 
+    var numOfComputationsInProgress by mutableStateOf(0)
+        internal set
+
+    val isComponentReady: Boolean
+        get() = numOfComputationsInProgress <= 0
+
     /**
      * The returned value of this function can be more recent or accurate than the `firstVisibleRow` and `lastVisibleRow` values.
      *
      * Note that if dependencies are not yet available, this function returns `0 .. 0`.
      */
     fun calculateVisibleRowRange(verticalScrollValue: Int): IntRange {
+        if (!isComponentReady) {
+            return 0 .. -1
+        }
+
         val transformedText = transformedText?.get() ?: return 0 .. 0
         val viewportTop = verticalScrollValue.toFloat()
         val height = visibleSize.height

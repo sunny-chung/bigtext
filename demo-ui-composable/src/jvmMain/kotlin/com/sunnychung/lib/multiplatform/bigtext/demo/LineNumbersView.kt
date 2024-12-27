@@ -34,6 +34,7 @@ fun LineNumbersView(
     modifier: Modifier = Modifier,
     bigTextViewState: BigTextViewState,
     bigText: BigText,
+    refTotalLines: Int,
     layoutResult: BigTextSimpleLayoutResult?,
     scrollState: ScrollState,
     onCorrectMeasured: () -> Unit,
@@ -55,8 +56,11 @@ fun LineNumbersView(
 
     val firstRow = visibleRows.first
     val lastRow = visibleRows.endInclusive + 1
-    val rowToLineIndex = { it: Int -> layoutText?.findOriginalLineIndexByRowIndex(it) ?: 0 }
-    val totalLines = bigText.numOfLines
+    val rowToLineIndex = rowToLineIndex@ { it: Int ->
+        if (!bigTextViewState.isComponentReady) return@rowToLineIndex 0
+        layoutText?.findOriginalLineIndexByRowIndex(it) ?: 0
+    }
+    val totalLines = if (bigTextViewState.isComponentReady) bigText.numOfLines else refTotalLines
     val lineHeight = (rowHeight).toDp()
     val getRowOffset = { it: Int ->
         (it * rowHeight - viewportTop).toDp()

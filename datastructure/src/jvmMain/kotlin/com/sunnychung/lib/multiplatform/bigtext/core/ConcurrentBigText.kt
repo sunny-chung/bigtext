@@ -1,5 +1,6 @@
 package com.sunnychung.lib.multiplatform.bigtext.core
 
+import co.touchlab.kermit.Severity
 import com.sunnychung.lib.multiplatform.bigtext.core.layout.TextLayouter
 import com.sunnychung.lib.multiplatform.bigtext.util.GeneralStringBuilder
 import java.util.concurrent.locks.ReentrantReadWriteLock
@@ -11,130 +12,140 @@ open class ConcurrentBigText(open val delegate: BigText) : BigText {
     val lock = ReentrantReadWriteLock()
 
     override val length: Int
-        get() = lock.read { delegate.length }
+        get() = withReadLock { delegate.length }
     override val lastIndex: Int
-        get() = lock.read { delegate.lastIndex }
+        get() = withReadLock { delegate.lastIndex }
     override val isEmpty: Boolean
-        get() = lock.read { delegate.isEmpty }
+        get() = withReadLock { delegate.isEmpty }
     override val isNotEmpty: Boolean
-        get() = lock.read { delegate.isNotEmpty }
+        get() = withReadLock { delegate.isNotEmpty }
     override val hasLayouted: Boolean
-        get() = lock.read { delegate.hasLayouted }
+        get() = withReadLock { delegate.hasLayouted }
     override val layouter: TextLayouter?
-        get() = lock.read { delegate.layouter }
+        get() = withReadLock { delegate.layouter }
     override val numOfLines: Int
-        get() = lock.read { delegate.numOfLines }
+        get() = withReadLock { delegate.numOfLines }
     override val numOfRows: Int
-        get() = lock.read { delegate.numOfRows }
+        get() = withReadLock { delegate.numOfRows }
     override val lastRowIndex: Int
-        get() = lock.read { delegate.lastRowIndex }
+        get() = withReadLock { delegate.lastRowIndex }
     override val numOfOriginalLines: Int
-        get() = lock.read { delegate.numOfOriginalLines }
+        get() = withReadLock { delegate.numOfOriginalLines }
     override val chunkSize: Int
-        get() = lock.read { delegate.chunkSize }
+        get() = withReadLock { delegate.chunkSize }
     override val undoHistoryCapacity: Int
-        get() = lock.read { delegate.undoHistoryCapacity }
+        get() = withReadLock { delegate.undoHistoryCapacity }
     override val textBufferFactory: (capacity: Int) -> TextBuffer
-        get() = lock.read { delegate.textBufferFactory }
+        get() = withReadLock { delegate.textBufferFactory }
     override val charSequenceBuilderFactory: (capacity: Int) -> GeneralStringBuilder
-        get() = lock.read { delegate.charSequenceBuilderFactory }
+        get() = withReadLock { delegate.charSequenceBuilderFactory }
     override val charSequenceFactory: (Appendable) -> CharSequence
-        get() = lock.read { delegate.charSequenceFactory }
+        get() = withReadLock { delegate.charSequenceFactory }
     override val tree: LengthTree<BigTextNodeValue>
-        get() = lock.read { delegate.tree }
+        get() = withReadLock { delegate.tree }
     override val contentWidth: Float?
-        get() = lock.read { delegate.contentWidth }
+        get() = withReadLock { delegate.contentWidth }
     override var decorator: BigTextDecorator?
-        get() = lock.read { delegate.decorator }
-        set(value) { lock.write { delegate.decorator = value } }
+        get() = withReadLock { delegate.decorator }
+        set(value) { withWriteLock { delegate.decorator = value } }
     override var undoMetadataSupplier: (() -> Any?)?
-        get() = lock.read { delegate.undoMetadataSupplier }
-        set(value) { lock.write { delegate.undoMetadataSupplier = value } }
+        get() = withReadLock { delegate.undoMetadataSupplier }
+        set(value) { withWriteLock { delegate.undoMetadataSupplier = value } }
     override var changeHook: BigTextChangeHook?
-        get() = lock.read { delegate.changeHook }
-        set(value) { lock.write { delegate.changeHook = value } }
+        get() = withReadLock { delegate.changeHook }
+        set(value) { withWriteLock { delegate.changeHook = value } }
 
     override val isThreadSafe: Boolean
         get() = true
 
-    override fun buildString(): String = lock.read { delegate.buildString() }
+    override fun buildString(): String = withReadLock { delegate.buildString() }
 
-    override fun buildCharSequence(): CharSequence = lock.read { delegate.buildCharSequence() }
+    override fun buildCharSequence(): CharSequence = withReadLock { delegate.buildCharSequence() }
 
-    override fun substring(start: Int, endExclusive: Int): CharSequence = lock.read { delegate.substring(start, endExclusive) }
+    override fun substring(start: Int, endExclusive: Int): CharSequence = withReadLock { delegate.substring(start, endExclusive) }
 
-    override fun subSequence(startIndex: Int, endIndex: Int): CharSequence = lock.read { delegate.subSequence(startIndex, endIndex) }
-    override fun chunkAt(start: Int): String = lock.read { delegate.chunkAt(start) }
+    override fun subSequence(startIndex: Int, endIndex: Int): CharSequence = withReadLock { delegate.subSequence(startIndex, endIndex) }
+    override fun chunkAt(start: Int): String = withReadLock { delegate.chunkAt(start) }
 
-    override fun findLineString(lineIndex: Int): CharSequence = lock.read { delegate.findLineString(lineIndex) }
+    override fun findLineString(lineIndex: Int): CharSequence = withReadLock { delegate.findLineString(lineIndex) }
 
-    override fun findRowString(rowIndex: Int): CharSequence = lock.read { delegate.findRowString(rowIndex) }
+    override fun findRowString(rowIndex: Int): CharSequence = withReadLock { delegate.findRowString(rowIndex) }
 
-    override fun append(text: CharSequence): Int = lock.write { delegate.append(text) }
+    override fun append(text: CharSequence): Int = withWriteLock { delegate.append(text) }
 
-    override fun insertAt(pos: Int, text: CharSequence): Int = lock.write { delegate.insertAt(pos, text) }
+    override fun insertAt(pos: Int, text: CharSequence): Int = withWriteLock { delegate.insertAt(pos, text) }
 
-    override fun delete(start: Int, endExclusive: Int): Int = lock.write { delegate.delete(start, endExclusive) }
+    override fun delete(start: Int, endExclusive: Int): Int = withWriteLock { delegate.delete(start, endExclusive) }
 
-    override fun replace(start: Int, endExclusive: Int, text: CharSequence) = lock.write {
+    override fun replace(start: Int, endExclusive: Int, text: CharSequence) = withWriteLock {
         delegate.replace(start, endExclusive, text)
     }
 
-    override fun replace(range: IntRange, text: CharSequence) = lock.write {
+    override fun replace(range: IntRange, text: CharSequence) = withWriteLock {
         delegate.replace(range, text)
     }
 
-    override fun recordCurrentChangeSequenceIntoUndoHistory() = lock.write { delegate.recordCurrentChangeSequenceIntoUndoHistory() }
+    override fun recordCurrentChangeSequenceIntoUndoHistory() = withWriteLock { delegate.recordCurrentChangeSequenceIntoUndoHistory() }
 
-    override fun undo(callback: BigTextChangeCallback?): Pair<Boolean, Any?> = lock.write { delegate.undo(callback) }
+    override fun undo(callback: BigTextChangeCallback?): Pair<Boolean, Any?> = withWriteLock { delegate.undo(callback) }
 
-    override fun redo(callback: BigTextChangeCallback?): Pair<Boolean, Any?> = lock.write { delegate.redo(callback) }
+    override fun redo(callback: BigTextChangeCallback?): Pair<Boolean, Any?> = withWriteLock { delegate.redo(callback) }
 
-    override fun isUndoable(): Boolean = lock.read { delegate.isUndoable() }
+    override fun isUndoable(): Boolean = withReadLock { delegate.isUndoable() }
 
-    override fun isRedoable(): Boolean = lock.read { delegate.isRedoable() }
+    override fun isRedoable(): Boolean = withReadLock { delegate.isRedoable() }
 
-    override fun findLineAndColumnFromRenderPosition(renderPosition: Int): Pair<Int, Int> = lock.read { delegate.findLineAndColumnFromRenderPosition(renderPosition) }
+    override fun findLineAndColumnFromRenderPosition(renderPosition: Int): Pair<Int, Int> = withReadLock { delegate.findLineAndColumnFromRenderPosition(renderPosition) }
 
-    override fun findRenderCharIndexByLineAndColumn(lineIndex: Int, columnIndex: Int): Int = lock.read { delegate.findRenderCharIndexByLineAndColumn(lineIndex, columnIndex) }
+    override fun findRenderCharIndexByLineAndColumn(lineIndex: Int, columnIndex: Int): Int = withReadLock { delegate.findRenderCharIndexByLineAndColumn(lineIndex, columnIndex) }
 
-    override fun findPositionStartOfLine(lineIndex: Int): Int = lock.read { delegate.findPositionStartOfLine(lineIndex) }
+    override fun findPositionStartOfLine(lineIndex: Int): Int = withReadLock { delegate.findPositionStartOfLine(lineIndex) }
 
-    override fun findLineIndexByRowIndex(rowIndex: Int): Int = lock.read { delegate.findLineIndexByRowIndex(rowIndex) }
+    override fun findLineIndexByRowIndex(rowIndex: Int): Int = withReadLock { delegate.findLineIndexByRowIndex(rowIndex) }
 
-    override fun findFirstRowIndexOfLine(lineIndex: Int): Int = lock.read { delegate.findFirstRowIndexOfLine(lineIndex) }
+    override fun findFirstRowIndexOfLine(lineIndex: Int): Int = withReadLock { delegate.findFirstRowIndexOfLine(lineIndex) }
 
-    override fun setLayouter(layouter: TextLayouter) = lock.write { delegate.setLayouter(layouter) }
+    override fun setLayouter(layouter: TextLayouter) = withWriteLock { delegate.setLayouter(layouter) }
 
-    override fun setContentWidth(contentWidth: Float) = lock.write { delegate.setContentWidth(contentWidth) }
+    override fun setContentWidth(contentWidth: Float) = withWriteLock { delegate.setContentWidth(contentWidth) }
 
-    override fun setSoftWrapEnabled(isSoftWrapEnabled: Boolean) = lock.write { delegate.setSoftWrapEnabled(isSoftWrapEnabled) }
+    override fun setSoftWrapEnabled(isSoftWrapEnabled: Boolean) = withWriteLock { delegate.setSoftWrapEnabled(isSoftWrapEnabled) }
 
-    override fun layout() = lock.write { delegate.layout() }
+    override fun layout() = withWriteLock { delegate.layout() }
 
-    override fun disableComputations() = lock.write { delegate.disableComputations() }
+    override fun disableComputations() = withWriteLock { delegate.disableComputations() }
 
-    override fun enableAndDoComputations() = lock.write { delegate.enableAndDoComputations() }
+    override fun enableAndDoComputations() = withWriteLock { delegate.enableAndDoComputations() }
 
     // the first call to `hashCode()` would write to cache
 //    override fun hashCode(): Int = lock.write { delegate.hashCode() }
     // currently, BigTextImpl has no custom implementation over built-in's one, so no lock is needed.
     override fun hashCode(): Int = delegate.hashCode()
 
-//    override fun equals(other: Any?): Boolean = lock.read { delegate.equals(other) }
+//    override fun equals(other: Any?): Boolean = withReadLock { delegate.equals(other) }
     // currently, BigTextImpl has no custom implementation over built-in's one, so no lock is needed.
     override fun equals(other: Any?): Boolean {
         if (other !is ConcurrentBigText) return delegate.equals(other)
         return delegate.equals(other.delegate)
     }
 
-    override fun inspect(label: String): String = lock.read { delegate.inspect(label) }
+    override fun inspect(label: String): String = withReadLock { delegate.inspect(label) }
 
-    override fun printDebug(label: String) = lock.read { delegate.printDebug(label) }
+    override fun printDebug(label: String) = withReadLock { delegate.printDebug(label) }
 
-    fun <R> withWriteLock(operation: (BigText) -> R) = lock.write { operation(delegate) }
+    inline fun <R> withWriteLock(operation: (BigText) -> R): R {
+        if (log.config.minSeverity <= Severity.Info && lock.isWriteLocked) {
+            log.i(Exception("Waiting the write lock to be released in order to acquire a write lock")) { "Waiting the write lock to be released in order to acquire a write lock" }
+        }
+        return lock.write { operation(delegate) }
+    }
 
-    fun <R> withReadLock(operation: (BigText) -> R) = lock.read { operation(delegate) }
+    inline fun <R> withReadLock(operation: (BigText) -> R): R {
+        if (log.config.minSeverity <= Severity.Info && lock.isWriteLocked) {
+            log.i(Exception("Waiting the write lock to be released in order to acquire a read lock")) { "Waiting the write lock to be released in order to acquire a read lock" }
+        }
+        return lock.read { operation(delegate) }
+    }
 
     inline fun tryReadLock(operation: (BigText) -> Unit) {
         val isLocked = lock.readLock().tryLock()
