@@ -68,14 +68,14 @@ kotlin {
 compose.desktop {
     application {
         mainClass = "com.sunnychung.lib.multiplatform.bigtext.demo.MainKt"
-        jvmArgs += listOf("-XX:MaxMetaspaceSize=100m", "-Xmx1024m", "-XX:MinHeapFreeRatio=10", "-XX:MaxHeapFreeRatio=20", "-XX:InitiatingHeapOccupancyPercent=75", "-XX:+HeapDumpOnOutOfMemoryError")
+        jvmArgs += listOf("-XX:MaxMetaspaceSize=100m", "-Xmx1280m", "-XX:MinHeapFreeRatio=10", "-XX:MaxHeapFreeRatio=20", "-XX:InitiatingHeapOccupancyPercent=75", "-XX:+HeapDumpOnOutOfMemoryError")
         jvmArgs += "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005" // to enable debugger for debug use only
     }
 }
 
 tasks.withType<Test> {
     useJUnitPlatform()
-    jvmArgs("-Xmx1024m")
+    jvmArgs("-Xmx1280m")
 
     testLogging {
         events = setOf(TestLogEvent.STARTED, TestLogEvent.FAILED, TestLogEvent.PASSED, TestLogEvent.SKIPPED)
