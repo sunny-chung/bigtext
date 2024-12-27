@@ -57,11 +57,15 @@ val TRANSFORMATION_PRELOAD_CONTENT = PRELOAD_CONTENT
             var last = 0
 
             transformations.forEach {
-                if (it.first > last) {
-                    append(content.substring(last ..< it.first))
+                var start = it.first
+                if (content[start].isLowSurrogate()) {
+                    ++start // never insert transformation between high surrogate and low surrogate
+                }
+                if (start > last) {
+                    append(content.substring(last ..< start))
                 }
                 append("\${{${it.second}}}")
-                last = it.first + it.second.length
+                last = start
             }
             if (last < content.length) {
                 append(content.substring(last))
