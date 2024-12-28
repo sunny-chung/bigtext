@@ -640,6 +640,7 @@ private fun CoreBigMonospaceText(
         }
         delta
     }
+    var lastCursorXPositionForVerticalMovement by remember(weakRefOf(text)) { mutableStateOf<Float>(0f) }
     var draggedPoint by remember { mutableStateOf<Offset>(Offset.Zero) }
     var selectionEnd by remember { mutableStateOf<Int>(-1) }
     var isHoldingShiftKey by remember { mutableStateOf(false) }
@@ -756,6 +757,13 @@ private fun CoreBigMonospaceText(
         }
     }
 
+    fun recordCursorXPosition() {
+        val row = transformedText.findRowIndexByPosition(viewState.transformedCursorIndex)
+        val rowStart = transformedText.findRowPositionStartIndexByRowIndex(row)
+        val cursorXPosInRow = transformedText.findWidthByPositionRangeOfSameLine(rowStart ..< viewState.transformedCursorIndex)
+        lastCursorXPositionForVerticalMovement = cursorXPosInRow
+    }
+
     fun updateViewState() {
         val transformedText = transformedTextRef.get() ?: return
         viewState.lastVisibleRow = minOf(viewState.lastVisibleRow, transformedText.lastRowIndex)
@@ -821,6 +829,7 @@ private fun CoreBigMonospaceText(
             if (isSaveUndoSnapshot) {
                 text.recordCurrentChangeSequenceIntoUndoHistory()
             }
+            recordCursorXPosition()
         }
     }
 
@@ -883,6 +892,7 @@ private fun CoreBigMonospaceText(
         if (isSaveUndoSnapshot) {
             text.recordCurrentChangeSequenceIntoUndoHistory()
         }
+        recordCursorXPosition()
         scrollToCursor()
         showCursor()
     }
@@ -909,6 +919,7 @@ private fun CoreBigMonospaceText(
                         (transformedText as? BigTextImpl)?.printDebug("transformedText onDelete $direction")
                     }
                     text.recordCurrentChangeSequenceIntoUndoHistory()
+                    recordCursorXPosition()
                     scrollToCursor()
                     return true
                 }
@@ -928,6 +939,7 @@ private fun CoreBigMonospaceText(
                     viewState.transformedSelectionStart = viewState.transformedCursorIndex
                     log.v { "set cursor pos 3 => ${viewState.cursorIndex} t ${viewState.transformedCursorIndex}" }
                     text.recordCurrentChangeSequenceIntoUndoHistory()
+                    recordCursorXPosition()
                     scrollToCursor()
                     return true
                 }
@@ -967,6 +979,7 @@ private fun CoreBigMonospaceText(
             viewState.cursorIndex = state.cursor
             viewState.updateTransformedCursorIndexByOriginal(transformedText)
             viewState.transformedSelectionStart = viewState.transformedCursorIndex
+            recordCursorXPosition()
             scrollToCursor()
             return
         }
@@ -1189,6 +1202,7 @@ private fun CoreBigMonospaceText(
                             viewState.cursorIndex = previousWordPosition
                             viewState.updateTransformedCursorIndexByOriginal(transformedText)
                             viewState.transformedSelectionStart = viewState.transformedCursorIndex
+                            recordCursorXPosition()
                             text.recordCurrentChangeSequenceIntoUndoHistory()
                             true
                         }
@@ -1231,6 +1245,7 @@ private fun CoreBigMonospaceText(
                         newTransformedPosition = newTransformedPosition,
                         isSelection = it.isShiftPressed,
                     )
+                    recordCursorXPosition()
                     showCursor()
                     true
                 }
@@ -1240,6 +1255,7 @@ private fun CoreBigMonospaceText(
                         ) -> {
                     val newPosition = findPreviousWordBoundaryPositionFromCursor()
                     updateOriginalCursorOrSelection(newPosition = newPosition, isSelection = it.isShiftPressed)
+                    recordCursorXPosition()
                     showCursor()
                     true
                 }
@@ -1249,6 +1265,7 @@ private fun CoreBigMonospaceText(
                         ) -> {
                     val newPosition = findNextWordBoundaryPositionFromCursor()
                     updateOriginalCursorOrSelection(newPosition = newPosition, isSelection = it.isShiftPressed)
+                    recordCursorXPosition()
                     showCursor()
                     true
                 }
@@ -1265,6 +1282,7 @@ private fun CoreBigMonospaceText(
                             newTransformedPosition = newTransformedPosition,
                             isSelection = it.isShiftPressed,
                         )
+                        recordCursorXPosition()
                         log.v { "set cursor pos LR => ${viewState.cursorIndex} t ${viewState.transformedCursorIndex}" }
                     } else if (!it.isShiftPressed) {
                         // cancel selection
@@ -1281,6 +1299,7 @@ private fun CoreBigMonospaceText(
                             newTransformedPosition = newTransformedPosition,
                             isSelection = it.isShiftPressed,
                         )
+                        recordCursorXPosition()
                     }
                     showCursor()
                     true
@@ -1288,10 +1307,13 @@ private fun CoreBigMonospaceText(
                 it.key in listOf(Key.DirectionUp, Key.DirectionDown) -> {
                     val row = transformedText.findRowIndexByPosition(viewState.transformedCursorIndex)
                     val newRow = row + if (it.key == Key.DirectionDown) 1 else -1
+                    var isRecordCursorXPosition = false
                     var newTransformedPosition = Unit.let {
                         if (newRow < 0) {
+                            isRecordCursorXPosition = true
                             0
                         } else if (newRow > transformedText.lastRowIndex) {
+                            isRecordCursorXPosition = true
                             transformedText.length
                         } else {
                             /* // this is only correct for Monospace
@@ -1306,8 +1328,8 @@ private fun CoreBigMonospaceText(
                             } else {
                                 transformedText.findRowPositionStartIndexByRowIndex(newRow) + newRowLength
                             }*/
-                            val rowStart = transformedText.findRowPositionStartIndexByRowIndex(row)
-                            val cursorXPosInRow = transformedText.findWidthByPositionRangeOfSameLine(rowStart ..< viewState.transformedCursorIndex)
+//                            val rowStart = transformedText.findRowPositionStartIndexByRowIndex(row)
+//                            val cursorXPosInRow = transformedText.findWidthByPositionRangeOfSameLine(rowStart ..< viewState.transformedCursorIndex)
                             val newRowStart = transformedText.findRowPositionStartIndexByRowIndex(newRow)
                             val newRowEndInclusive = if (newRow + 1 <= transformedText.lastRowIndex) {
                                 transformedText.findRowPositionStartIndexByRowIndex(newRow + 1) - 1
@@ -1318,7 +1340,7 @@ private fun CoreBigMonospaceText(
                                 startPosition = newRowStart,
                                 endPositions = newRowStart..newRowEndInclusive,
                                 isEndExclusive = true,
-                                maxWidthSum = cursorXPosInRow.toInt()
+                                maxWidthSum = lastCursorXPositionForVerticalMovement.roundToInt() //cursorXPosInRow.toInt()
                             )
                             if (pos > 0) {
                                 viewState.roundedTransformedCursorIndex(
@@ -1337,6 +1359,9 @@ private fun CoreBigMonospaceText(
                         newTransformedPosition = newTransformedPosition,
                         isSelection = it.isShiftPressed,
                     )
+                    if (isRecordCursorXPosition) {
+                        recordCursorXPosition()
+                    }
                     showCursor()
                     true
                 }
@@ -1388,6 +1413,7 @@ private fun CoreBigMonospaceText(
             viewState.cursorIndex = position
             viewState.updateTransformedCursorIndexByOriginal(transformedText)
             viewState.transformedSelectionStart = viewState.transformedCursorIndex
+            recordCursorXPosition()
             scrollToCursor()
         }
 
@@ -1524,6 +1550,7 @@ private fun CoreBigMonospaceText(
                             selectionEnd + if (selectionEnd == viewState.transformedSelection.last) 1 else 0
                         )
                         viewState.updateCursorIndexByTransformed(transformedText)
+                        recordCursorXPosition()
                     }
                 )
                     .pointerInput(isEditable, weakRefOf(text), transformedText.hasLayouted, weakRefOf(viewState), viewportTop, viewportLeft, lineHeight, contentWidth, transformedText.length, transformedText.hashCode(), onPointerEvent) {
@@ -1580,7 +1607,7 @@ private fun CoreBigMonospaceText(
                                             viewState.transformedSelectionStart = getTransformedCharIndex(x = position.x, y = position.y, mode = ResolveCharPositionMode.Selection)
                                         }
                                         log.v { "set cursor pos 1 => ${viewState.cursorIndex} t ${viewState.transformedCursorIndex}" }
-
+                                        recordCursorXPosition()
                                         showCursor()
                                         focusRequester.requestFocus()
                                     }
@@ -1599,6 +1626,7 @@ private fun CoreBigMonospaceText(
                             viewState.updateTransformedSelectionBySelection(transformedText)
                             viewState.cursorIndex = wordEndExclusive
                             viewState.updateTransformedCursorIndexByOriginal(transformedText)
+                            recordCursorXPosition()
                             showCursor()
                         })
                     }
