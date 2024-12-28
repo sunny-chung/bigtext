@@ -27,7 +27,7 @@ internal class BigTextVerifyImpl(bigTextImpl: BigTextImpl) : BigText {
     }
 
     internal constructor(chunkSize: Int = -1) : this(
-        if (chunkSize > 0) BigTextImpl(chunkSize) else BigTextImpl()
+        if (chunkSize > 0) BigTextImpl(chunkSize, parallelism = 5) else BigTextImpl(parallelism = 5)
     )
 
     override val tree: LengthTree<BigTextNodeValue>

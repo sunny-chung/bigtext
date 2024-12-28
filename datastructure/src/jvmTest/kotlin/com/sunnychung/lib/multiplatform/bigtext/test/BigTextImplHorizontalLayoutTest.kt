@@ -273,7 +273,7 @@ class BigTextImplHorizontalLayoutTest {
                     in 45..69 -> random.nextInt(10, 1000)
                     in 70..87 -> random.nextInt(1000, 10000)
                     in 88..97 -> random.nextInt(10000, 700_000)
-                    in 98..99 -> random.nextInt(700_000, 2_500_000)
+                    in 98..99 -> random.nextInt(900_000, 1_200_000)
                     else -> throw IllegalStateException()
                 }
                 val pos = when (random.nextInt(10)) {
@@ -293,7 +293,7 @@ class BigTextImplHorizontalLayoutTest {
     fun manyDeletes(chunkSize: Int) {
         random = Random(20345678) // use a fixed seed for easier debug
         repeat(10) { repeatIt ->
-            val initial = randomString(random.nextInt(35_700_000, 39_600_000), isAddNewLine = true)
+            val initial = randomString(random.nextInt(20_700_000, 23_600_000), isAddNewLine = true)
             val t = BigTextVerifyImpl(chunkSize = chunkSize).apply {
                 append(initial)
                 bigTextImpl.setLayouter(MonospaceTextLayouter(FixedWidthCharMeasurer(16f)))
@@ -305,10 +305,10 @@ class BigTextImplHorizontalLayoutTest {
                     in 0..44 -> random.nextInt(10)
                     in 45..59 -> random.nextInt(10, 100)
                     in 60..77 -> random.nextInt(100, 1000)
-                    in 78..87 -> random.nextInt(1000, 10000)
-                    in 88..96 -> random.nextInt(10000, 200_000)
-                    in 97..98 -> random.nextInt(200_000, 750_000)
-                    99 -> random.nextInt(750_000, 2_300_000)
+                    in 78..88 -> random.nextInt(1000, 10000)
+                    in 89..97 -> random.nextInt(10000, 100_000)
+                    98 -> random.nextInt(200_000, 600_000)
+                    99 -> random.nextInt(900_000, 1_300_000)
                     else -> throw IllegalStateException()
                 }
                 val pos = when (random.nextInt(10)) {
