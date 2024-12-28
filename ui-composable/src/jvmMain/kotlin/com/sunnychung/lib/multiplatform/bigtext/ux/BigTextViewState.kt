@@ -144,7 +144,7 @@ class BigTextViewState {
                 var delta = 0
                 while ((transformedCursorIndex + delta in possibleRange || transformedCursorIndex - delta in possibleRange)) {
                     // Try in both forward and backward directions
-                    
+
                     // Forward
                     if (transformedCursorIndex + delta + 1 in possibleRange && transformedText.findOriginalPositionByTransformedPosition(transformedCursorIndex + delta + 1) != previousMappedPosition) {
                         val newPos = transformedCursorIndex + delta + if (transformedCursorIndex + delta - 1 in possibleRange && transformedText.findOriginalPositionByTransformedPosition(transformedCursorIndex + delta - 1) == previousMappedPosition) {

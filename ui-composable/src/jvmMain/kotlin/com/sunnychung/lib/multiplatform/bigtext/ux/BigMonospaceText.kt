@@ -1294,6 +1294,7 @@ private fun CoreBigMonospaceText(
                         } else if (newRow > transformedText.lastRowIndex) {
                             transformedText.length
                         } else {
+                            /* // this is only correct for Monospace
                             val col = viewState.transformedCursorIndex - transformedText.findRowPositionStartIndexByRowIndex(row)
                             val newRowLength = if (newRow + 1 <= transformedText.lastRowIndex) {
                                 transformedText.findRowPositionStartIndexByRowIndex(newRow + 1) - 1
@@ -1304,7 +1305,21 @@ private fun CoreBigMonospaceText(
                                 transformedText.findRowPositionStartIndexByRowIndex(newRow) + col
                             } else {
                                 transformedText.findRowPositionStartIndexByRowIndex(newRow) + newRowLength
+                            }*/
+                            val rowStart = transformedText.findRowPositionStartIndexByRowIndex(row)
+                            val cursorXPosInRow = transformedText.findWidthByPositionRangeOfSameLine(rowStart ..< viewState.transformedCursorIndex)
+                            val newRowStart = transformedText.findRowPositionStartIndexByRowIndex(newRow)
+                            val newRowEndInclusive = if (newRow + 1 <= transformedText.lastRowIndex) {
+                                transformedText.findRowPositionStartIndexByRowIndex(newRow + 1) - 1
+                            } else {
+                                transformedText.length
                             }
+                            val pos = transformedText.findMaxEndPositionOfWidthSumOverPositionRangeAtMost(
+                                startPosition = newRowStart,
+                                endPositions = newRowStart..newRowEndInclusive,
+                                isEndExclusive = true,
+                                maxWidthSum = cursorXPosInRow.toInt()
+                            )
                             if (pos > 0) {
                                 viewState.roundedTransformedCursorIndex(
                                     pos,
