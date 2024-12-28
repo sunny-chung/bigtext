@@ -114,6 +114,9 @@ class BigTextViewState {
                             // for forward, we find the first index that is different from `previousMappedPosition`
                             0
                         }
+                        if (newPos == transformedText.length) {
+                            return newPos
+                        }
                         val char = transformedText.subSequence(newPos, newPos + 1)
                         if (
                             (direction == CursorAdjustDirection.Forward && !char[0].isLowSurrogate())
@@ -154,6 +157,9 @@ class BigTextViewState {
                             1
                         } else {
                             0
+                        }
+                        if (newPos == transformedText.length) {
+                            return newPos
                         }
                         val char = transformedText.subSequence(newPos, newPos + 1)
                         if (!char[0].isLowSurrogate()) {
