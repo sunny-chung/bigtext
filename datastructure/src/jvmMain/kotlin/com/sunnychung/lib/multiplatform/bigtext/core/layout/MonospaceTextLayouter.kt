@@ -38,7 +38,11 @@ class MonospaceTextLayouter<S> : TextLayouter {
 //            }
             val char = if (it.isHighSurrogate()) { // let the first char to expand width, otherwise the surrogate pair may be broken into two half
 //                "$it${line[index + 1]}"
-                line.subSequence(index, index + 2)
+                if (index + 1 <= line.lastIndex) {
+                    line.subSequence(index, index + 2)
+                } else { // TODO if low surrogate is not in this buffer
+                    line.subSequence(index, index + 1)
+                }
             } else if (it.isLowSurrogate()) {
                 return@mapIndexed 0f
             } else {

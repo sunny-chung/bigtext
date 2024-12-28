@@ -30,7 +30,7 @@ import kotlin.math.roundToLong
 
 val log = Logger(object : MutableLoggerConfig {
     override var logWriterList: List<LogWriter> = listOf(JvmLogger())
-    override var minSeverity: Severity = Severity.Warn
+    override var minSeverity: Severity = Severity.Info
 }, tag = "BigText")
 
 val logQ = Logger(object : MutableLoggerConfig {
@@ -1802,9 +1802,15 @@ open class BigTextImpl(
 //                        surrogatePairFirstChar = char[0]
                         charWidth = 0f
 //                    } else if (surrogatePairFirstChar != null) {
-                    } else if (char[0].isLowSurrogate() && i > 0) { // FIXME handle i == 0
+                    } else if (char[0].isLowSurrogate() && i > 0) { // TODO handle i == 0
 //                        charWidth = layouter.measureCharWidth("$surrogatePairFirstChar$char")
-                        charWidth = layouter.measureCharWidth(subsequence.subSequence(i - 1 - searchRange.first, i + 1 - searchRange.first))
+                        charWidth = layouter.measureCharWidth(
+                            if (i - 1 - searchRange.first >= 0) {
+                                subsequence.subSequence(i - 1 - searchRange.first, i + 1 - searchRange.first)
+                            } else {
+                                buffer.subSequence(i - 1, i + 1)
+                            }
+                        )
 //                        surrogatePairFirstChar = null
                     } else {
                         charWidth = layouter.measureCharWidth(char)
@@ -1825,9 +1831,15 @@ open class BigTextImpl(
                 searchProgression.sumOf { i ->
                     val char = subsequence.subSequence(i - searchProgression.last, i + 1 - searchProgression.last)
                     val charWidth: Float
-                    if (char[0].isLowSurrogate() && i > 0) { // FIXME handle i == 0
+                    if (char[0].isLowSurrogate() && i > 0) { // TODO handle i == 0
 //                        charWidth = layouter.measureCharWidth("${buffer.substring(i - 1, i)}$char")
-                        charWidth = layouter.measureCharWidth(subsequence.subSequence(i - 1 - searchProgression.last, i + 1 - searchProgression.last))
+                        charWidth = layouter.measureCharWidth(
+                            if (i - 1 - searchProgression.last >= 0) {
+                                subsequence.subSequence(i - 1 - searchProgression.last, i + 1 - searchProgression.last)
+                            } else {
+                                buffer.subSequence(i - 1, i + 1)
+                            }
+                        )
                     } else if (char[0].isHighSurrogate()) {
                         charWidth = 0f
                     } else {
