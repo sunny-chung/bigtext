@@ -107,12 +107,19 @@ class BigTextViewState {
                 var delta = 0
                 while (transformedCursorIndex + delta in possibleRange) {
                     if (transformedText.findOriginalPositionByTransformedPosition(transformedCursorIndex + delta) != previousMappedPosition) {
-                        return transformedCursorIndex + delta + if (isOnlyWithinBlock) {
+                        val newPos = transformedCursorIndex + delta + if (isOnlyWithinBlock) {
                             // for backward, we find the last index that is same as `previousMappedPosition`
                             - step
                         } else {
                             // for forward, we find the first index that is different from `previousMappedPosition`
                             0
+                        }
+                        val char = transformedText.subSequence(newPos, newPos + 1)
+                        if (
+                            (direction == CursorAdjustDirection.Forward && !char[0].isLowSurrogate())
+                            || (direction == CursorAdjustDirection.Backward && !char[0].isLowSurrogate())
+                        ) {
+                            return newPos
                         }
                     }
                     delta += step
@@ -127,8 +134,11 @@ class BigTextViewState {
 
                 var delta = 0
                 while ((transformedCursorIndex + delta in possibleRange || transformedCursorIndex - delta in possibleRange)) {
+                    // Try in both forward and backward directions
+                    
+                    // Forward
                     if (transformedCursorIndex + delta + 1 in possibleRange && transformedText.findOriginalPositionByTransformedPosition(transformedCursorIndex + delta + 1) != previousMappedPosition) {
-                        return transformedCursorIndex + delta + if (transformedCursorIndex + delta - 1 in possibleRange && transformedText.findOriginalPositionByTransformedPosition(transformedCursorIndex + delta - 1) == previousMappedPosition) {
+                        val newPos = transformedCursorIndex + delta + if (transformedCursorIndex + delta - 1 in possibleRange && transformedText.findOriginalPositionByTransformedPosition(transformedCursorIndex + delta - 1) == previousMappedPosition) {
                             // position (transformedCursorIndex + delta) is a block,
                             // while position (transformedCursorIndex + delta + 1) is not a block.
                             // so return (transformedCursorIndex + delta + 1)
@@ -136,10 +146,19 @@ class BigTextViewState {
                         } else {
                             0
                         }
+                        val char = transformedText.subSequence(newPos, newPos + 1)
+                        if (!char[0].isLowSurrogate()) {
+                            return newPos
+                        }
                     }
+                    // Backward
                     if (transformedCursorIndex - delta - 1 in possibleRange && transformedText.findOriginalPositionByTransformedPosition(transformedCursorIndex - delta - 1) != previousMappedPosition) {
                         // for backward, we find the last index that is same as `previousMappedPosition`
-                        return transformedCursorIndex - delta //+ 1
+                        val newPos = transformedCursorIndex - delta //+ 1
+                        val char = transformedText.subSequence(newPos, newPos + 1)
+                        if (!char[0].isLowSurrogate()) {
+                            return newPos
+                        }
                     }
                     ++delta
                 }
