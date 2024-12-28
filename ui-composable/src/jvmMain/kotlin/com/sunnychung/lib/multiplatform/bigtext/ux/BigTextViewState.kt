@@ -132,6 +132,15 @@ class BigTextViewState {
                     return transformedText.length
                 }
 
+                // First, try without offset
+                if (transformedCursorIndex != compareWithPosition && transformedCursorIndex in possibleRange && transformedText.findOriginalPositionByTransformedPosition(transformedCursorIndex) != previousMappedPosition) {
+                    val newPos = transformedCursorIndex
+                    val char = transformedText.subSequence(newPos, newPos + 1)
+                    if (!char[0].isLowSurrogate()) {
+                        return newPos
+                    }
+                }
+
                 var delta = 0
                 while ((transformedCursorIndex + delta in possibleRange || transformedCursorIndex - delta in possibleRange)) {
                     // Try in both forward and backward directions

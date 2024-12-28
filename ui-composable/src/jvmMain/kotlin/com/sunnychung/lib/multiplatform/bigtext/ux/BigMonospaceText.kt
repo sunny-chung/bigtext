@@ -1305,7 +1305,17 @@ private fun CoreBigMonospaceText(
                             } else {
                                 transformedText.findRowPositionStartIndexByRowIndex(newRow) + newRowLength
                             }
-                            viewState.roundedTransformedCursorIndex(pos, CursorAdjustDirection.Bidirectional, transformedText, viewState.transformedCursorIndex, true)
+                            if (pos > 0) {
+                                viewState.roundedTransformedCursorIndex(
+                                    pos,
+                                    CursorAdjustDirection.Bidirectional,
+                                    transformedText,
+                                    pos - 1,
+                                    true
+                                )
+                            } else {
+                                pos
+                            }
                         }
                     }
                     updateTransformedCursorOrSelection(
