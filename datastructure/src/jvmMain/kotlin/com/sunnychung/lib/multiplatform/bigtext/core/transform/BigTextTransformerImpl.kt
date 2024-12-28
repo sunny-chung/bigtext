@@ -46,8 +46,8 @@ class BigTextTransformerImpl(
     charSequenceFactory = charSequenceFactory,
 ), BigTextTransformed {
 
-    override val allBuffers: List<TextBuffer>
-        get() = super.allBuffers + ((((originalText as? ConcurrentBigText)?.delegate ?: originalText) as? BigTextImpl)?.buffers ?: emptyList())
+    override val allBuffers: Collection<TextBuffer>
+        get() = super.allBuffers + ((((originalText as? ConcurrentBigText)?.delegate ?: originalText) as? BigTextImpl)?.buffers?.keys ?: emptyList())
 
     private var hasReachedExtensiveSearch: Boolean = false
 
@@ -167,12 +167,11 @@ class BigTextTransformerImpl(
     private fun transformInsertChunkAtPosition(position: Int, chunkedString: CharSequence, offsetMapping: BigTextTransformOffsetMapping, incrementalTransformOffsetMappingLength: Int, isReplaceOriginal: Boolean): Int {
         logT.d { "transformInsertChunkAtPosition($position, $chunkedString)" }
         require(chunkedString.length <= chunkSize)
-        var buffer = if (buffers.isNotEmpty()) {
-            buffers.last().takeIf { it.length + chunkedString.length <= chunkSize }
-        } else null
+        var buffer = lastBuffer?.takeIf { it.length + chunkedString.length <= chunkSize }
         if (buffer == null) {
             buffer = textBufferFactory(chunkSize)
-            buffers += buffer
+            lastBuffer = buffer
+            buffers[buffer] = Unit
             createBufferExtraData(buffer)
         }
         require(buffer.length + chunkedString.length <= chunkSize)
@@ -243,7 +242,7 @@ class BigTextTransformerImpl(
 //                }
 
                 var start = 0
-                var last = buffers.lastOrNull()?.length
+                var last = lastBuffer?.length
                 while (start < text.length) {
                     if (last == null || last >= chunkSize) {
 //                buffers += TextBuffer()
@@ -265,13 +264,13 @@ class BigTextTransformerImpl(
                         }
                     }
                     start += append
-                    last = buffers.last().length
+                    last = lastBuffer!!.length
                 }
             }
 
             BigTextTransformOffsetMapping.Incremental -> {
                 var start = 0
-                var last = buffers.lastOrNull()?.length
+                var last = lastBuffer?.length
                 var insertOffset = 0
                 while (start < text.length) {
                     if (last == null || last >= chunkSize) {
@@ -295,7 +294,7 @@ class BigTextTransformerImpl(
                     }
                     insertOffset += incrementalOffsetLength
                     start += append
-                    last = buffers.last().length
+                    last = lastBuffer!!.length
                 }
             }
         }
@@ -582,6 +581,13 @@ class BigTextTransformerImpl(
                 transformedBufferStart = oldNodeValue.transformedBufferStart
                 transformedBufferEndExclusive = oldNodeValue.transformedBufferStart + splitAtIndex
             }
+        }
+    }
+
+    override fun appendNodeValue(nodeValue: BigTextNodeValue, appendLength: Int) {
+        super.appendNodeValue(nodeValue, appendLength)
+        with (nodeValue as BigTextTransformNodeValue) {
+            transformedBufferEndExclusive += appendLength
         }
     }
 

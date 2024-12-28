@@ -341,7 +341,7 @@ class BigTextImplHorizontalLayoutTest {
             setLayouter(layouter)
             setSoftWrapEnabled(false)
         }
-        val buffer = t.buffers.first()
+        val buffer = t.buffers.keys.first()
         val bufferExtraData = t.bufferExtraData[buffer]!!
 
         fun verifyWidths(position: Int) {

@@ -1,6 +1,7 @@
 package com.sunnychung.lib.multiplatform.bigtext.test
 
 import com.sunnychung.lib.multiplatform.bigtext.core.BigTextImpl
+import com.sunnychung.lib.multiplatform.bigtext.util.weakRefOf
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.ValueSource
 import kotlin.test.Test
@@ -134,6 +135,29 @@ class BigTextUndoRedoTest {
         }
 
         assertUndoRedoUndo(listOf("abcdx", "abcd", ""), t)
+    }
+
+    @Test
+    fun bufferMemoryOutOfTextAndUndoRedoStackShouldBeReclaimed() {
+        val t = BigTextImpl(chunkSize = 256, undoHistoryCapacity = 10).apply {
+            append(randomString(10000, false))
+            isUndoEnabled = true
+        }
+        // the last buffer is not fully filled, so it is expected to be in use.
+        val buffersToBeReclaimed = t.buffers.filter { it !== t.lastBuffer }.map { weakRefOf(it) }
+
+        t.delete(0 ..< t.length)
+        t.recordCurrentChangeSequenceIntoUndoHistory()
+
+        // push away the buffers
+        (0 ..< t.undoHistoryCapacity).forEach {
+            t.append("$it")
+            t.recordCurrentChangeSequenceIntoUndoHistory()
+        }
+        System.gc()
+        buffersToBeReclaimed.forEachIndexed { index, it ->
+            assert(it.get() == null) { "Buffer #$index should be reclaimed but did not." }
+        }
     }
 
     fun assertUndoRedoUndo(reversedExpectedStrings: List<String>, t: BigTextImpl) {

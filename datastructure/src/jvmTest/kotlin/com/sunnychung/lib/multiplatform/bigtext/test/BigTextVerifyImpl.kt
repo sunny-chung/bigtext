@@ -43,8 +43,8 @@ internal class BigTextVerifyImpl(bigTextImpl: BigTextImpl) : BigText {
     override var changeHook: BigTextChangeHook?
         get() = TODO("Not yet implemented")
         set(value) {}
-    val buffers: MutableList<TextBuffer>
-        get() = bigTextImpl.buffers
+    val buffers: List<TextBuffer>
+        get() = bigTextImpl.buffers.keys.toList()
 
     val isTransform = bigTextImpl is BigTextTransformerImpl
     private val transformOffsetsByPosition = TreeMap<Int, Int>()

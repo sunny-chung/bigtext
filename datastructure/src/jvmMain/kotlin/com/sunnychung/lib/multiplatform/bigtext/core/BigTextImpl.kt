@@ -71,9 +71,10 @@ open class BigTextImpl(
 //            override fun transferComputeResultTo(from: BigTextNodeValue, to: BigTextNodeValue) = transferComputeResultTo0(from, to)
         }
     )
-    val buffers = mutableListOf<TextBuffer>()
-    protected open val allBuffers: List<TextBuffer>
-        get() = buffers
+    val buffers = WeakHashMap<TextBuffer, Unit>()
+    var lastBuffer: TextBuffer? = null
+    protected open val allBuffers: Collection<TextBuffer>
+        get() = buffers.keys
 
     final override var layouter: TextLayouter? = null
         @JvmName("_setLayouter")
@@ -479,12 +480,11 @@ open class BigTextImpl(
 //        if (position == 64) {
 //            log.d { inspect("$position") }
 //        }
-        var buffer = if (buffers.isNotEmpty()) {
-            buffers.last().takeIf { it.length + chunkedString.length <= chunkSize }
-        } else null
+        var buffer = lastBuffer?.takeIf { it.length + chunkedString.length <= chunkSize }
         if (buffer == null) {
             buffer = textBufferFactory(chunkSize)
-            buffers += buffer
+            lastBuffer = buffer
+            buffers[buffer] = Unit
             createBufferExtraData(buffer)
         }
         require(buffer.length + chunkedString.length <= chunkSize)
@@ -492,10 +492,10 @@ open class BigTextImpl(
         val range = buffer.append(chunkedString)
         buildBufferExtraData(buffer, oldBufferLength)
         insertChunkAtPosition(position, chunkedString.length, BufferOwnership.Owned, buffer, range) {
-            bufferIndex = buffers.lastIndex
+//            bufferIndex = buffers.lastIndex
             bufferOffsetStart = range.start
             bufferOffsetEndExclusive = range.endInclusive + 1
-            this.buffer = buffers[bufferIndex]
+            this.buffer = buffer
             this.bufferOwnership = BufferOwnership.Owned
 
             leftStringLength = 0
@@ -613,21 +613,22 @@ open class BigTextImpl(
                 },
                 secondPartNodeValue
             ).reversed() // IMPORTANT: the insertion order is reversed
-        } else if (node == null || node.value.bufferOwnership != ownership || node.value.buffer !== buffer || (node.value.bufferOwnership == BufferOwnership.Owned && node.value.bufferIndex != buffers.lastIndex) || node.value.bufferOffsetEndExclusive != range.start || position == 0) {
+        } else if (node == null || node.value.bufferOwnership != ownership || node.value.buffer !== buffer || (node.value.bufferOwnership == BufferOwnership.Owned && node.value.buffer !== lastBuffer) || node.value.bufferOffsetEndExclusive != range.start || position == 0) {
             log.d { "> create new node" }
             listOf(createNodeValue().apply {
                 this.newNodeConfigurer()
                 newContentNode = this
             })
         } else {
-            node.value.apply {
-                log.d { "> update existing node end from $bufferOffsetEndExclusive to ${bufferOffsetEndExclusive + range.length}" }
-                bufferOffsetEndExclusive += chunkedStringLength
+            appendNodeValue(node.value, chunkedStringLength)
+//            node.value.apply {
+//                log.d { "> update existing node end from $bufferOffsetEndExclusive to ${bufferOffsetEndExclusive + range.length}" }
+//                bufferOffsetEndExclusive += chunkedStringLength
                 newContentNode = createNodeValue().apply {
                     this.newNodeConfigurer()
                     newContentNode = this
                 }
-            }
+//            }
             recomputeAggregatedValues(node)
             emptyList()
         }
@@ -684,6 +685,13 @@ open class BigTextImpl(
         with (leftNodeValue) {
             bufferOffsetStart = oldNodeValue.bufferOffsetStart
             bufferOffsetEndExclusive = oldNodeValue.bufferOffsetStart + splitAtIndex
+        }
+    }
+
+    protected open fun appendNodeValue(nodeValue: BigTextNodeValue, appendLength: Int) {
+        with(nodeValue) {
+            log.d { "> update existing node end from $bufferOffsetEndExclusive to ${bufferOffsetEndExclusive + appendLength}" }
+            bufferOffsetEndExclusive += appendLength
         }
     }
 
@@ -1144,7 +1152,7 @@ open class BigTextImpl(
         val nodeStart = prevNode?.let { findPositionStart(it) }?.also {
             require(pos in it .. it + prevNode.value.bufferLength)
         }
-        var last = buffers.lastOrNull()?.length // prevNode?.let { buffers[it.value.bufferIndex].length }
+        var last = lastBuffer?.length // prevNode?.let { buffers[it.value.bufferIndex].length }
         if (prevNode != null && pos in nodeStart!! .. nodeStart!! + prevNode.value.bufferLength - 1) {
             val splitAtIndex = pos - nodeStart
             last = maxOf((last ?: 0) % chunkSize, splitAtIndex)
@@ -1158,7 +1166,7 @@ open class BigTextImpl(
             val append = minOf(available, text.length - start)
             insertChunkAtPosition(pos + start, text.subSequence(start until start + append))
             start += append
-            last = buffers.last().length
+            last = lastBuffer!!.length
         }
         layout(maxOf(0, pos - 1), minOf(length, pos + text.length + 1))
         return text.length
@@ -1661,8 +1669,8 @@ open class BigTextImpl(
     }
 
     override fun inspect(label: String) = buildString {
-        appendLine("[$label] Buffer:\n${buffers.mapIndexed { i, it -> "    $i:\t$it\n" }.joinToString("")}")
-        appendLine("[$label] Buffer Line Breaks:\n${buffers.mapIndexed { i, it -> "    $i:\t${it.lineOffsetStarts}\n" }.joinToString("")}")
+        appendLine("[$label] Buffer:\n${buffers.keys.mapIndexed { i, it -> "    $i:\t$it\n" }.joinToString("")}")
+        appendLine("[$label] Buffer Line Breaks:\n${buffers.keys.mapIndexed { i, it -> "    $i:\t${it.lineOffsetStarts}\n" }.joinToString("")}")
         appendLine("[$label] Tree:\nflowchart TD\n${tree.debugTree()}")
         appendLine("[$label] String:\n${buildString()}")
         if (layouter != null && contentWidth != null) {
