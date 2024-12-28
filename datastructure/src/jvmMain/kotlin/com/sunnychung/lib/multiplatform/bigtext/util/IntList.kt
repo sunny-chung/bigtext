@@ -58,4 +58,8 @@ class IntList(initialCapacity: Int = 16) {
     operator fun plusAssign(value: Int) {
         add(value)
     }
+
+    override fun toString(): String {
+        return buffer.contentToString()
+    }
 }

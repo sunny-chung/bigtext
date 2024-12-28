@@ -14,6 +14,7 @@ import org.junit.jupiter.api.parallel.Execution
 import org.junit.jupiter.api.parallel.ExecutionMode
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.ValueSource
+import java.util.UUID
 import kotlin.random.Random
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -201,10 +202,63 @@ class BigTextImplHorizontalLayoutTest {
     }
 
     @ParameterizedTest
+    @ValueSource(ints = [64, 16, 6, 3, 256, 65536, 1 * 1024 * 1024])
+    fun appends(chunkSize: Int) = repeat(100) { repeatIt ->
+        val random = Random(repeatIt)
+        val t = BigTextImpl(chunkSize = chunkSize).apply {
+            append("")
+            setLayouter(MonospaceTextLayouter(FixedWidthCharMeasurer(16f)))
+            setSoftWrapEnabled(false)
+        }
+        val v = BigTextVerifyImpl(t)
+        v.verifyMaxLineWidth("initial")
+
+        listOf(
+            randomString(4, isAddNewLine = random.nextBoolean(), random),
+            randomString(21977, isAddNewLine = random.nextBoolean(), random),
+            randomString(2680, isAddNewLine = random.nextBoolean(), random),
+            randomString(724, isAddNewLine = random.nextBoolean(), random),
+            randomString(5, isAddNewLine = random.nextBoolean(), random),
+        ).forEachIndexed { index, it ->
+            v.append(it)
+            v.verifyMaxLineWidth("it <$chunkSize>, $repeatIt, $index")
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = [256, 65536, 1 * 1024 * 1024])
+    fun appendMore(chunkSize: Int) {
+        random = Random(4234567) // use a fixed seed for easier debug
+        val uid = UUID.randomUUID().toString()
+        repeat(10) { repeatIt ->
+            val initial = randomString(if (repeatIt < 3) 0 else random.nextInt(10000), isAddNewLine = true)
+            val t = BigTextVerifyImpl(chunkSize = chunkSize).apply {
+                append(initial)
+                bigTextImpl.setLayouter(MonospaceTextLayouter(FixedWidthCharMeasurer(16f)))
+                setSoftWrapEnabled(false)
+            }
+            val numInsertTimes = 1007
+            repeat(numInsertTimes) { i ->
+                val length = when (random.nextInt(100)) {
+                    in 0..44 -> random.nextInt(10)
+                    in 45..69 -> random.nextInt(10, 1000)
+                    in 70..87 -> random.nextInt(1000, 10000)
+                    in 88..97 -> random.nextInt(10000, 100_000)
+                    in 98..99 -> random.nextInt(100_000, 300_000)
+                    else -> throw IllegalStateException()
+                }
+                t.insertAt(t.length, randomString(length, isAddNewLine = random.nextBoolean()), uid)
+                t.verifyMaxLineWidth("it $uid, $repeatIt, $i")
+            }
+        }
+    }
+
+    @ParameterizedTest
     @ValueSource(ints = [256, 65536, 1 * 1024 * 1024])
     @Order(Integer.MAX_VALUE - 100) // This test is pretty time-consuming. Run at the last!
     fun manyInserts(chunkSize: Int) {
         random = Random(10234567) // use a fixed seed for easier debug
+        val uid = UUID.randomUUID().toString()
         repeat(10) { repeatIt ->
             val initial = randomString(if (repeatIt < 3) 0 else random.nextInt(10000), isAddNewLine = true)
             val t = BigTextVerifyImpl(chunkSize = chunkSize).apply {
@@ -227,8 +281,8 @@ class BigTextImplHorizontalLayoutTest {
                     in 2..3 -> t.length
                     else -> random.nextInt(t.length + 1)
                 }
-                t.insertAt(pos, randomString(length, isAddNewLine = random.nextBoolean()))
-                t.verifyMaxLineWidth("it $repeatIt, $i")
+                t.insertAt(pos, randomString(length, isAddNewLine = random.nextBoolean()), uid)
+                t.verifyMaxLineWidth("it $uid, $repeatIt, $i")
             }
         }
     }
@@ -458,6 +512,15 @@ class BigTextImplHorizontalLayoutTest {
     }
 
     internal fun verifyMaxLineWidth(testString: String, t: BigTextImpl, charWidth: Float = 16f, message: String? = null) {
-        assertEquals(testString.split('\n').maxOf { it.length } * (charWidth * t.widthMultiplier).toLong(), t.maxLineWidth, message)
+        try {
+            assertEquals(
+                testString.split('\n').maxOf { it.length } * (charWidth * t.widthMultiplier).toLong(),
+                t.maxLineWidth,
+                message
+            )
+        } catch (e: Throwable) {
+            t.printDebug(message ?: "verifyMaxLineWidth fails")
+            throw e
+        }
     }
 }

@@ -71,6 +71,10 @@ open class BigTextNodeValue : Comparable<BigTextNodeValue>, DebuggableNode<BigTe
 
     private val key = RANDOM.nextInt()
 
+    fun invalidateCacheProperties() {
+        middleMaxLineWidth = -1
+    }
+
     override fun attach(node: RedBlackTree<BigTextNodeValue>.Node) {
         this.node = node
     }

@@ -139,12 +139,14 @@ internal class BigTextVerifyImpl(bigTextImpl: BigTextImpl) : BigText {
         return r
     }
 
-    override fun insertAt(pos: Int, text: CharSequence): Int {
-//        println("insert $pos, ${text.length}")
+    override fun insertAt(pos: Int, text: CharSequence): Int = insertAt(pos, text, "")
+
+    fun insertAt(pos: Int, text: CharSequence, debug: String): Int {
+//        println("[$debug] insert $pos, ${text.length}")
         val r = bigTextImpl.insertAt(pos, text)
 //        val offset = transformOffsetsByPosition.subMap(0, pos).values.sum().also {
         val offset = (transformOffsetsMappingByPosition.subMap(0, true, pos, true).values.sum()).also {
-            println("VerifyImpl pos $pos offset $it")
+//            println("VerifyImpl pos $pos offset $it")
         }
         if (isTransform) {
             transformOffsetsByPosition[pos] = (transformOffsetsByPosition[pos] ?: 0) + text.length

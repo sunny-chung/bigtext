@@ -874,9 +874,9 @@ fun verifyBigTextImplAgainstTestString(testString: String, bigTextImpl: BigTextI
     }
 }
 
-fun randomString(length: Int, isAddNewLine: Boolean): String = (0 until length).joinToString("") {
+fun randomString(length: Int, isAddNewLine: Boolean, rand: Random = random): String = (0 until length).joinToString("") {
     when {
-        isAddNewLine && random.nextInt(100) == 0 -> "\n"
-        else -> ('a' + random.nextInt(26)).toString()
+        isAddNewLine && rand.nextInt(100) == 0 -> "\n"
+        else -> ('a' + rand.nextInt(26)).toString()
     }
 }

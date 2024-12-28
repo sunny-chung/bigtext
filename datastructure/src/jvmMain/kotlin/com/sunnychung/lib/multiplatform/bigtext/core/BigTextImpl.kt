@@ -676,6 +676,7 @@ open class BigTextImpl(
 
     protected open fun updateRightValueDuringNodeSplit(rightNodeValue: BigTextNodeValue, oldNodeValue: BigTextNodeValue, splitAtIndex: Int) {
         with (rightNodeValue) {
+            invalidateCacheProperties()
             bufferOffsetStart = oldNodeValue.bufferOffsetStart + splitAtIndex
             bufferOffsetEndExclusive = oldNodeValue.bufferOffsetEndExclusive
         }
@@ -683,6 +684,7 @@ open class BigTextImpl(
 
     protected open fun updateLeftValueDuringNodeSplit(leftNodeValue: BigTextNodeValue, oldNodeValue: BigTextNodeValue, splitAtIndex: Int) {
         with (leftNodeValue) {
+            invalidateCacheProperties()
             bufferOffsetStart = oldNodeValue.bufferOffsetStart
             bufferOffsetEndExclusive = oldNodeValue.bufferOffsetStart + splitAtIndex
         }
@@ -691,6 +693,7 @@ open class BigTextImpl(
     protected open fun appendNodeValue(nodeValue: BigTextNodeValue, appendLength: Int) {
         with(nodeValue) {
             log.d { "> update existing node end from $bufferOffsetEndExclusive to ${bufferOffsetEndExclusive + appendLength}" }
+            invalidateCacheProperties()
             bufferOffsetEndExclusive += appendLength
         }
     }
