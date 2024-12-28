@@ -321,7 +321,7 @@ class BigTextImplHorizontalLayoutTest {
             override fun indexCharWidth(text: String) = throw NotImplementedError()
 
             override fun measureCharWidth(char: CharSequence): Float {
-                if (char == "\n") return 0f
+                if (char[0] == '\n') return 0f
                 return charWidths[(char[0] - '0')].toFloat()
             }
 
@@ -371,7 +371,7 @@ class BigTextImplHorizontalLayoutTest {
                 override fun indexCharWidth(text: String) = throw NotImplementedError()
 
                 override fun measureCharWidth(char: CharSequence): Float {
-                    if (char == "\n") return 0f
+                    if (char[0] == '\n') return 0f
                     return charWidths[(char[0] - '0')].toFloat()
                 }
 
