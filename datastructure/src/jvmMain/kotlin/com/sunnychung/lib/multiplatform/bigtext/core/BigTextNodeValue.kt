@@ -109,7 +109,9 @@ open class BigTextNodeValue : Comparable<BigTextNodeValue>, DebuggableNode<BigTe
     override fun debugKey(): String = "$key"
     override fun debugLabel(node: RedBlackTree<BigTextNodeValue>.Node): String =
 //        "$leftStringLength [$bufferIndex: $bufferOffsetStart ..< $bufferOffsetEndExclusive] L ${node.length()} r $leftNumOfRowBreaks/$rowBreakOffsets lw $lastRowWidth $isEndWithForceRowBreak '${buffer.subSequence(renderBufferStart, renderBufferEndExclusive).toString().replace("\n", "\\n")}'"
-        "|${debugKey()}| $leftStringLength [$bufferIndex: $bufferOffsetStart ..< $bufferOffsetEndExclusive] L ${node.length()} r $leftNumOfRowBreaks/$rowBreakOffsets l $leftNumOfLineBreaks/$renderNumLineBreaksInRange lw $lastRowWidth $isEndWithForceRowBreak"
+        "|${debugKey()}| $leftStringLength [$bufferIndex: $bufferOffsetStart ..< $bufferOffsetEndExclusive] L ${node.length()} r $leftNumOfRowBreaks/$rowBreakOffsets l $leftNumOfLineBreaks/$renderNumLineBreaksInRange lw $lastRowWidth $isEndWithForceRowBreak" +
+                " '${buffer.substring(bufferOffsetStart, bufferOffsetEndExclusive)}' " +
+                " line w end=$endLineWidth start=$startLineWidth mid=$middleMaxLineWidth aggEnd=$aggregatedEndLineWidth aggSt=$aggregatedStartLineWidth max=$maxLineWidth"
 
     protected fun CharSequence.quoteForMermaid(): String {
         return toString().replace("\n", "\\n").replace("\"", "&quot;")

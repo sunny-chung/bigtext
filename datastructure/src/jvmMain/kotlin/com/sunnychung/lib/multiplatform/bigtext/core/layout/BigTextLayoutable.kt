@@ -25,6 +25,9 @@ interface BigTextLayoutable {
 
     fun setContentWidth(contentWidth: Float)
 
+    /**
+     * Find the first character index of the given row index.
+     */
     fun findRowPositionStartIndexByRowIndex(index: Int): Int
 
     fun findLineIndexByRowIndex(rowIndex: Int): Int
@@ -38,6 +41,9 @@ interface BigTextLayoutable {
     @Deprecated("Use findWidthByPositionRangeOfSameLine instead.")
     fun findWidthByColumnRangeOfSameLine(lineIndex: Int, columns: IntRange): Float
 
+    /**
+     * Find the sum of character widths of the given character range `positions`.
+     */
     fun findWidthByPositionRangeOfSameLine(positions: IntRange): Float
 
     fun findMaxEndPositionOfWidthSumOverPositionRangeAtMost(startPosition: Int, endPositions: IntRange, isEndExclusive: Boolean, maxWidthSum: Int): Int

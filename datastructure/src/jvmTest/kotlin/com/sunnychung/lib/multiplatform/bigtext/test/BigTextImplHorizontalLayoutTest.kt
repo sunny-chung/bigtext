@@ -153,6 +153,33 @@ class BigTextImplHorizontalLayoutTest {
 
     @ParameterizedTest
     @ValueSource(ints = [2 * 1024 * 1024, 64, 16, 6, 3])
+    fun insertAndDelete(chunkSize: Int) {
+        val t = BigTextImpl(chunkSize = chunkSize).apply {
+            append("EFGHIJ_K")
+            setLayouter(MonospaceTextLayouter(FixedWidthCharMeasurer(10f)))
+            setSoftWrapEnabled(false)
+        }
+        val v = BigTextVerifyImpl(t)
+        v.verifyMaxLineWidth("initial", 10f)
+        listOf(
+            0 to "CD",
+            0 to "B",
+            0 to "c\n1234\nA",
+            0 to "ab",
+        ).forEachIndexed { index, it ->
+            v.insertAt(it.first, it.second)
+            v.verifyMaxLineWidth("test case #$index", 10f)
+        }
+        v.delete(t.length - 2 .. t.length - 2)
+        v.verifyMaxLineWidth("after del", 10f)
+
+        val root = t.tree.root.value
+        println("max width = ${root.maxLineWidth}, ag start = ${root.aggregatedStartLineWidth}, ag end = ${root.aggregatedEndLineWidth}")
+        t.printDebug()
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = [2 * 1024 * 1024, 64, 16, 6, 3])
     fun replaces(chunkSize: Int) {
         val t = BigTextImpl(chunkSize = chunkSize).apply {
             append("ab\nc")
@@ -507,8 +534,8 @@ class BigTextImplHorizontalLayoutTest {
         verifyMaxLineWidth(testStringTransformed, tt, charWidth = 17.31f)
     }
 
-    internal fun BigTextVerifyImpl.verifyMaxLineWidth(message: String? = null) {
-        verifyMaxLineWidth(stringImpl.buildString(), bigTextImpl, message = message)
+    internal fun BigTextVerifyImpl.verifyMaxLineWidth(message: String? = null, charWidth: Float = 16f) {
+        verifyMaxLineWidth(stringImpl.buildString(), bigTextImpl, charWidth = charWidth, message = message)
     }
 
     internal fun verifyMaxLineWidth(testString: String, t: BigTextImpl, charWidth: Float = 16f, message: String? = null) {
