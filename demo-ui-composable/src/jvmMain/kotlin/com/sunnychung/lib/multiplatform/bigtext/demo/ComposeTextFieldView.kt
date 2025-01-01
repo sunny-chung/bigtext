@@ -65,6 +65,8 @@ fun ComposeTextFieldView() {
             Text("Soft Wrap (Not supported)")
         }
 
+        Text("Below is the BasicTextField out of the box in Compose.", Modifier.padding(bottom = 8.dp))
+
         Box(Modifier.fillMaxSize()) {
 //            Column(modifier = Modifier
 //                .fillMaxSize()
