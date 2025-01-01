@@ -754,6 +754,7 @@ private fun CoreBigTextField(
     }
 
     fun recordCursorXPosition() {
+        val transformedText = transformedTextRef.get() ?: return
         val row = transformedText.findRowIndexByPosition(viewState.transformedCursorIndex)
         val rowStart = transformedText.findRowPositionStartIndexByRowIndex(row)
         val cursorXPosInRow = transformedText.findWidthByPositionRangeOfSameLine(rowStart ..< viewState.transformedCursorIndex)
