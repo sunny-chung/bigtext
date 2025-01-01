@@ -29,7 +29,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
-import com.sunnychung.lib.multiplatform.bigtext.ux.BigMonospaceTextField
+import com.sunnychung.lib.multiplatform.bigtext.ux.BigTextField
 import com.sunnychung.lib.multiplatform.bigtext.ux.rememberConcurrentLargeAnnotatedBigTextFieldState
 import kotlinx.coroutines.launch
 
@@ -73,7 +73,7 @@ fun SimpleDemoView(fontFamily: FontFamily) {
         }
 
         Box {
-            BigMonospaceTextField(
+            BigTextField(
                 textFieldState = bigTextFieldState,
                 color = Color.Black,
                 cursorColor = Color.Blue,

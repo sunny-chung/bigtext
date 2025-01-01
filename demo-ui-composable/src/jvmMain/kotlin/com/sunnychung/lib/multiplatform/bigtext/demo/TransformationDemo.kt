@@ -35,7 +35,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import com.sunnychung.lib.multiplatform.bigtext.extension.length
-import com.sunnychung.lib.multiplatform.bigtext.ux.BigMonospaceTextField
+import com.sunnychung.lib.multiplatform.bigtext.ux.BigTextField
 import com.sunnychung.lib.multiplatform.bigtext.ux.BigTextManipulator
 import com.sunnychung.lib.multiplatform.bigtext.ux.rememberConcurrentLargeAnnotatedBigTextFieldState
 import kotlinx.coroutines.Dispatchers
@@ -85,7 +85,7 @@ fun TransformationDemoView() {
 
                 Text("Phone Number (Transformation + Input Filter + Single Line + Max Input Length)")
 
-                BigMonospaceTextField(
+                BigTextField(
                     textFieldState = bigTextFieldState,
                     color = Color.Black,
                     cursorColor = Color.Blue,
@@ -104,7 +104,7 @@ fun TransformationDemoView() {
 
                 Text("Password")
 
-                BigMonospaceTextField(
+                BigTextField(
                     textFieldState = bigTextFieldState,
                     color = Color.Black,
                     cursorColor = Color.Blue,
@@ -193,7 +193,7 @@ fun TransformationTextAreaDemoView(modifier: Modifier, bodyFontFamily: FontFamil
         Spacer(Modifier.height(8.dp))
 
         Box {
-            BigMonospaceTextField(
+            BigTextField(
                 textFieldState = bigTextFieldState,
                 color = Color.Black,
                 cursorColor = Color.Blue,

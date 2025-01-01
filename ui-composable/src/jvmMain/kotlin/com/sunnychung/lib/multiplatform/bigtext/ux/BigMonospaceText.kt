@@ -73,7 +73,6 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.setText
 import androidx.compose.ui.semantics.text
 import androidx.compose.ui.text.AnnotatedString
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontSynthesis
@@ -101,8 +100,6 @@ import com.sunnychung.lib.multiplatform.bigtext.core.transform.BigTextTransforme
 import com.sunnychung.lib.multiplatform.bigtext.core.transform.BigTextTransformerImpl
 import com.sunnychung.lib.multiplatform.bigtext.core.transform.ConcurrentBigTextTransformed
 import com.sunnychung.lib.multiplatform.bigtext.core.transform.IncrementalTextTransformation
-import com.sunnychung.lib.multiplatform.bigtext.extension.binarySearchForMaxIndexOfValueAtMost
-import com.sunnychung.lib.multiplatform.bigtext.extension.binarySearchForMinIndexOfValueAtLeast
 import com.sunnychung.lib.multiplatform.bigtext.extension.contains
 import com.sunnychung.lib.multiplatform.bigtext.extension.intersect
 import com.sunnychung.lib.multiplatform.bigtext.extension.isCtrlOrCmdPressed
@@ -122,7 +119,6 @@ import com.sunnychung.lib.multiplatform.bigtext.util.weakRefOf
 import com.sunnychung.lib.multiplatform.bigtext.ux.compose.rememberLast
 import com.sunnychung.lib.multiplatform.kdatetime.KInstant
 import com.sunnychung.lib.multiplatform.kdatetime.extension.milliseconds
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.BufferOverflow
@@ -146,7 +142,7 @@ import kotlin.reflect.jvm.isAccessible
 private val NEW_LINE_REGEX = "\r?\n".toRegex()
 
 @Composable
-fun BigMonospaceText(
+fun BigTextLabel(
     modifier: Modifier = Modifier,
     text: BigText,
     padding: PaddingValues = PaddingValues(4.dp),
@@ -168,7 +164,7 @@ fun BigMonospaceText(
     onPointerEvent: ((event: PointerEvent, tag: String?) -> Unit)? = null,
     onTextLayout: ((BigTextSimpleLayoutResult) -> Unit)? = null,
     onTransformInit: ((BigTextTransformed) -> Unit)? = null,
-) = CoreBigMonospaceText(
+) = CoreBigTextField(
     modifier = modifier,
     text = text,
     padding = padding,
@@ -192,7 +188,7 @@ fun BigMonospaceText(
 )
 
 @Composable
-fun BigMonospaceTextField(
+fun BigTextField(
     modifier: Modifier = Modifier,
     textFieldState: BigTextFieldState,
     padding: PaddingValues = PaddingValues(4.dp),
@@ -219,7 +215,7 @@ fun BigMonospaceTextField(
     onTextManipulatorReady: ((BigTextManipulator) -> Unit)? = null,
     onHeavyComputation: suspend (computation: suspend () -> Unit) -> Unit = { it() },
 ) {
-    BigMonospaceTextField(
+    BigTextField(
         modifier = modifier,
         text = textFieldState.text,
         padding = padding,
@@ -250,7 +246,7 @@ fun BigMonospaceTextField(
 }
 
 @Composable
-fun BigMonospaceTextField(
+fun BigTextField(
     modifier: Modifier = Modifier,
     text: BigText,
     padding: PaddingValues = PaddingValues(4.dp),
@@ -277,7 +273,7 @@ fun BigMonospaceTextField(
     onTextLayout: ((BigTextSimpleLayoutResult) -> Unit)? = null,
     onTextManipulatorReady: ((BigTextManipulator) -> Unit)? = null,
     onHeavyComputation: suspend (computation: suspend () -> Unit) -> Unit = { it() },
-) = CoreBigMonospaceText(
+) = CoreBigTextField(
     modifier = modifier,
     text = text,
     padding = padding,
@@ -307,7 +303,7 @@ fun BigMonospaceTextField(
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalComposeUiApi::class, ExperimentalCoroutinesApi::class)
 @Composable
-private fun CoreBigMonospaceText(
+private fun CoreBigTextField(
     modifier: Modifier = Modifier,
     text: BigText,
     padding: PaddingValues = PaddingValues(4.dp),

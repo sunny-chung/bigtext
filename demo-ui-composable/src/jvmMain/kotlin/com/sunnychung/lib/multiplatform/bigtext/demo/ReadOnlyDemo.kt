@@ -31,7 +31,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.sunnychung.lib.multiplatform.bigtext.core.BigText
 import com.sunnychung.lib.multiplatform.bigtext.core.createFromLargeString
-import com.sunnychung.lib.multiplatform.bigtext.ux.BigMonospaceText
+import com.sunnychung.lib.multiplatform.bigtext.ux.BigTextLabel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -98,7 +98,7 @@ fun ReadOnlyDemoView() {
 
         Box(Modifier.fillMaxSize().background(Color(192, 255, 192))) {
             if (!isLoading) {
-                BigMonospaceText(
+                BigTextLabel(
                     text = bigText,
                     color = Color.Black,
                     isSoftWrapEnabled = isSoftWrapEnabled,

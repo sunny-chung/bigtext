@@ -35,7 +35,7 @@ import com.sunnychung.lib.multiplatform.bigtext.core.BigText
 import com.sunnychung.lib.multiplatform.bigtext.core.ConcurrentBigText
 import com.sunnychung.lib.multiplatform.bigtext.util.emptyToNull
 import com.sunnychung.lib.multiplatform.bigtext.util.string
-import com.sunnychung.lib.multiplatform.bigtext.ux.BigMonospaceTextField
+import com.sunnychung.lib.multiplatform.bigtext.ux.BigTextField
 import com.sunnychung.lib.multiplatform.bigtext.ux.BigTextFieldState
 import com.sunnychung.lib.multiplatform.bigtext.ux.BigTextSimpleLayoutResult
 import com.sunnychung.lib.multiplatform.bigtext.ux.BigTextViewState
@@ -170,7 +170,7 @@ fun CodeEditorDemoView() {
                         },
                     )
                     Box {
-                        BigMonospaceTextField(
+                        BigTextField(
                             textFieldState = bigTextFieldState,
                             cursorColor = Color.Black,
                             textDecorator = if (isDisableSyntaxHighlighting) {
