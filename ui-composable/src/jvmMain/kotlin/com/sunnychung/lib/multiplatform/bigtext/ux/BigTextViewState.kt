@@ -72,6 +72,7 @@ class BigTextViewState {
 
     internal var transformedCursorIndex by mutableStateOf(0)
     var cursorIndex by mutableStateOf(0)
+        internal set
 
     internal fun updateCursorIndexByTransformed(transformedText: TransformedText) {
         cursorIndex = transformedText.offsetMapping.transformedToOriginal(transformedCursorIndex)
@@ -92,6 +93,13 @@ class BigTextViewState {
             com.sunnychung.lib.multiplatform.bigtext.util.log.d { "updateTransformedCursorIndexByOriginal = $it (from $cursorIndex)" }
         }
         cursorIndex = transformedText.findOriginalPositionByTransformedPosition(transformedCursorIndex)
+    }
+
+    fun setCursorIndex(newCursorIndex: Int) {
+        cursorIndex = newCursorIndex
+        transformedText?.get()?.let { transformedText ->
+            updateTransformedCursorIndexByOriginal(transformedText)
+        }
     }
 
     internal fun roundTransformedCursorIndex(direction: CursorAdjustDirection, transformedText: BigTextTransformed, compareWithPosition: Int, isOnlyWithinBlock: Boolean) {
