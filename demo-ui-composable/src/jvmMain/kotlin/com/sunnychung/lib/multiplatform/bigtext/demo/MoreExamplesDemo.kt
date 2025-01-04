@@ -30,6 +30,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.font.FontFamily
@@ -114,6 +115,7 @@ private fun MouseHoverAnnotatedTextDemo() {
 
     val bigTextFieldState by rememberConcurrentLargeAnnotatedBigTextFieldState(initialText)
     var tooltip by remember { mutableStateOf<String?>(null) }
+    var statusText by remember { mutableStateOf("") }
 
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Text("Mouse Events", fontSize = 16.sp)
@@ -142,12 +144,21 @@ private fun MouseHoverAnnotatedTextDemo() {
                 onPointerEvent = { event, tag ->
                     log.d { "onPointerEvent: $tag" }
                     tooltip = tag
+                    if (event.type == PointerEventType.Press) {
+                        if (tag != null) {
+                            statusText = "Clicked '$tag'."
+                        } else {
+                            statusText = ""
+                        }
+                    }
                 },
                 padding = PaddingValues(all = 8.dp),
                 modifier = Modifier.background(Color(255, 192, 160), RoundedCornerShape(4.dp))
                     .fillMaxWidth()
             )
         }
+
+        Text(statusText)
     }
 }
 
