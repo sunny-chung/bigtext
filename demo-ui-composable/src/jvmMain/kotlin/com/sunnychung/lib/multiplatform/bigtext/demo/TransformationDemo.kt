@@ -38,7 +38,6 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import com.sunnychung.lib.multiplatform.bigtext.extension.length
 import com.sunnychung.lib.multiplatform.bigtext.ux.BigTextField
-import com.sunnychung.lib.multiplatform.bigtext.ux.BigTextManipulator
 import com.sunnychung.lib.multiplatform.bigtext.ux.rememberConcurrentLargeAnnotatedBigTextFieldState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -140,8 +139,6 @@ fun TransformationTextAreaDemoView(modifier: Modifier, bodyFontFamily: FontFamil
     val transformation = remember(bigTextFieldState) {
         VariableIncrementalTransformation()
     }
-
-    var textManipulator by remember { mutableStateOf<BigTextManipulator?>(null) }
 
     val isTransformButtonEnabled = /*textManipulator != null &&*/
             bigTextFieldState.viewState.selection.length in 1 .. 20 &&

@@ -212,7 +212,6 @@ fun BigTextField(
     keyboardInputProcessor: BigTextKeyboardInputProcessor? = null,
     onPointerEvent: ((event: PointerEvent, tag: String?) -> Unit)? = null,
     onTextLayout: ((BigTextSimpleLayoutResult) -> Unit)? = null,
-    onTextManipulatorReady: ((BigTextManipulator) -> Unit)? = null,
     onHeavyComputation: suspend (computation: suspend () -> Unit) -> Unit = { it() },
 ) {
     BigTextField(
@@ -240,7 +239,6 @@ fun BigTextField(
         keyboardInputProcessor = keyboardInputProcessor,
         onPointerEvent = onPointerEvent,
         onTextLayout = onTextLayout,
-        onTextManipulatorReady = onTextManipulatorReady,
         onHeavyComputation = onHeavyComputation,
     )
 }
@@ -271,7 +269,6 @@ fun BigTextField(
     keyboardInputProcessor: BigTextKeyboardInputProcessor? = null,
     onPointerEvent: ((event: PointerEvent, tag: String?) -> Unit)? = null,
     onTextLayout: ((BigTextSimpleLayoutResult) -> Unit)? = null,
-    onTextManipulatorReady: ((BigTextManipulator) -> Unit)? = null,
     onHeavyComputation: suspend (computation: suspend () -> Unit) -> Unit = { it() },
 ) = CoreBigTextField(
     modifier = modifier,
@@ -297,7 +294,6 @@ fun BigTextField(
     keyboardInputProcessor = keyboardInputProcessor,
     onPointerEvent = onPointerEvent,
     onTextLayout = onTextLayout,
-    onTextManipulatorReady = onTextManipulatorReady,
     onHeavyComputation = onHeavyComputation,
 )
 
@@ -330,7 +326,6 @@ private fun CoreBigTextField(
     keyboardInputProcessor: BigTextKeyboardInputProcessor? = null,
     onPointerEvent: ((event: PointerEvent, tag: String?) -> Unit)? = null,
     onTextLayout: ((BigTextSimpleLayoutResult) -> Unit)? = null,
-    onTextManipulatorReady: ((BigTextManipulator) -> Unit)? = null,
     onHeavyComputation: suspend (computation: suspend () -> Unit) -> Unit = { it() },
     onTransformInit: ((BigTextTransformed) -> Unit)? = null,
 ) {
@@ -1373,63 +1368,6 @@ private fun CoreBigTextField(
         }
     }
 
-    class BigTextManipulatorImpl(val onTextManipulated: (() -> Unit)? = null) : BigTextManipulator {
-        var hasManipulatedText = false
-            private set
-
-        override fun append(text: CharSequence) {
-            hasManipulatedText = true
-            insertAt(text.length, text)
-            onTextManipulated?.invoke()
-        }
-
-        override fun insertAt(pos: Int, text: CharSequence) {
-            hasManipulatedText = true
-            insertAt(pos, text)
-            onTextManipulated?.invoke()
-        }
-
-        override fun replaceAtCursor(text: CharSequence) {
-            hasManipulatedText = true
-            onType(text, isSaveUndoSnapshot = false) // save undo snapshot at the end
-            onTextManipulated?.invoke()
-        }
-
-        override fun delete(range: IntRange) {
-            hasManipulatedText = true
-            delete(range.start, range.endInclusive + 1)
-            onTextManipulated?.invoke()
-        }
-
-        override fun replace(range: IntRange, text: CharSequence) {
-            hasManipulatedText = true
-            delete(range.start, range.endInclusive + 1)
-            insertAt(range.start, text)
-            onTextManipulated?.invoke()
-        }
-
-        override fun setCursorPosition(position: Int) {
-            val text = textRef.get() ?: return
-            val transformedText = transformedTextRef.get() ?: return
-            require(position in 0 .. text.length) { "Cursor position $position is out of range. Text length: ${text.length}" }
-            viewState.cursorIndex = position
-            viewState.updateTransformedCursorIndexByOriginal(transformedText)
-            viewState.transformedSelectionStart = viewState.transformedCursorIndex
-            recordCursorXPosition()
-            scrollToCursor()
-        }
-
-        override fun setSelection(range: IntRange) {
-            val text = textRef.get() ?: return
-            val transformedText = transformedTextRef.get() ?: return
-            require(range.start in 0 .. text.length) { "Range start ${range.start} is out of range. Text length: ${text.length}" }
-            require(range.endInclusive + 1 in 0 .. text.length) { "Range end ${range.endInclusive} is out of range. Text length: ${text.length}" }
-
-            viewState.selection = range
-            viewState.updateTransformedSelectionBySelection(transformedText)
-        }
-    }
-
     fun onProcessKeyboardInput(keyEvent: KeyEvent): Boolean {
         val text = textRef.get() ?: return false
 
@@ -1442,13 +1380,6 @@ private fun CoreBigTextField(
         }
         return result
     }
-
-//    remember(weakRefOf(text), onTextManipulatorReady) {
-//        onTextManipulatorReady?.invoke(BigTextManipulatorImpl {
-//            updateViewState()
-//            text.recordCurrentChangeSequenceIntoUndoHistory()
-//        })
-//    }
 
     var textManipulateListener by remember { mutableStateOf<BigTextChangeCallback?>(null) }
 
