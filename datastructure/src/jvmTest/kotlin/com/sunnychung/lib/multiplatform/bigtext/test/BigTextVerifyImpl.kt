@@ -40,9 +40,6 @@ internal class BigTextVerifyImpl(bigTextImpl: BigTextImpl) : BigText {
     override var undoMetadataSupplier: (() -> Any?)?
         get() = TODO("Not yet implemented")
         set(value) {}
-    override var changeHook: BigTextChangeHook?
-        get() = TODO("Not yet implemented")
-        set(value) {}
     val buffers: List<TextBuffer>
         get() = bigTextImpl.buffers.keys.toList()
 
@@ -381,6 +378,22 @@ internal class BigTextVerifyImpl(bigTextImpl: BigTextImpl) : BigText {
 
     override fun enableAndDoComputations() {
         bigTextImpl.enableAndDoComputations()
+    }
+
+    override fun registerCallback(callback: BigTextChangeCallback) {
+        TODO("Not yet implemented")
+    }
+
+    override fun unregisterCallback(callback: BigTextChangeCallback) {
+        TODO("Not yet implemented")
+    }
+
+    override fun registerBigTextChangeHook(hook: BigTextChangeHook) {
+        TODO("Not yet implemented")
+    }
+
+    override fun unregisterBigTextChangeHook(hook: BigTextChangeHook) {
+        TODO("Not yet implemented")
     }
 
     override fun hashCode(): Int {

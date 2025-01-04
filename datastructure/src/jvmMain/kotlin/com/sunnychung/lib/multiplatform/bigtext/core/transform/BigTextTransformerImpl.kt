@@ -7,10 +7,12 @@ import co.touchlab.kermit.Severity
 import com.sunnychung.lib.multiplatform.bigtext.core.BigText
 import com.sunnychung.lib.multiplatform.bigtext.core.BigTextChangeHook
 import com.sunnychung.lib.multiplatform.bigtext.core.BigTextImpl
+import com.sunnychung.lib.multiplatform.bigtext.core.BigTextLocker
 import com.sunnychung.lib.multiplatform.bigtext.core.BigTextNodeValue
 import com.sunnychung.lib.multiplatform.bigtext.core.BufferOwnership
 import com.sunnychung.lib.multiplatform.bigtext.core.ConcurrentBigText
 import com.sunnychung.lib.multiplatform.bigtext.core.LengthTree
+import com.sunnychung.lib.multiplatform.bigtext.core.PassthroughBigTextLocker
 import com.sunnychung.lib.multiplatform.bigtext.core.RedBlackTreeComputations
 import com.sunnychung.lib.multiplatform.bigtext.core.StringTextBuffer
 import com.sunnychung.lib.multiplatform.bigtext.core.TextBuffer
@@ -821,11 +823,41 @@ class BigTextTransformerImpl(
 
     override fun insertAt(pos: Int, text: CharSequence): Int = transformInsert(pos, text)
 
+    override fun insertAt(pos: Int, text: CharSequence, locker: BigTextLocker?): Int {
+        var result = 0
+        (locker ?: PassthroughBigTextLocker) {
+            result = transformInsert(pos, text)
+        }
+        return result
+    }
+
     override fun append(text: CharSequence): Int = transformInsertAtOriginalEnd(text)
+
+    override fun append(text: CharSequence, locker: BigTextLocker?): Int {
+        var result = 0
+        (locker ?: PassthroughBigTextLocker) {
+            result = transformInsertAtOriginalEnd(text)
+        }
+        return result
+    }
 
     override fun delete(start: Int, endExclusive: Int): Int = transformDelete(start until endExclusive)
 
+    override fun delete(start: Int, endExclusive: Int, locker: BigTextLocker?): Int {
+        var result = 0
+        (locker ?: PassthroughBigTextLocker) {
+            result = transformDelete(start until endExclusive)
+        }
+        return result
+    }
+
     override fun replace(range: IntRange, text: CharSequence) = transformReplace(range, text)
+
+    override fun replace(start: Int, endExclusive: Int, text: CharSequence, locker: BigTextLocker?) {
+        (locker ?: PassthroughBigTextLocker) {
+            transformReplace(start until endExclusive, text)
+        }
+    }
 
     override fun replace(range: IntRange, text: CharSequence, offsetMapping: BigTextTransformOffsetMapping) = transformReplace(range, text, offsetMapping)
 

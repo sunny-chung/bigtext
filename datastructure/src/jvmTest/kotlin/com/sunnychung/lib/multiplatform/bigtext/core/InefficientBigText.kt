@@ -48,9 +48,6 @@ class InefficientBigText(text: String) : BigText {
     override var undoMetadataSupplier: (() -> Any?)?
         get() = TODO("Not yet implemented")
         set(value) {}
-    override var changeHook: BigTextChangeHook?
-        get() = TODO("Not yet implemented")
-        set(value) {}
 
     override fun buildString(): String = string
 
@@ -153,6 +150,22 @@ class InefficientBigText(text: String) : BigText {
     }
 
     override fun enableAndDoComputations() {
+        TODO("Not yet implemented")
+    }
+
+    override fun registerCallback(callback: BigTextChangeCallback) {
+        TODO("Not yet implemented")
+    }
+
+    override fun unregisterCallback(callback: BigTextChangeCallback) {
+        TODO("Not yet implemented")
+    }
+
+    override fun registerBigTextChangeHook(hook: BigTextChangeHook) {
+        TODO("Not yet implemented")
+    }
+
+    override fun unregisterBigTextChangeHook(hook: BigTextChangeHook) {
         TODO("Not yet implemented")
     }
 

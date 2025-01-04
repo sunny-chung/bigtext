@@ -1105,6 +1105,24 @@ class BigTextTransformerImplTest {
         )
     }
 
+    @ParameterizedTest
+    @ValueSource(ints = [1048576, 64, 16])
+    fun transformDeleteThenReplaceThenDelete(chunkSize: Int) {
+        val initialText = "12345678901234567890123456789012345678901234567890123456789012345678901234567890"
+        val original = BigTextImpl(chunkSize = chunkSize)
+        original.append(initialText)
+        val transformed = BigTextTransformerImpl(original)
+
+        transformed.delete(8 .. 8)
+        transformed.replace(9..14, "abcdef", BigTextTransformOffsetMapping.Incremental)
+        transformed.delete(15 .. 15)
+        "12345678abcdef7890123456789012345678901234567890123456789012345678901234567890".let { expected ->
+            assertEquals(expected, transformed.buildString())
+            assertEquals(initialText, original.buildString())
+            assertAllSubstring(expected, transformed)
+        }
+    }
+
     @BeforeEach
     fun beforeEach() {
         isD = false
