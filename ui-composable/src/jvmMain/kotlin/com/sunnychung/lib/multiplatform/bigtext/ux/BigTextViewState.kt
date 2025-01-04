@@ -41,6 +41,7 @@ class BigTextViewState {
     var transformedSelectionStart: Int by mutableStateOf(0)
 
     var selection: IntRange by mutableStateOf(0..-1)
+        internal set
 
     fun hasSelection(): Boolean = !selection.isEmpty() && transformedSelection.start >= 0 && !transformedSelection.isEmpty()
 
@@ -104,6 +105,16 @@ class BigTextViewState {
         }
         recordCursorXPosition()
         isScrollToCursorNeeded = true
+    }
+
+    fun setSelection(range: IntRange) {
+        val transformedText = transformedText?.get() ?: return
+        val text = transformedText.originalText
+        require(range.start in 0 .. text.length) { "Range start ${range.start} is out of range. Text length: ${text.length}" }
+        require(range.endInclusive + 1 in 0 .. text.length) { "Range end ${range.endInclusive} is out of range. Text length: ${text.length}" }
+
+        selection = range
+        updateTransformedSelectionBySelection(transformedText)
     }
 
     internal fun roundTransformedCursorIndex(direction: CursorAdjustDirection, transformedText: BigTextTransformed, compareWithPosition: Int, isOnlyWithinBlock: Boolean) {
