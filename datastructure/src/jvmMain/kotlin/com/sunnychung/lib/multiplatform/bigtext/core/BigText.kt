@@ -132,6 +132,10 @@ interface BigText {
      */
     fun enableAndDoComputations()
 
+    fun registerCallback(callback: BigTextChangeCallback)
+
+    fun unregisterCallback(callback: BigTextChangeCallback)
+
     override fun hashCode(): Int
 
     override fun equals(other: Any?): Boolean

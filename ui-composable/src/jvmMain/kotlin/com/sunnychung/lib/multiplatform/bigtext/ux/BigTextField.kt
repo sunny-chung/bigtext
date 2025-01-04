@@ -804,9 +804,9 @@ private fun CoreBigTextField(
             return
         }
         val text = textRef.get() ?: return
-        onValuePreChange(BigTextChangeEventType.Delete, start, endExclusive)
+//        onValuePreChange(BigTextChangeEventType.Delete, start, endExclusive)
         text.delete(start, endExclusive)
-        onValuePostChange(BigTextChangeEventType.Delete, start, endExclusive)
+//        onValuePostChange(BigTextChangeEventType.Delete, start, endExclusive)
     }
 
     fun deleteSelection(isSaveUndoSnapshot: Boolean) {
@@ -853,9 +853,9 @@ private fun CoreBigTextField(
         }
 
         if (textInput.isNotEmpty()) {
-            onValuePreChange(BigTextChangeEventType.Insert, insertPos, insertPos + textInput.length)
+//            onValuePreChange(BigTextChangeEventType.Insert, insertPos, insertPos + textInput.length)
             text.insertAt(insertPos, textInput)
-            onValuePostChange(BigTextChangeEventType.Insert, insertPos, insertPos + textInput.length)
+//            onValuePostChange(BigTextChangeEventType.Insert, insertPos, insertPos + textInput.length)
         }
         return textInput
     }
@@ -954,7 +954,8 @@ private fun CoreBigTextField(
                 changeStartIndex: Int,
                 changeEndExclusiveIndex: Int
             ) {
-                onValuePreChange(eventType, changeStartIndex, changeEndExclusiveIndex)
+                // moved to listener
+//                onValuePreChange(eventType, changeStartIndex, changeEndExclusiveIndex)
             }
 
             override fun onValuePostChange(
@@ -962,11 +963,14 @@ private fun CoreBigTextField(
                 changeStartIndex: Int,
                 changeEndExclusiveIndex: Int
             ) {
-                onValuePostChange(eventType, changeStartIndex, changeEndExclusiveIndex)
-                lastChangeEnd = when (eventType) {
-                    BigTextChangeEventType.Insert -> changeEndExclusiveIndex
-                    BigTextChangeEventType.Delete -> changeStartIndex
-                }
+                // moved to listener
+//                onValuePostChange(eventType, changeStartIndex, changeEndExclusiveIndex)
+
+                // no longer in use
+//                lastChangeEnd = when (eventType) {
+//                    BigTextChangeEventType.Insert -> changeEndExclusiveIndex
+//                    BigTextChangeEventType.Delete -> changeStartIndex
+//                }
             }
         })
         updateViewState()
@@ -1447,11 +1451,38 @@ private fun CoreBigTextField(
         }
     }
 
-    remember(weakRefOf(text), onTextManipulatorReady) {
-        onTextManipulatorReady?.invoke(BigTextManipulatorImpl {
-            updateViewState()
-            text.recordCurrentChangeSequenceIntoUndoHistory()
-        })
+//    remember(weakRefOf(text), onTextManipulatorReady) {
+//        onTextManipulatorReady?.invoke(BigTextManipulatorImpl {
+//            updateViewState()
+//            text.recordCurrentChangeSequenceIntoUndoHistory()
+//        })
+//    }
+
+    var textManipulateListener by remember { mutableStateOf<BigTextChangeCallback?>(null) }
+
+    remember(weakRefOf(text)) {
+        textManipulateListener?.let {
+            text.unregisterCallback(it)
+        }
+        val listener = object : BigTextChangeCallback {
+            override fun onValuePreChange(
+                eventType: BigTextChangeEventType,
+                changeStartIndex: Int,
+                changeEndExclusiveIndex: Int
+            ) {
+                onValuePreChange(eventType, changeStartIndex, changeEndExclusiveIndex)
+            }
+
+            override fun onValuePostChange(
+                eventType: BigTextChangeEventType,
+                changeStartIndex: Int,
+                changeEndExclusiveIndex: Int
+            ) {
+                onValuePostChange(eventType, changeStartIndex, changeEndExclusiveIndex)
+            }
+        }
+        textManipulateListener = listener
+        text.registerCallback(listener)
     }
 
     val tv = remember { TextFieldValue() } // this value is not used
@@ -1963,6 +1994,16 @@ private fun CoreBigTextField(
     DisposableEffect(textInputSessionRef, weakRefOf(transformedText)) {
         onDispose {
             textInputSessionRef?.get()?.dispose()
+            log.d { "BigTextField onDispose -- disposed input session" }
+        }
+    }
+
+    DisposableEffect(weakRefOf(text), textManipulateListener) {
+        onDispose {
+            textManipulateListener?.let {
+                text.unregisterCallback(it)
+            }
+            log.d { "BigTextField onDispose -- disposed text manipulate listener" }
         }
     }
 }

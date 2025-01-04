@@ -7,9 +7,10 @@ import java.util.concurrent.locks.ReentrantReadWriteLock
 import kotlin.concurrent.read
 import kotlin.concurrent.write
 
-open class ConcurrentBigText(open val delegate: BigText) : BigText {
+open class ConcurrentBigText(open val delegate: LockableBigText) : BigText {
 
     val lock = ReentrantReadWriteLock()
+    val preLock = ReentrantReadWriteLock()
 
     override val length: Int
         get() = withReadLock { delegate.length }
@@ -71,29 +72,35 @@ open class ConcurrentBigText(open val delegate: BigText) : BigText {
 
     override fun findRowString(rowIndex: Int): CharSequence = withReadLock { delegate.findRowString(rowIndex) }
 
-    override fun append(text: CharSequence): Int = withWriteLock { delegate.append(text) }
+    override fun append(text: CharSequence): Int =
+        withPreWriteLock { delegate.append(text) { withWriteLock0(it) } }
 
-    override fun insertAt(pos: Int, text: CharSequence): Int = withWriteLock { delegate.insertAt(pos, text) }
+    override fun insertAt(pos: Int, text: CharSequence): Int =
+        withPreWriteLock { delegate.insertAt(pos, text) { withWriteLock0(it) } }
 
-    override fun delete(start: Int, endExclusive: Int): Int = withWriteLock { delegate.delete(start, endExclusive) }
+    override fun delete(start: Int, endExclusive: Int): Int =
+        withPreWriteLock { delegate.delete(start, endExclusive) { withWriteLock0(it) } }
 
-    override fun replace(start: Int, endExclusive: Int, text: CharSequence) = withWriteLock {
-        delegate.replace(start, endExclusive, text)
+    override fun replace(start: Int, endExclusive: Int, text: CharSequence) = withPreWriteLock {
+        delegate.replace(start, endExclusive, text) { withWriteLock0(it) }
     }
 
-    override fun replace(range: IntRange, text: CharSequence) = withWriteLock {
-        delegate.replace(range, text)
+    override fun replace(range: IntRange, text: CharSequence) = withPreWriteLock {
+        delegate.replace(range.start, range.endInclusive + 1, text) { withWriteLock0(it) }
     }
 
-    override fun recordCurrentChangeSequenceIntoUndoHistory() = withWriteLock { delegate.recordCurrentChangeSequenceIntoUndoHistory() }
+    override fun recordCurrentChangeSequenceIntoUndoHistory() =
+        withPreWriteLock {
+            withWriteLock { delegate.recordCurrentChangeSequenceIntoUndoHistory() }
+        }
 
-    override fun undo(callback: BigTextChangeCallback?): Pair<Boolean, Any?> = withWriteLock { delegate.undo(callback) }
+    override fun undo(callback: BigTextChangeCallback?): Pair<Boolean, Any?> = withPreWriteLock { delegate.undo(callback) { withWriteLock0(it) } }
 
-    override fun redo(callback: BigTextChangeCallback?): Pair<Boolean, Any?> = withWriteLock { delegate.redo(callback) }
+    override fun redo(callback: BigTextChangeCallback?): Pair<Boolean, Any?> = withPreWriteLock { delegate.redo(callback) { withWriteLock0(it) } }
 
-    override fun isUndoable(): Boolean = withReadLock { delegate.isUndoable() }
+    override fun isUndoable(): Boolean = withPreReadLock { withReadLock { delegate.isUndoable() } }
 
-    override fun isRedoable(): Boolean = withReadLock { delegate.isRedoable() }
+    override fun isRedoable(): Boolean = withPreReadLock { withReadLock { delegate.isRedoable() } }
 
     override fun findLineAndColumnFromRenderPosition(renderPosition: Int): Pair<Int, Int> = withReadLock { delegate.findLineAndColumnFromRenderPosition(renderPosition) }
 
@@ -116,6 +123,10 @@ open class ConcurrentBigText(open val delegate: BigText) : BigText {
     override fun disableComputations() = withWriteLock { delegate.disableComputations() }
 
     override fun enableAndDoComputations() = withWriteLock { delegate.enableAndDoComputations() }
+
+    override fun registerCallback(callback: BigTextChangeCallback) = withWriteLock { delegate.registerCallback(callback) }
+
+    override fun unregisterCallback(callback: BigTextChangeCallback) = withWriteLock { delegate.unregisterCallback(callback) }
 
     // the first call to `hashCode()` would write to cache
 //    override fun hashCode(): Int = lock.write { delegate.hashCode() }
@@ -145,6 +156,34 @@ open class ConcurrentBigText(open val delegate: BigText) : BigText {
             log.i(Exception("Waiting the write lock to be released in order to acquire a read lock")) { "Waiting the write lock to be released in order to acquire a read lock" }
         }
         return lock.read { operation(delegate) }
+    }
+
+    private inline fun <R> withWriteLock0(operation: () -> R): R {
+        if (log.config.minSeverity <= Severity.Info && lock.isWriteLocked) {
+            log.i(Exception("Waiting the write lock to be released in order to acquire a write lock")) { "Waiting the write lock to be released in order to acquire a write lock" }
+        }
+        return lock.write { operation() }
+    }
+
+    private inline fun <R> withReadLock0(operation: () -> R): R {
+        if (log.config.minSeverity <= Severity.Info && lock.isWriteLocked) {
+            log.i(Exception("Waiting the write lock to be released in order to acquire a read lock")) { "Waiting the write lock to be released in order to acquire a read lock" }
+        }
+        return lock.read { operation() }
+    }
+
+    inline fun <R> withPreWriteLock(operation: () -> R): R {
+        if (log.config.minSeverity <= Severity.Info && preLock.isWriteLocked) {
+            log.i(Exception("Waiting the pre write lock to be released in order to acquire a write lock")) { "Waiting the pre write lock to be released in order to acquire a write lock" }
+        }
+        return preLock.write { operation() }
+    }
+
+    inline fun <R> withPreReadLock(operation: () -> R): R {
+        if (log.config.minSeverity <= Severity.Info && preLock.isWriteLocked) {
+            log.i(Exception("Waiting the pre write lock to be released in order to acquire a read lock")) { "Waiting the pre write lock to be released in order to acquire a read lock" }
+        }
+        return preLock.read { operation() }
     }
 
     inline fun tryReadLock(operation: (BigText) -> Unit) {

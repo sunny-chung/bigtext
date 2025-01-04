@@ -4,10 +4,11 @@ import com.sunnychung.lib.multiplatform.bigtext.core.BigText
 import com.sunnychung.lib.multiplatform.bigtext.core.BigTextChangeHook
 import com.sunnychung.lib.multiplatform.bigtext.core.BigTextNodeValue
 import com.sunnychung.lib.multiplatform.bigtext.core.ConcurrentBigText
+import com.sunnychung.lib.multiplatform.bigtext.core.LockableBigText
 import kotlin.concurrent.read
 import kotlin.concurrent.write
 
-class ConcurrentBigTextTransformed(override val delegate: BigTextTransformed) : BigTextTransformed, ConcurrentBigText(delegate) {
+class ConcurrentBigTextTransformed<T>(override val delegate: T) : BigTextTransformed, ConcurrentBigText(delegate) where T : BigTextTransformed, T : LockableBigText {
 
     init {
         delegate.originalText.layouter?.let { setLayouter(it) }

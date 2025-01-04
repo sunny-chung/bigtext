@@ -31,6 +31,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
@@ -134,15 +136,18 @@ fun TransformationTextAreaDemoView(modifier: Modifier, bodyFontFamily: FontFamil
 
     var numOfComputations by remember { mutableStateOf(0) }
 
+    val text = bigTextFieldState.text
     val transformation = remember(bigTextFieldState) {
         VariableIncrementalTransformation()
     }
 
     var textManipulator by remember { mutableStateOf<BigTextManipulator?>(null) }
 
-    val isTransformButtonEnabled = textManipulator != null &&
+    val isTransformButtonEnabled = /*textManipulator != null &&*/
             bigTextFieldState.viewState.selection.length in 1 .. 20 &&
             !bigTextFieldState.text.substring(bigTextFieldState.viewState.selection).contains("[\${} ]".toRegex())
+
+    val focusRequester = remember { FocusRequester() }
 
     Column(modifier) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.horizontalScroll(rememberScrollState())) {
@@ -177,10 +182,15 @@ fun TransformationTextAreaDemoView(modifier: Modifier, bodyFontFamily: FontFamil
 
             Button(
                 onClick = {
-                    val textManipulator = textManipulator ?: return@Button
+//                    val textManipulator = textManipulator ?: return@Button
                     val selection = bigTextFieldState.viewState.selection
-                    textManipulator.insertAt(selection.last + 1, "}}")
-                    textManipulator.insertAt(selection.first, "\${{")
+//                    textManipulator.insertAt(selection.last + 1, "}}")
+//                    textManipulator.insertAt(selection.first, "\${{")
+                    text.insertAt(selection.last + 1, "}}")
+                    text.insertAt(selection.first, "\${{")
+                    text.recordCurrentChangeSequenceIntoUndoHistory()
+
+                    focusRequester.requestFocus()
                 },
                 enabled = isTransformButtonEnabled
             ) {
@@ -200,7 +210,7 @@ fun TransformationTextAreaDemoView(modifier: Modifier, bodyFontFamily: FontFamil
                 fontFamily = bodyFontFamily,
                 isSoftWrapEnabled = isSoftWrapEnabled,
                 textTransformation = transformation,
-                onTextManipulatorReady = { textManipulator = it }, // enables external text modification
+//                onTextManipulatorReady = { textManipulator = it }, // enables external text modification
                 onHeavyComputation = { computation -> // compute in background and display a "loading" spinner
                     withContext(coroutineScope.coroutineContext) {
                         ++numOfComputations
@@ -216,6 +226,7 @@ fun TransformationTextAreaDemoView(modifier: Modifier, bodyFontFamily: FontFamil
                 horizontalScrollState = horizontalScrollState, // only required for soft wrap disabled
                 modifier = Modifier.background(Color(224, 224, 224))
                     .fillMaxSize()
+                    .focusRequester(focusRequester)
             )
             if (numOfComputations > 0) {
                 CircularProgressIndicator(Modifier.align(Alignment.Center))

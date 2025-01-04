@@ -62,7 +62,7 @@ open class BigTextImpl(
     override val textBufferFactory: ((capacity: Int) -> TextBuffer) = { StringTextBuffer(it) },
     override val charSequenceBuilderFactory: ((capacity: Int) -> GeneralStringBuilder) = { StringBuilder2(it) },
     override val charSequenceFactory: ((Appendable) -> CharSequence) = { it: Appendable -> it.toString() },
-) : BigText, BigTextLayoutable {
+) : BigText, BigTextLayoutable, LockableBigText {
     override val tree: LengthTree<BigTextNodeValue> = LengthTree<BigTextNodeValue>(
         object : RedBlackTreeComputations<BigTextNodeValue> {
             override fun recomputeFromLeaf(it: RedBlackTree<BigTextNodeValue>.Node) = recomputeAggregatedValues(it)
@@ -116,6 +116,7 @@ open class BigTextImpl(
     val redoHistory = CircularList<BigTextInputOperation>(undoHistoryCapacity)
 
     override var changeHook: BigTextChangeHook? = null
+    protected val changeCallbacks: MutableList<BigTextChangeCallback> = mutableListOf()
 
     var charSequenceBuilder = ThreadLocal<GeneralStringBuilder>()
 
@@ -1133,8 +1134,10 @@ open class BigTextImpl(
         return substring(startCharIndex, endCharIndex) // includes the last '\n' char
     }
 
-    override fun append(text: CharSequence): Int {
-        return insertAt(length, text)
+    override fun append(text: CharSequence): Int = append(text = text, locker = null)
+
+    override fun append(text: CharSequence, locker: BigTextLocker?): Int {
+        return insertAt(length, text, locker)
 //        var start = 0
 //        while (start < text.length) {
 //            var last = buffers.lastOrNull()?.length
@@ -1149,40 +1152,75 @@ open class BigTextImpl(
 //        }
     }
 
-    override fun insertAt(pos: Int, text: CharSequence): Int {
-        var start = 0
-        val prevNode = tree.findNodeByCharIndex(maxOf(0, pos - 1))
-        val nodeStart = prevNode?.let { findPositionStart(it) }?.also {
-            require(pos in it .. it + prevNode.value.bufferLength)
+    override fun insertAt(pos: Int, text: CharSequence): Int = insertAt(pos = pos, text = text, locker = null)
+
+    override fun insertAt(pos: Int, text: CharSequence, locker: BigTextLocker?): Int {
+        if (text.isEmpty()) {
+            return 0
         }
-        var last = lastBuffer?.length // prevNode?.let { buffers[it.value.bufferIndex].length }
-        if (prevNode != null && pos in nodeStart!! .. nodeStart!! + prevNode.value.bufferLength - 1) {
-            val splitAtIndex = pos - nodeStart
-            last = maxOf((last ?: 0) % chunkSize, splitAtIndex)
+
+        changeCallbacks.forEach {
+            it.onValuePreChange(BigTextChangeEventType.Insert, pos, pos + text.length)
         }
-        while (start < text.length) {
-            if (last == null || last >= chunkSize) {
-//                buffers += TextBuffer()
-                last = 0
+
+        (locker ?: PassthroughBigTextLocker) {
+            var start = 0
+            val prevNode = tree.findNodeByCharIndex(maxOf(0, pos - 1))
+            val nodeStart = prevNode?.let { findPositionStart(it) }?.also {
+                require(pos in it..it + prevNode.value.bufferLength)
             }
-            val available = chunkSize - last
-            val append = minOf(available, text.length - start)
-            insertChunkAtPosition(pos + start, text.subSequence(start until start + append))
-            start += append
-            last = lastBuffer!!.length
+            var last = lastBuffer?.length // prevNode?.let { buffers[it.value.bufferIndex].length }
+            if (prevNode != null && pos in nodeStart!!..nodeStart!! + prevNode.value.bufferLength - 1) {
+                val splitAtIndex = pos - nodeStart
+                last = maxOf((last ?: 0) % chunkSize, splitAtIndex)
+            }
+            while (start < text.length) {
+                if (last == null || last >= chunkSize) {
+//                buffers += TextBuffer()
+                    last = 0
+                }
+                val available = chunkSize - last
+                val append = minOf(available, text.length - start)
+                insertChunkAtPosition(pos + start, text.subSequence(start until start + append))
+                start += append
+                last = lastBuffer!!.length
+            }
+            layout(maxOf(0, pos - 1), minOf(length, pos + text.length + 1))
         }
-        layout(maxOf(0, pos - 1), minOf(length, pos + text.length + 1))
+
+        changeCallbacks.forEach {
+            it.onValuePostChange(BigTextChangeEventType.Insert, pos, pos + text.length)
+        }
+
         return text.length
     }
 
-    override fun delete(start: Int, endExclusive: Int): Int {
+    override fun delete(start: Int, endExclusive: Int): Int = delete(start = start, endExclusive = endExclusive, locker = null)
+
+    override fun delete(start: Int, endExclusive: Int, locker: BigTextLocker?): Int {
         require(start <= endExclusive) { "start should be <= endExclusive" }
         require(0 <= start) { "Invalid start ($start)" }
         require(endExclusive <= length) { "endExclusive is out of bound. Given endExclusive = $endExclusive). Length = $length" }
 
-        return deleteUnchecked(start, endExclusive).also {
+        if (start == endExclusive) {
+            return 0
+        }
+
+        changeCallbacks.forEach {
+            it.onValuePreChange(BigTextChangeEventType.Delete, start, endExclusive)
+        }
+
+        var result = 0
+        (locker ?: PassthroughBigTextLocker) {
+            result = deleteUnchecked(start, endExclusive)
             changeHook?.afterDelete(this, start until endExclusive)
         }
+
+        changeCallbacks.forEach {
+            it.onValuePostChange(BigTextChangeEventType.Delete, start, endExclusive)
+        }
+
+        return result
     }
 
     protected fun deleteUnchecked(start: Int, endExclusive: Int, deleteMarker: BigTextNodeValue? = null, isSkipLayout: Boolean = false): Int {
@@ -1318,6 +1356,11 @@ open class BigTextImpl(
         return -(endExclusive - start)
     }
 
+    override fun replace(start: Int, endExclusive: Int, text: CharSequence, locker: BigTextLocker?) {
+        delete(start, endExclusive, locker)
+        insertAt(start, text, locker)
+    }
+
     override fun recordCurrentChangeSequenceIntoUndoHistory() {
         if (!isUndoEnabled) {
             return
@@ -1342,7 +1385,7 @@ open class BigTextImpl(
         redoHistory.clear()
     }
 
-    protected fun applyReverseChangeSequence(changes: List<BigTextInputChange>, callback: BigTextChangeCallback?) {
+    protected fun applyReverseChangeSequence(changes: List<BigTextInputChange>, callback: BigTextChangeCallback?, locker: BigTextLocker?) {
         if (!isUndoEnabled) {
             return
         }
@@ -1353,21 +1396,29 @@ open class BigTextImpl(
                 when (it.type) {
                     BigTextChangeEventType.Delete -> {
                         callback?.onValuePreChange(BigTextChangeEventType.Insert, it.positions.start, it.positions.endInclusive + 1)
-                        insertChunkAtPosition(it.positions.start, it.bufferCharIndexes.length, BufferOwnership.Owned, it.buffer, it.bufferCharIndexes)  {
-                            bufferIndex = -3
-                            bufferOffsetStart = it.bufferCharIndexes.start
-                            bufferOffsetEndExclusive = it.bufferCharIndexes.endInclusive + 1
-                            this.buffer = it.buffer
-                            this.bufferOwnership = BufferOwnership.Owned
+                        (locker ?: PassthroughBigTextLocker) {
+                            insertChunkAtPosition(
+                                it.positions.start,
+                                it.bufferCharIndexes.length,
+                                BufferOwnership.Owned,
+                                it.buffer,
+                                it.bufferCharIndexes
+                            ) {
+                                bufferIndex = -3
+                                bufferOffsetStart = it.bufferCharIndexes.start
+                                bufferOffsetEndExclusive = it.bufferCharIndexes.endInclusive + 1
+                                this.buffer = it.buffer
+                                this.bufferOwnership = BufferOwnership.Owned
 
-                            leftStringLength = 0
+                                leftStringLength = 0
+                            }
                         }
                         callback?.onValuePostChange(BigTextChangeEventType.Insert, it.positions.start, it.positions.endInclusive + 1)
                     }
 
                     BigTextChangeEventType.Insert -> {
                         callback?.onValuePreChange(BigTextChangeEventType.Delete, it.positions.start, it.positions.endInclusive + 1)
-                        delete(it.positions)
+                        delete(it.positions.start, it.positions.endInclusive + 1, locker)
                         callback?.onValuePostChange(BigTextChangeEventType.Delete, it.positions.start, it.positions.endInclusive + 1)
                     }
                 }
@@ -1377,7 +1428,7 @@ open class BigTextImpl(
         }
     }
 
-    protected fun applyChangeSequence(changes: List<BigTextInputChange>, callback: BigTextChangeCallback?) {
+    protected fun applyChangeSequence(changes: List<BigTextInputChange>, callback: BigTextChangeCallback?, locker: BigTextLocker?) {
         if (!isUndoEnabled) {
             return
         }
@@ -1388,21 +1439,29 @@ open class BigTextImpl(
                 when (it.type) {
                     BigTextChangeEventType.Insert -> {
                         callback?.onValuePreChange(BigTextChangeEventType.Insert, it.positions.start, it.positions.endInclusive + 1)
-                        insertChunkAtPosition(it.positions.start, it.bufferCharIndexes.length, BufferOwnership.Owned, it.buffer, it.bufferCharIndexes)  {
-                            bufferIndex = -3
-                            bufferOffsetStart = it.bufferCharIndexes.start
-                            bufferOffsetEndExclusive = it.bufferCharIndexes.endInclusive + 1
-                            this.buffer = it.buffer
-                            this.bufferOwnership = BufferOwnership.Owned
+                        (locker ?: PassthroughBigTextLocker) {
+                            insertChunkAtPosition(
+                                it.positions.start,
+                                it.bufferCharIndexes.length,
+                                BufferOwnership.Owned,
+                                it.buffer,
+                                it.bufferCharIndexes
+                            ) {
+                                bufferIndex = -3
+                                bufferOffsetStart = it.bufferCharIndexes.start
+                                bufferOffsetEndExclusive = it.bufferCharIndexes.endInclusive + 1
+                                this.buffer = it.buffer
+                                this.bufferOwnership = BufferOwnership.Owned
 
-                            leftStringLength = 0
+                                leftStringLength = 0
+                            }
                         }
                         callback?.onValuePostChange(BigTextChangeEventType.Insert, it.positions.start, it.positions.endInclusive + 1)
                     }
 
                     BigTextChangeEventType.Delete -> {
                         callback?.onValuePreChange(BigTextChangeEventType.Delete, it.positions.start, it.positions.endInclusive + 1)
-                        delete(it.positions)
+                        delete(it.positions.start, it.positions.endInclusive + 1, locker)
                         callback?.onValuePostChange(BigTextChangeEventType.Delete, it.positions.start, it.positions.endInclusive + 1)
                     }
                 }
@@ -1412,21 +1471,23 @@ open class BigTextImpl(
         }
     }
 
-    override fun undo(callback: BigTextChangeCallback?): Pair<Boolean, Any?> {
+    override fun undo(callback: BigTextChangeCallback?): Pair<Boolean, Any?> = undo(callback = callback, locker = null)
+
+    override fun undo(callback: BigTextChangeCallback?, locker: BigTextLocker?): Pair<Boolean, Any?> {
         if (!isUndoEnabled) {
             return false to null
         }
         if (currentChanges.isNotEmpty()) {
             val undoMetadata = currentUndoMetadata
             val redoMetadata = currentRedoMetadata
-            applyReverseChangeSequence(currentChanges, callback)
+            applyReverseChangeSequence(currentChanges, callback, locker)
             redoHistory.push(BigTextInputOperation(currentChanges.toList(), undoMetadata, redoMetadata))
             currentChanges = mutableListOf()
             recordCurrentUndoMetadata()
             return true to undoMetadata
         }
         val lastOperation = undoHistory.removeHead() ?: return false to null
-        applyReverseChangeSequence(lastOperation.changes, callback)
+        applyReverseChangeSequence(lastOperation.changes, callback, locker)
         currentUndoMetadata = lastOperation.undoMetadata
         currentRedoMetadata = lastOperation.redoMetadata
         log.d { "undo set um = $currentUndoMetadata, rm = $currentRedoMetadata" }
@@ -1434,7 +1495,9 @@ open class BigTextImpl(
         return true to lastOperation.undoMetadata
     }
 
-    override fun redo(callback: BigTextChangeCallback?): Pair<Boolean, Any?> {
+    override fun redo(callback: BigTextChangeCallback?): Pair<Boolean, Any?> = redo(callback = callback, locker = null)
+
+    override fun redo(callback: BigTextChangeCallback?, locker: BigTextLocker?): Pair<Boolean, Any?> {
         if (!isUndoEnabled) {
             return false to null
         }
@@ -1442,7 +1505,7 @@ open class BigTextImpl(
             return false to null
         }
         val lastOperation = redoHistory.removeHead() ?: return false to null
-        applyChangeSequence(lastOperation.changes, callback)
+        applyChangeSequence(lastOperation.changes, callback, locker)
         currentUndoMetadata = lastOperation.undoMetadata
         currentRedoMetadata = lastOperation.redoMetadata
         log.d { "undo set um = $currentUndoMetadata, rm = $currentRedoMetadata" }
@@ -1689,6 +1752,17 @@ open class BigTextImpl(
 
     override fun printDebug(label: String) {
         println(inspect(label))
+    }
+
+    override fun registerCallback(callback: BigTextChangeCallback) {
+        if (changeCallbacks.any { it == callback }) {
+            return
+        }
+        changeCallbacks += callback
+    }
+
+    override fun unregisterCallback(callback: BigTextChangeCallback) {
+        changeCallbacks -= callback
     }
 
     @OptIn(ExperimentalCoroutinesApi::class)
