@@ -757,6 +757,7 @@ private fun CoreBigTextField(
         val transformedText = transformedTextRef.get() ?: return
         val row = transformedText.findRowIndexByPosition(viewState.transformedCursorIndex)
         val rowStart = transformedText.findRowPositionStartIndexByRowIndex(row)
+        log.d { "recordCursorXPosition Tcur=${viewState.transformedCursorIndex} row=$row rowStart=$rowStart" }
         val cursorXPosInRow = transformedText.findWidthByPositionRangeOfSameLine(rowStart ..< viewState.transformedCursorIndex)
         lastCursorXPositionForVerticalMovement = cursorXPosInRow
     }
@@ -908,9 +909,9 @@ private fun CoreBigTextField(
         when (direction) {
             TextFBDirection.Forward -> {
                 if (cursor + 1 <= text.length) {
-                    onValuePreChange(BigTextChangeEventType.Delete, cursor, cursor + 1)
+//                    onValuePreChange(BigTextChangeEventType.Delete, cursor, cursor + 1)
                     text.delete(cursor, cursor + 1)
-                    onValuePostChange(BigTextChangeEventType.Delete, cursor, cursor + 1)
+//                    onValuePostChange(BigTextChangeEventType.Delete, cursor, cursor + 1)
                     updateViewState()
                     if (log.config.minSeverity <= Severity.Verbose) {
                         (transformedText as? BigTextImpl)?.printDebug("transformedText onDelete $direction")
@@ -923,9 +924,9 @@ private fun CoreBigTextField(
             }
             TextFBDirection.Backward -> {
                 if (cursor - 1 >= 0) {
-                    onValuePreChange(BigTextChangeEventType.Delete, cursor - 1, cursor)
+//                    onValuePreChange(BigTextChangeEventType.Delete, cursor - 1, cursor)
                     text.delete(cursor - 1, cursor)
-                    onValuePostChange(BigTextChangeEventType.Delete, cursor - 1, cursor)
+//                    onValuePostChange(BigTextChangeEventType.Delete, cursor - 1, cursor)
                     updateViewState()
                     if (log.config.minSeverity <= Severity.Verbose) {
                         (transformedText as? BigTextImpl)?.printDebug("transformedText onDelete $direction")

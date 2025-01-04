@@ -215,8 +215,9 @@ open class BigTextImpl(
         val node = tree.findNodeByRenderCharIndex(position)!!
         val startPos = findRenderPositionStart(node)
         val nv = node.value
-        val rowIndexInThisPartition = nv.rowBreakOffsets.binarySearchForMaxIndexOfValueAtMost(position - startPos + nv.bufferOffsetStart) + 1
+        val rowIndexInThisPartition = nv.rowBreakOffsets.binarySearchForMaxIndexOfValueAtMost(position - startPos + nv.renderBufferStart) + 1
         val startRowIndex = findRowStart(node)
+        log.d { "findRowIndexByPosition($position) node=${nv.debugKey()} startPos=$startPos bufferStart=${nv.bufferOffsetStart} startRowIndex=$startRowIndex rowIndexInThisPartition=$rowIndexInThisPartition" }
         return startRowIndex + rowIndexInThisPartition
     }
 
@@ -1658,7 +1659,10 @@ open class BigTextImpl(
         val endLine = findLineAndColumnFromRenderPosition(positions.endInclusive).first
 //        val startLine = findLineIndexByRowIndex(findRowIndexByPosition(positions.start))
 //        val endLine = findLineIndexByRowIndex(findRowIndexByPosition(positions.endInclusive))
-        require(startLine == endLine) { "positions $positions does not belong to the same line $startLine but $endLine" }
+        require(startLine == endLine) {
+            printDebug()
+            "positions $positions does not belong to the same line $startLine but $endLine"
+        }
 
         var node = tree.findNodeByRenderCharIndex(positions.start) ?: if (positions.start == 0 && (positions.isEmpty() || positions.endInclusive <= 0)) {
             return 0f
