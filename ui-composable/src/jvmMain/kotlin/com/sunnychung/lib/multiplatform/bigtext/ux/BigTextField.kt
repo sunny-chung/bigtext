@@ -1432,24 +1432,15 @@ private fun CoreBigTextField(
 
     fun onProcessKeyboardInput(keyEvent: KeyEvent): Boolean {
         val text = textRef.get() ?: return false
-        val textManipulator = BigTextManipulatorImpl()
 
-        try {
-            if (keyboardInputProcessor?.beforeProcessInput(keyEvent, viewState, textManipulator) == true) {
-                return true
-            }
-            var result = processKeyboardInput(keyEvent)
-            if (keyboardInputProcessor?.afterProcessInput(keyEvent, viewState, textManipulator) == true) {
-                result = true
-            }
-            return result
-
-        } finally {
-            if (textManipulator.hasManipulatedText) {
-                updateViewState()
-                text.recordCurrentChangeSequenceIntoUndoHistory()
-            }
+        if (keyboardInputProcessor?.beforeProcessInput(keyEvent, viewState) == true) {
+            return true
         }
+        var result = processKeyboardInput(keyEvent)
+        if (keyboardInputProcessor?.afterProcessInput(keyEvent, viewState) == true) {
+            result = true
+        }
+        return result
     }
 
 //    remember(weakRefOf(text), onTextManipulatorReady) {
