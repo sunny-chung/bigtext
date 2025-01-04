@@ -2003,7 +2003,11 @@ private fun CoreBigTextField(
             textManipulateListener?.let {
                 text.unregisterCallback(it)
             }
-            log.d { "BigTextField onDispose -- disposed text manipulate listener" }
+
+            val transformedText = transformedTextRef.get()
+            transformedText?.unbindChangeHook()
+
+            log.d { "BigTextField onDispose -- disposed text manipulate listener and change hook" }
         }
     }
 }

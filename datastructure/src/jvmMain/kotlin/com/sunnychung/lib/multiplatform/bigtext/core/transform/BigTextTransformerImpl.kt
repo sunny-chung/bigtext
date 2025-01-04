@@ -98,6 +98,15 @@ class BigTextTransformerImpl(
         }
     }
 
+    private val changeHook = object : BigTextChangeHook {
+        override fun afterInsertChunk(modifiedText: BigText, position: Int, newValue: BigTextNodeValue) {
+            insertOriginal(position, newValue)
+        }
+        override fun afterDelete(modifiedText: BigText, position: IntRange) {
+            deleteOriginal(position)
+        }
+    }
+
     init {
         (tree as LengthTree<BigTextTransformNodeValue>).setRoot(originalText.tree.getRoot().toBigTextTransformNode(tree.NIL))
 //        tree.visitInPostOrder {
@@ -105,14 +114,7 @@ class BigTextTransformerImpl(
 //        }
         originalText.layouter?.let { setLayouter(it) }
         originalText.contentWidth?.let { setContentWidth(it) }
-        originalText.changeHook = object : BigTextChangeHook {
-            override fun afterInsertChunk(modifiedText: BigText, position: Int, newValue: BigTextNodeValue) {
-                insertOriginal(position, newValue)
-            }
-            override fun afterDelete(modifiedText: BigText, position: IntRange) {
-                deleteOriginal(position)
-            }
-        }
+        originalText.registerBigTextChangeHook(changeHook)
     }
 
     override val length: Int
@@ -893,6 +895,10 @@ class BigTextTransformerImpl(
         } else {
             decorator.onApplyDecorationOnTransformation(text, renderPositions)
         }
+    }
+
+    override fun unbindChangeHook() {
+        originalText.unregisterBigTextChangeHook(changeHook)
     }
 }
 

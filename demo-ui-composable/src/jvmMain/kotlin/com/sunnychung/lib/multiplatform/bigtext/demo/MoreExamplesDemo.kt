@@ -3,12 +3,16 @@ package com.sunnychung.lib.multiplatform.bigtext.demo
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.HorizontalScrollbar
 import androidx.compose.foundation.TooltipArea
+import androidx.compose.foundation.VerticalScrollbar
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
@@ -31,8 +35,13 @@ import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.sunnychung.lib.multiplatform.bigtext.core.BigText
+import com.sunnychung.lib.multiplatform.bigtext.core.ConcurrentBigText
 import com.sunnychung.lib.multiplatform.bigtext.util.buildAnnotatedStringPatched
 import com.sunnychung.lib.multiplatform.bigtext.ux.BigTextField
+import com.sunnychung.lib.multiplatform.bigtext.ux.BigTextFieldState
+import com.sunnychung.lib.multiplatform.bigtext.ux.BigTextViewState
+import com.sunnychung.lib.multiplatform.bigtext.ux.createFromLargeAnnotatedString
 import com.sunnychung.lib.multiplatform.bigtext.ux.rememberConcurrentLargeAnnotatedBigTextFieldState
 
 @Composable
@@ -40,8 +49,8 @@ fun MoreExamplesDemoView() {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         SingleLineDemoView()
         MouseHoverAnnotatedTextDemo()
+        SharedStateDemoView()
     }
-
 }
 
 @Composable
@@ -141,3 +150,53 @@ private fun MouseHoverAnnotatedTextDemo() {
         }
     }
 }
+
+@Composable
+private fun SharedStateDemoView() {
+    val text = remember { ConcurrentBigText(BigText.createFromLargeAnnotatedString(AnnotatedString("Top Content\n\n# Section Header 1\n\nContent 1.1\nContent 1.2\nContent 1.3\n\n# Section Header 2\n\nContent 2.1\nContent 2.2\n\n# Section Header 3\n\nContent 3.1\nContent 3.2\nContent 3.3\nContent 3.4\nContent 3.5\nContent 3.6\n"))) }
+    val bigTextFieldState1 by remember { mutableStateOf(BigTextFieldState(text, BigTextViewState())) }
+    val bigTextFieldState2 by remember { mutableStateOf(BigTextFieldState(text, BigTextViewState())) }
+    val scrollState = rememberScrollState()
+
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text("Shared BigText State", fontSize = 16.sp)
+
+        Row(Modifier.fillMaxWidth()) {
+            Box(Modifier.weight(1f)) {
+                BigTextField(
+                    textFieldState = bigTextFieldState1,
+                    color = Color.Black,
+                    cursorColor = Color.Blue,
+                    fontFamily = FontFamily.Monospace,
+                    scrollState = scrollState,
+                    padding = PaddingValues(all = 8.dp),
+                    modifier = Modifier.background(Color(255, 192, 160), RoundedCornerShape(4.dp))
+                        .fillMaxSize()
+                )
+                VerticalScrollbar(
+                    adapter = rememberScrollbarAdapter(scrollState),
+                    modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight()
+                )
+            }
+
+            Box(Modifier.weight(1f)) {
+                BigTextField(
+                    textFieldState = bigTextFieldState2,
+                    color = Color.Black,
+                    cursorColor = Color.Blue,
+                    fontFamily = FontFamily.SansSerif,
+                    scrollState = scrollState,
+                    textTransformation = remember { SimpleMarkdownSlowTransformation() },
+                    padding = PaddingValues(all = 8.dp),
+                    modifier = Modifier.background(Color(240, 240, 240), RoundedCornerShape(4.dp))
+                        .fillMaxSize()
+                )
+                VerticalScrollbar(
+                    adapter = rememberScrollbarAdapter(scrollState),
+                    modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight()
+                )
+            }
+        }
+    }
+}
+

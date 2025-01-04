@@ -39,7 +39,6 @@ interface BigText {
     var decorator: BigTextDecorator?
 
     var undoMetadataSupplier: (() -> Any?)?
-    var changeHook: BigTextChangeHook?
 
     val isThreadSafe: Boolean
         get() = false
@@ -135,6 +134,16 @@ interface BigText {
     fun registerCallback(callback: BigTextChangeCallback)
 
     fun unregisterCallback(callback: BigTextChangeCallback)
+
+    /**
+     * Not for general use.
+     */
+    fun registerBigTextChangeHook(hook: BigTextChangeHook)
+
+    /**
+     * Not for general use.
+     */
+    fun unregisterBigTextChangeHook(hook: BigTextChangeHook)
 
     override fun hashCode(): Int
 

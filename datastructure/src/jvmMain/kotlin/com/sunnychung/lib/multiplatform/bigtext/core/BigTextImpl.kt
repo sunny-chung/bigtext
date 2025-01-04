@@ -115,7 +115,7 @@ open class BigTextImpl(
     val undoHistory = CircularList<BigTextInputOperation>(undoHistoryCapacity)
     val redoHistory = CircularList<BigTextInputOperation>(undoHistoryCapacity)
 
-    override var changeHook: BigTextChangeHook? = null
+    protected var changeHooks: MutableList<BigTextChangeHook> = mutableListOf()
     protected val changeCallbacks: MutableList<BigTextChangeCallback> = mutableListOf()
 
     var charSequenceBuilder = ThreadLocal<GeneralStringBuilder>()
@@ -666,8 +666,10 @@ open class BigTextImpl(
             layout(startPos, endPos)
         }
 
-        let(changeHook, newContentNode) { hook, nodeValue ->
-            hook.afterInsertChunk(this, position, nodeValue)
+        newContentNode?.let { nodeValue ->
+            changeHooks.forEach {
+                it.afterInsertChunk(this, position, nodeValue)
+            }
         }
 
         log.v { inspect("Finish I " + node?.value?.debugKey()) }
@@ -1213,7 +1215,9 @@ open class BigTextImpl(
         var result = 0
         (locker ?: PassthroughBigTextLocker) {
             result = deleteUnchecked(start, endExclusive)
-            changeHook?.afterDelete(this, start until endExclusive)
+            changeHooks.forEach {
+                it.afterDelete(this, start until endExclusive)
+            }
         }
 
         changeCallbacks.forEach {
@@ -1763,6 +1767,17 @@ open class BigTextImpl(
 
     override fun unregisterCallback(callback: BigTextChangeCallback) {
         changeCallbacks -= callback
+    }
+
+    override fun registerBigTextChangeHook(hook: BigTextChangeHook) {
+        if (changeHooks.any { it == hook }) {
+            return
+        }
+        changeHooks += hook
+    }
+
+    override fun unregisterBigTextChangeHook(hook: BigTextChangeHook) {
+        changeHooks -= hook
     }
 
     @OptIn(ExperimentalCoroutinesApi::class)

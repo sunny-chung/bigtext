@@ -10,17 +10,20 @@ import kotlin.concurrent.write
 
 class ConcurrentBigTextTransformed<T>(override val delegate: T) : BigTextTransformed, ConcurrentBigText(delegate) where T : BigTextTransformed, T : LockableBigText {
 
+    private val changeHook = object : BigTextChangeHook {
+        override fun afterInsertChunk(modifiedText: BigText, position: Int, newValue: BigTextNodeValue) {
+            insertOriginal(position, newValue)
+        }
+        override fun afterDelete(modifiedText: BigText, position: IntRange) {
+            deleteOriginal(position)
+        }
+    }
+
     init {
         delegate.originalText.layouter?.let { setLayouter(it) }
         delegate.originalText.contentWidth?.let { setContentWidth(it) }
-        delegate.originalText.changeHook = object : BigTextChangeHook {
-            override fun afterInsertChunk(modifiedText: BigText, position: Int, newValue: BigTextNodeValue) {
-                insertOriginal(position, newValue)
-            }
-            override fun afterDelete(modifiedText: BigText, position: IntRange) {
-                deleteOriginal(position)
-            }
-        }
+        delegate.unbindChangeHook()
+        delegate.originalText.registerBigTextChangeHook(changeHook)
     }
 
     override val originalText: BigText
@@ -107,4 +110,6 @@ class ConcurrentBigTextTransformed<T>(override val delegate: T) : BigTextTransfo
             isEndExclusive = isEndExclusive,
             minWidthSum = minWidthSum,
         ) }
+
+    override fun unbindChangeHook() = delegate.originalText.unregisterBigTextChangeHook(changeHook)
 }

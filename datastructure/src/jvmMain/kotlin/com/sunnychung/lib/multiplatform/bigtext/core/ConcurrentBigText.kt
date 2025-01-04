@@ -52,9 +52,6 @@ open class ConcurrentBigText(open val delegate: LockableBigText) : BigText {
     override var undoMetadataSupplier: (() -> Any?)?
         get() = withReadLock { delegate.undoMetadataSupplier }
         set(value) { withWriteLock { delegate.undoMetadataSupplier = value } }
-    override var changeHook: BigTextChangeHook?
-        get() = withReadLock { delegate.changeHook }
-        set(value) { withWriteLock { delegate.changeHook = value } }
 
     override val isThreadSafe: Boolean
         get() = true
@@ -127,6 +124,10 @@ open class ConcurrentBigText(open val delegate: LockableBigText) : BigText {
     override fun registerCallback(callback: BigTextChangeCallback) = withWriteLock { delegate.registerCallback(callback) }
 
     override fun unregisterCallback(callback: BigTextChangeCallback) = withWriteLock { delegate.unregisterCallback(callback) }
+
+    override fun registerBigTextChangeHook(hook: BigTextChangeHook) = withWriteLock { delegate.registerBigTextChangeHook(hook) }
+
+    override fun unregisterBigTextChangeHook(hook: BigTextChangeHook) = withWriteLock { delegate.unregisterBigTextChangeHook(hook) }
 
     // the first call to `hashCode()` would write to cache
 //    override fun hashCode(): Int = lock.write { delegate.hashCode() }

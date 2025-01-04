@@ -32,4 +32,9 @@ interface BigTextTransformer {
      * @see disableComputations
      */
     fun enableAndDoComputations()
+
+    /**
+     * Not for general use.
+     */
+    fun unbindChangeHook()
 }
