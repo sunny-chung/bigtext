@@ -28,6 +28,8 @@ class BigTextViewState {
     var lastVisibleRow: Int by mutableStateOf(0)
         internal set
 
+    internal var lastCursorXPositionForVerticalMovement by mutableStateOf<Float>(0f)
+
     internal var transformedSelection: IntRange by mutableStateOf(0..-1)
 
     /**
@@ -180,6 +182,15 @@ class BigTextViewState {
                 return transformedCursorIndex + delta - 1
             }
         }
+    }
+
+    fun recordCursorXPosition() {
+        val transformedText = transformedText?.get() ?: return
+        val row = transformedText.findRowIndexByPosition(transformedCursorIndex)
+        val rowStart = transformedText.findRowPositionStartIndexByRowIndex(row)
+        log.d { "recordCursorXPosition Tcur=${transformedCursorIndex} row=$row rowStart=$rowStart" }
+        val cursorXPosInRow = transformedText.findWidthByPositionRangeOfSameLine(rowStart ..< transformedCursorIndex)
+        lastCursorXPositionForVerticalMovement = cursorXPosInRow
     }
 
     private val charRangesToReapplyTransforms = mutableSetOf<IntRange>()

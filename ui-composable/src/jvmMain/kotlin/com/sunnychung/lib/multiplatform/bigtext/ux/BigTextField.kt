@@ -636,7 +636,6 @@ private fun CoreBigTextField(
         }
         delta
     }
-    var lastCursorXPositionForVerticalMovement by remember(weakRefOf(text)) { mutableStateOf<Float>(0f) }
     var draggedPoint by remember { mutableStateOf<Offset>(Offset.Zero) }
     var selectionEnd by remember { mutableStateOf<Int>(-1) }
     var isHoldingShiftKey by remember { mutableStateOf(false) }
@@ -754,12 +753,13 @@ private fun CoreBigTextField(
     }
 
     fun recordCursorXPosition() {
-        val transformedText = transformedTextRef.get() ?: return
-        val row = transformedText.findRowIndexByPosition(viewState.transformedCursorIndex)
-        val rowStart = transformedText.findRowPositionStartIndexByRowIndex(row)
-        log.d { "recordCursorXPosition Tcur=${viewState.transformedCursorIndex} row=$row rowStart=$rowStart" }
-        val cursorXPosInRow = transformedText.findWidthByPositionRangeOfSameLine(rowStart ..< viewState.transformedCursorIndex)
-        lastCursorXPositionForVerticalMovement = cursorXPosInRow
+//        val transformedText = transformedTextRef.get() ?: return
+//        val row = transformedText.findRowIndexByPosition(viewState.transformedCursorIndex)
+//        val rowStart = transformedText.findRowPositionStartIndexByRowIndex(row)
+//        log.d { "recordCursorXPosition Tcur=${viewState.transformedCursorIndex} row=$row rowStart=$rowStart" }
+//        val cursorXPosInRow = transformedText.findWidthByPositionRangeOfSameLine(rowStart ..< viewState.transformedCursorIndex)
+//        viewState.lastCursorXPositionForVerticalMovement = cursorXPosInRow
+        viewState.recordCursorXPosition()
     }
 
     fun updateViewState() {
@@ -1342,7 +1342,7 @@ private fun CoreBigTextField(
                                 startPosition = newRowStart,
                                 endPositions = newRowStart..newRowEndInclusive,
                                 isEndExclusive = true,
-                                maxWidthSum = lastCursorXPositionForVerticalMovement.roundToInt() //cursorXPosInRow.toInt()
+                                maxWidthSum = viewState.lastCursorXPositionForVerticalMovement.roundToInt() //cursorXPosInRow.toInt()
                             )
                             if (pos > 0) {
                                 viewState.roundedTransformedCursorIndex(
