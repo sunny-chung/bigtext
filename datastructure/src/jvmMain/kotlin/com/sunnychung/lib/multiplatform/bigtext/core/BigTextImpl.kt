@@ -1401,6 +1401,9 @@ open class BigTextImpl(
                 when (it.type) {
                     BigTextChangeEventType.Delete -> {
                         callback?.onValuePreChange(BigTextChangeEventType.Insert, it.positions.start, it.positions.endInclusive + 1)
+                        changeCallbacks.forEach { callback ->
+                            callback.onValuePreChange(BigTextChangeEventType.Insert, it.positions.start, it.positions.endInclusive + 1)
+                        }
                         (locker ?: PassthroughBigTextLocker) {
                             insertChunkAtPosition(
                                 it.positions.start,
@@ -1417,6 +1420,9 @@ open class BigTextImpl(
 
                                 leftStringLength = 0
                             }
+                        }
+                        changeCallbacks.forEach { callback ->
+                            callback.onValuePostChange(BigTextChangeEventType.Insert, it.positions.start, it.positions.endInclusive + 1)
                         }
                         callback?.onValuePostChange(BigTextChangeEventType.Insert, it.positions.start, it.positions.endInclusive + 1)
                     }
@@ -1444,6 +1450,9 @@ open class BigTextImpl(
                 when (it.type) {
                     BigTextChangeEventType.Insert -> {
                         callback?.onValuePreChange(BigTextChangeEventType.Insert, it.positions.start, it.positions.endInclusive + 1)
+                        changeCallbacks.forEach { callback ->
+                            callback.onValuePreChange(BigTextChangeEventType.Insert, it.positions.start, it.positions.endInclusive + 1)
+                        }
                         (locker ?: PassthroughBigTextLocker) {
                             insertChunkAtPosition(
                                 it.positions.start,
@@ -1460,6 +1469,9 @@ open class BigTextImpl(
 
                                 leftStringLength = 0
                             }
+                        }
+                        changeCallbacks.forEach { callback ->
+                            callback.onValuePostChange(BigTextChangeEventType.Insert, it.positions.start, it.positions.endInclusive + 1)
                         }
                         callback?.onValuePostChange(BigTextChangeEventType.Insert, it.positions.start, it.positions.endInclusive + 1)
                     }
