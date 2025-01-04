@@ -1476,6 +1476,12 @@ private fun CoreBigTextField(
         textManipulateListener = listener
         text.registerCallback(listener)
     }
+    
+    if (viewState.isScrollToCursorNeeded) {
+        scrollToCursor()
+        showCursor()
+        viewState.isScrollToCursorNeeded = false
+    }
 
     val tv = remember { TextFieldValue() } // this value is not used
 

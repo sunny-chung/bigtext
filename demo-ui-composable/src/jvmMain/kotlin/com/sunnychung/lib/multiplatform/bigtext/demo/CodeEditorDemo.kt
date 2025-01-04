@@ -29,6 +29,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEvent
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
 import com.sunnychung.lib.multiplatform.bigtext.core.BigText
@@ -37,6 +42,7 @@ import com.sunnychung.lib.multiplatform.bigtext.util.emptyToNull
 import com.sunnychung.lib.multiplatform.bigtext.util.string
 import com.sunnychung.lib.multiplatform.bigtext.ux.BigTextField
 import com.sunnychung.lib.multiplatform.bigtext.ux.BigTextFieldState
+import com.sunnychung.lib.multiplatform.bigtext.ux.BigTextKeyboardInputProcessor
 import com.sunnychung.lib.multiplatform.bigtext.ux.BigTextSimpleLayoutResult
 import com.sunnychung.lib.multiplatform.bigtext.ux.BigTextViewState
 import com.sunnychung.lib.multiplatform.bigtext.ux.createFromLargeAnnotatedString
@@ -197,6 +203,16 @@ fun CodeEditorDemoView() {
                                     log.d { "numOfComputations = $numOfComputations" }
                                 }
                             },
+                            keyboardInputProcessor = object : BigTextKeyboardInputProcessor {
+                                override fun beforeProcessInput(it: KeyEvent, viewState: BigTextViewState): Boolean {
+                                    return if (it.type == KeyEventType.KeyDown && it.key == Key.Enter) {
+                                        onPressEnterAddIndent(bigTextFieldState.text, bigTextFieldState.viewState)
+                                        true
+                                    } else {
+                                        false
+                                    }
+                                }
+                            },
                             modifier = Modifier.background(Color(224, 224, 224))
                                 .fillMaxSize()
                         )
@@ -226,6 +242,19 @@ fun CodeEditorDemoView() {
             }
         }
     }
+}
+
+fun onPressEnterAddIndent(text: BigText, viewState: BigTextViewState) {
+    val lineIndex = text.findLineAndColumnFromRenderPosition(viewState.cursorIndex).first
+    val previousLineString = text.findLineString(lineIndex) // as '\n' is not yet inputted, current line is the "previous line"
+    val spacesMatch = "^([ \t]+)".toRegex().matchAt(previousLineString, 0)
+    val newSpaces = "\n" + (spacesMatch?.groups?.get(1)?.value ?: "")
+    if (viewState.hasSelection()) {
+        text.delete(viewState.selection)
+    }
+    text.insertAt(viewState.cursorIndex, newSpaces)
+    viewState.setCursorIndex(viewState.cursorIndex + newSpaces.length)
+    text.recordCurrentChangeSequenceIntoUndoHistory()
 }
 
 @OptIn(ExperimentalStdlibApi::class)

@@ -30,6 +30,8 @@ class BigTextViewState {
 
     internal var lastCursorXPositionForVerticalMovement by mutableStateOf<Float>(0f)
 
+    internal var isScrollToCursorNeeded by mutableStateOf(false)
+
     internal var transformedSelection: IntRange by mutableStateOf(0..-1)
 
     /**
@@ -100,6 +102,8 @@ class BigTextViewState {
         transformedText?.get()?.let { transformedText ->
             updateTransformedCursorIndexByOriginal(transformedText)
         }
+        recordCursorXPosition()
+        isScrollToCursorNeeded = true
     }
 
     internal fun roundTransformedCursorIndex(direction: CursorAdjustDirection, transformedText: BigTextTransformed, compareWithPosition: Int, isOnlyWithinBlock: Boolean) {

@@ -73,6 +73,8 @@ fun LineNumbersView(
                 4.dp + 4.dp
     }
 
+    bigTextViewState.version // recompose when the BigText updates
+
     Box(
         modifier = modifier
             .width(width)
