@@ -63,6 +63,19 @@ class BigTextFieldState(val text: BigText, val viewState: BigTextViewState) {
     fun markConsumed(sequence: Int) {
         lastConsumedSequence = maxOf(lastConsumedSequence, sequence)
     }
+
+    fun replaceTextAtCursor(newText: CharSequence, isSaveIntoUndoHistory: Boolean = true) {
+        if (viewState.hasSelection()) {
+            text.delete(viewState.selection)
+        }
+        if (newText.isNotEmpty()) {
+            text.insertAt(viewState.cursorIndex, newText)
+            viewState.setCursorIndex(viewState.cursorIndex + newText.length)
+        }
+        if (isSaveIntoUndoHistory) {
+            text.recordCurrentChangeSequenceIntoUndoHistory()
+        }
+    }
 }
 
 class BigTextChangeWithoutDetail(val changeId: Long, val bigText: BigText, val sequence: Int)

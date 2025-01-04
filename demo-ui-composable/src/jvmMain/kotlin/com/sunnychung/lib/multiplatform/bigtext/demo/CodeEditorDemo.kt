@@ -206,7 +206,7 @@ fun CodeEditorDemoView() {
                             keyboardInputProcessor = object : BigTextKeyboardInputProcessor {
                                 override fun beforeProcessInput(it: KeyEvent, viewState: BigTextViewState): Boolean {
                                     return if (it.type == KeyEventType.KeyDown && it.key == Key.Enter) {
-                                        onPressEnterAddIndent(bigTextFieldState.text, bigTextFieldState.viewState)
+                                        onPressEnterAddIndent(bigTextFieldState)
                                         true
                                     } else {
                                         false
@@ -244,17 +244,16 @@ fun CodeEditorDemoView() {
     }
 }
 
-fun onPressEnterAddIndent(text: BigText, viewState: BigTextViewState) {
+fun onPressEnterAddIndent(textState: BigTextFieldState) {
+    val text = textState.text
+    val viewState = textState.viewState
+
     val lineIndex = text.findLineAndColumnFromRenderPosition(viewState.cursorIndex).first
     val previousLineString = text.findLineString(lineIndex) // as '\n' is not yet inputted, current line is the "previous line"
     val spacesMatch = "^([ \t]+)".toRegex().matchAt(previousLineString, 0)
     val newSpaces = "\n" + (spacesMatch?.groups?.get(1)?.value ?: "")
-    if (viewState.hasSelection()) {
-        text.delete(viewState.selection)
-    }
-    text.insertAt(viewState.cursorIndex, newSpaces)
-    viewState.setCursorIndex(viewState.cursorIndex + newSpaces.length)
-    text.recordCurrentChangeSequenceIntoUndoHistory()
+
+    textState.replaceTextAtCursor(newSpaces)
 }
 
 @OptIn(ExperimentalStdlibApi::class)
