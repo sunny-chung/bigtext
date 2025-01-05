@@ -1510,7 +1510,7 @@ private fun CoreBigTextField(
                         recordCursorXPosition()
                     }
                 )
-                    .pointerInput(isEditable, weakRefOf(text), transformedText.hasLayouted, weakRefOf(viewState), viewportTop, viewportLeft, lineHeight, contentWidth, transformedText.length, transformedText.hashCode(), onPointerEvent) {
+                    .pointerInput(isEditable, isSelectable, weakRefOf(text), transformedText.hasLayouted, weakRefOf(viewState), viewportTop, viewportLeft, lineHeight, contentWidth, transformedText.length, transformedText.hashCode(), onPointerEvent) {
                         awaitPointerEventScope {
                             while (true) {
                                 val event = awaitPointerEvent()
