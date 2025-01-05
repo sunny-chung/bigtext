@@ -17,24 +17,24 @@ kotlin {
         jvmToolchain(17)
         withJava()
     }
-    js {
-        browser()
-        nodejs()
-    }
-
-    val appleTargets = listOf(
-        iosArm64(),
-        iosSimulatorArm64(),
-        iosX64(),
-        watchosArm64(),
-        watchosSimulatorArm64(),
-        watchosX64(),
-        tvosArm64(),
-        tvosSimulatorArm64(),
-        tvosX64(),
-        macosArm64(),
-        macosX64()
-    )
+//    js {
+//        browser()
+//        nodejs()
+//    }
+//
+//    val appleTargets = listOf(
+//        iosArm64(),
+//        iosSimulatorArm64(),
+//        iosX64(),
+//        watchosArm64(),
+//        watchosSimulatorArm64(),
+//        watchosX64(),
+//        tvosArm64(),
+//        tvosSimulatorArm64(),
+//        tvosX64(),
+//        macosArm64(),
+//        macosX64()
+//    )
 
     sourceSets {
         commonMain {
