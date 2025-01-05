@@ -140,7 +140,7 @@ fun TransformationTextAreaDemoView(modifier: Modifier, bodyFontFamily: FontFamil
         VariableIncrementalTransformation()
     }
 
-    val isTransformButtonEnabled = /*textManipulator != null &&*/
+    val isTransformButtonEnabled =
             bigTextFieldState.viewState.selection.length in 1 .. 20 &&
             !bigTextFieldState.text.substring(bigTextFieldState.viewState.selection).contains("[\${} ]".toRegex())
 
@@ -179,10 +179,7 @@ fun TransformationTextAreaDemoView(modifier: Modifier, bodyFontFamily: FontFamil
 
             Button(
                 onClick = {
-//                    val textManipulator = textManipulator ?: return@Button
                     val selection = bigTextFieldState.viewState.selection
-//                    textManipulator.insertAt(selection.last + 1, "}}")
-//                    textManipulator.insertAt(selection.first, "\${{")
                     text.insertAt(selection.last + 1, "}}")
                     text.insertAt(selection.first, "\${{")
                     text.recordCurrentChangeSequenceIntoUndoHistory()
@@ -207,7 +204,6 @@ fun TransformationTextAreaDemoView(modifier: Modifier, bodyFontFamily: FontFamil
                 fontFamily = bodyFontFamily,
                 isSoftWrapEnabled = isSoftWrapEnabled,
                 textTransformation = transformation,
-//                onTextManipulatorReady = { textManipulator = it }, // enables external text modification
                 onHeavyComputation = { computation -> // compute in background and display a "loading" spinner
                     withContext(coroutineScope.coroutineContext) {
                         ++numOfComputations

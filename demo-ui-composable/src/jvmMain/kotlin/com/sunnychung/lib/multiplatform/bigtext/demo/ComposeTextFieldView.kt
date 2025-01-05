@@ -1,5 +1,6 @@
 package com.sunnychung.lib.multiplatform.bigtext.demo
 
+import androidx.compose.foundation.VerticalScrollbar
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -7,10 +8,13 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.rememberScrollbarAdapter
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.Button
 import androidx.compose.material.Checkbox
 import androidx.compose.material.LocalTextStyle
@@ -65,7 +69,7 @@ fun ComposeTextFieldView() {
             Text("Soft Wrap (Not supported)")
         }
 
-        Text("Below is the BasicTextField out of the box in Compose.", Modifier.padding(bottom = 8.dp))
+        Text("Below is the BasicTextField out of the box in Compose. It is expected to encounter issues.", Modifier.padding(bottom = 8.dp))
 
         Box(Modifier.fillMaxSize()) {
 //            Column(modifier = Modifier
@@ -90,12 +94,13 @@ fun ComposeTextFieldView() {
                         .background(Color(224, 224, 160))
                         .fillMaxSize()
                         .padding(4.dp)
+                        .verticalScroll(scrollState)
                 )
 //            }
-//            VerticalScrollbar(
-//                adapter = rememberScrollbarAdapter(scrollState),
-//                modifier = Modifier.align(Alignment.TopEnd).fillMaxHeight()
-//            )
+            VerticalScrollbar(
+                adapter = rememberScrollbarAdapter(scrollState),
+                modifier = Modifier.align(Alignment.TopEnd).fillMaxHeight()
+            )
 //            if (!isSoftWrapEnabled) {
 //                HorizontalScrollbar(
 //                    adapter = rememberScrollbarAdapter(horizontalScrollState),

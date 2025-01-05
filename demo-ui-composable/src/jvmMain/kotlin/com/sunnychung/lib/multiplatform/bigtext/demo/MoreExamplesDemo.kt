@@ -164,13 +164,13 @@ private fun MouseHoverAnnotatedTextDemo() {
 
 @Composable
 private fun SharedStateDemoView() {
-    val text = remember { ConcurrentBigText(BigText.createFromLargeAnnotatedString(AnnotatedString("Top Content\n\n# Section Header 1\n\nContent 1.1\nContent `1.2`\nContent 1.3\n\n# Section Header 2\n\nCon*tent* 2.1\n_Conten_t 2.2\n\n# Section Header 3\n\n~Content 3.1~\nContent 3.2\nContent 3.3\nContent 3.4\nContent 3.5\nContent 3.6\n"))) }
+    val text = remember { ConcurrentBigText(BigText.createFromLargeAnnotatedString(AnnotatedString("Top Content\n\n# Section Header 1\n\nContent 1.1\n`Content 1.2`\nContent 1.3\n\n# Section Header 2\n\nCon*tent* 2.1\n_Conten_t 2.2\n\n# Section Header 3\n\n~Content 3.1~\nContent 3.2\nContent 3.3\nContent 3.4\nContent 3.5\nContent 3.6\n"))) }
     val bigTextFieldState1 by remember { mutableStateOf(BigTextFieldState(text, BigTextViewState())) }
     val bigTextFieldState2 by remember { mutableStateOf(BigTextFieldState(text, BigTextViewState())) }
     val scrollState = rememberScrollState()
 
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Text("Shared BigText State", fontSize = 16.sp)
+        Text("Shared BigText State and Incremental-offset Transformation", fontSize = 16.sp)
 
         Row(Modifier.fillMaxWidth()) {
             Box(Modifier.weight(1f)) {
