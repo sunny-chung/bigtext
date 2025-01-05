@@ -193,7 +193,7 @@ LaunchedEffect(Unit) {
 
 ### Transformation and More
 
-![Transformation Demo](doc/media/demo-transformation-phone-format.webm)
+https://github.com/user-attachments/assets/5733ccfc-8c4c-4678-a893-fa22994a1c7b
 
 ```kotlin
 /**
