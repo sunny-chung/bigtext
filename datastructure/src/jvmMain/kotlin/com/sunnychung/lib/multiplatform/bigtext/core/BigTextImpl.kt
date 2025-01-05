@@ -29,7 +29,7 @@ import kotlin.math.roundToLong
 
 val log = Logger(object : MutableLoggerConfig {
     override var logWriterList: List<LogWriter> = listOf(JvmLogger())
-    override var minSeverity: Severity = Severity.Info
+    override var minSeverity: Severity = Severity.Warn
 }, tag = "BigText")
 
 val logQ = Logger(object : MutableLoggerConfig {
