@@ -14,7 +14,6 @@ import com.sunnychung.lib.multiplatform.bigtext.util.CircularList
 import com.sunnychung.lib.multiplatform.bigtext.util.GeneralStringBuilder
 import com.sunnychung.lib.multiplatform.bigtext.util.JvmLogger
 import com.sunnychung.lib.multiplatform.bigtext.util.StringBuilder2
-import com.sunnychung.lib.multiplatform.bigtext.util.let
 import com.sunnychung.lib.multiplatform.kdatetime.KInstant
 import com.williamfiset.algorithms.datastructures.balancedtree.RedBlackTree
 import kotlinx.coroutines.Dispatchers
@@ -2420,10 +2419,4 @@ fun RedBlackTree<BigTextNodeValue>.Node.computeRenderLength(): Int {
 
 private enum class InsertDirection {
     Left, Right, Undefined
-}
-
-fun BigText.Companion.createFromLargeString(initialContent: String) = BigTextImpl().apply {
-    log.d { "createFromLargeString ${initialContent.length}" }
-    append(initialContent)
-    isUndoEnabled = true
 }
