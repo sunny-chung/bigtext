@@ -39,6 +39,7 @@ class BigTextViewState {
      * If a text is selected from position 5 to 1, transformedSelection = (1 .. 5) while transformedSelectionStart = 5.
      */
     var transformedSelectionStart: Int by mutableStateOf(0)
+        internal set
 
     var selection: IntRange by mutableStateOf(0..-1)
         internal set
@@ -243,7 +244,10 @@ class BigTextViewState {
         }
 
     var layoutResult: BigTextSimpleLayoutResult? = null
+        internal set
+
     var visibleSize: Size = Size(0, 0)
+        internal set
 
     var numOfComputationsInProgress by mutableStateOf(0)
         internal set
