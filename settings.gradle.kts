@@ -40,6 +40,7 @@ rootProject.name = "bigtext"
 include(":bigtext-datastructure")
 include(":bigtext-ui-composable")
 include(":demo-ui-composable")
+includeBuild("convention-plugins")
 
 project(":bigtext-datastructure").projectDir = File("$rootDir/datastructure")
 project(":bigtext-ui-composable").projectDir = File("$rootDir/ui-composable")

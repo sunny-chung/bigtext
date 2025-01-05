@@ -1,3 +1,8 @@
+### Custom ###
+/ignore
+/doc/output
+local.properties
+
 ### JVM ###
 *.hprof
 *.hprof.*

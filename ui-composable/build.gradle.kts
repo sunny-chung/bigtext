@@ -1,6 +1,7 @@
 plugins {
     kotlin("multiplatform")
     id("org.jetbrains.compose")
+    id("sunnychung.publication")
 }
 
 version = "2.0.0"

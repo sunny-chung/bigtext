@@ -3,4 +3,6 @@ plugins {
     id("org.jetbrains.compose") apply false
 }
 
-group = "io.github.sunny-chung"
+allprojects {
+    group = "io.github.sunny-chung"
+}
