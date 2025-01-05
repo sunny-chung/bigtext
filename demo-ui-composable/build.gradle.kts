@@ -7,8 +7,7 @@ plugins {
     id("org.jetbrains.compose")
 }
 
-group = "com.sunnychung.lib.multiplatform.bigtext"
-version = "1.0.0"
+version = "2.0.0"
 
 kotlin {
     jvm {
@@ -25,10 +24,10 @@ kotlin {
 //        nodejs()
 //    }
 
-    val appleTargets = listOf(
-        iosArm64(),
-        iosSimulatorArm64(),
-        iosX64(),
+//    val appleTargets = listOf(
+//        iosArm64(),
+//        iosSimulatorArm64(),
+//        iosX64(),
 //        watchosArm64(),
 //        watchosSimulatorArm64(),
 //        watchosX64(),
@@ -37,7 +36,7 @@ kotlin {
 //        tvosX64(),
 //        macosArm64(),
 //        macosX64()
-    )
+//    )
 
     sourceSets {
         commonMain {

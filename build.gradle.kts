@@ -3,4 +3,4 @@ plugins {
     id("org.jetbrains.compose") apply false
 }
 
-group = "com.sunnychung.lib.multiplatform.bigtext"
+group = "io.github.sunny-chung"
