@@ -66,7 +66,10 @@ class BigTextFieldState(val text: BigText, val viewState: BigTextViewState) {
 
     fun replaceTextAtCursor(newText: CharSequence, isSaveIntoUndoHistory: Boolean = true) {
         if (viewState.hasSelection()) {
-            text.delete(viewState.selection)
+            val selection = viewState.selection
+            text.delete(selection)
+            viewState.setSelection(EMPTY_SELECTION_RANGE)
+            viewState.setCursorIndex(selection.start)
         }
         if (newText.isNotEmpty()) {
             text.insertAt(viewState.cursorIndex, newText)

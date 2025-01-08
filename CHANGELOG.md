@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+UI
+- Crash when `BigTextFieldState.replaceTextAtCursor` is called with a selection.
+
+
+## UI [2.0.0], DS [2.0.0] - 2025-01-05
+
+### Breaking Change
+UI
+- BigTextManipulator and onTextManipulatorReady are removed. Replaced by BigText, BigTextFieldState and BigTextViewState.
+- Default cursor color has been changed
+
 ### New
 Common
 - Option to turn off soft wrap
