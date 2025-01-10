@@ -57,6 +57,7 @@ import androidx.compose.ui.input.pointer.PointerButton
 import androidx.compose.ui.input.pointer.PointerEvent
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.PointerIcon
+import androidx.compose.ui.input.pointer.isShiftPressed
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.LayoutCoordinates
@@ -67,6 +68,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFontFamilyResolver
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.LocalTextInputService
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.semantics.editableText
 import androidx.compose.ui.semantics.insertTextAtCursor
 import androidx.compose.ui.semantics.semantics
@@ -631,9 +633,9 @@ private fun CoreBigTextField(
         }
         delta
     }
+    val windowInfo = LocalWindowInfo.current
     var draggedPoint by remember { mutableStateOf<Offset>(Offset.Zero) }
     var selectionEnd by remember { mutableStateOf<Int>(-1) }
-    var isHoldingShiftKey by remember { mutableStateOf(false) }
     var isFocused by remember { mutableStateOf(false) }
 
     var isShowContextMenu by remember { mutableStateOf(false) }
@@ -1157,14 +1159,6 @@ private fun CoreBigTextField(
                 selectAll()
                 true
             }
-            it.type == KeyEventType.KeyDown && it.key in listOf(Key.ShiftLeft, Key.ShiftRight) -> {
-                isHoldingShiftKey = true
-                false
-            }
-            it.type == KeyEventType.KeyUp && it.key in listOf(Key.ShiftLeft, Key.ShiftRight) -> {
-                isHoldingShiftKey = false
-                false
-            }
             /* text input */
             isEditable && it.isTypedEvent -> {
                 log.v { "key type '${it.key}'" }
@@ -1463,6 +1457,7 @@ private fun CoreBigTextField(
                     onDragStart = {
                         log.v { "onDragStart ${it.x} ${it.y}" }
                         val transformedText = transformedTextRef.get() ?: return@onDrag
+                        val isHoldingShiftKey = windowInfo.keyboardModifiers.isShiftPressed
                         draggedPoint = it
                         if (!isHoldingShiftKey) {
                             val selectedCharIndex = getTransformedCharIndex(x = it.x, y = it.y, mode = ResolveCharPositionMode.Selection)
@@ -1529,6 +1524,7 @@ private fun CoreBigTextField(
                                 when (event.type) {
                                     PointerEventType.Press -> {
                                         val position = event.changes.first().position
+                                        val isHoldingShiftKey = windowInfo.keyboardModifiers.isShiftPressed
                                         log.v { "press ${position.x} ${position.y} shift=$isHoldingShiftKey" }
 
                                         if (event.button == PointerButton.Secondary) {

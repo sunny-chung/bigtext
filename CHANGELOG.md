@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Fixed
 UI
 - Crash when `BigTextFieldState.replaceTextAtCursor` is called with a selection.
+- Incorrect selection behavior if the "Shift" key was holding while the focus was going away
 
 
 ## UI [2.0.0], DS [2.0.0] - 2025-01-05
