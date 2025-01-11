@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalBigTextUiApi::class)
+
 package com.sunnychung.lib.multiplatform.bigtext.ux
 
 import androidx.compose.foundation.Canvas
@@ -90,6 +92,7 @@ import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import co.touchlab.kermit.Severity
+import com.sunnychung.lib.multiplatform.bigtext.annotation.ExperimentalBigTextUiApi
 import com.sunnychung.lib.multiplatform.bigtext.compose.ComposeUnicodeCharMeasurer
 import com.sunnychung.lib.multiplatform.bigtext.core.BigText
 import com.sunnychung.lib.multiplatform.bigtext.core.BigTextChangeCallback
@@ -300,8 +303,9 @@ fun BigTextField(
 )
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalComposeUiApi::class, ExperimentalCoroutinesApi::class)
+@ExperimentalBigTextUiApi
 @Composable
-private fun CoreBigTextField(
+fun CoreBigTextField(
     modifier: Modifier = Modifier,
     text: BigText,
     padding: PaddingValues = PaddingValues(4.dp),
