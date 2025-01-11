@@ -38,6 +38,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import com.sunnychung.lib.multiplatform.bigtext.extension.length
 import com.sunnychung.lib.multiplatform.bigtext.ux.BigTextField
+import com.sunnychung.lib.multiplatform.bigtext.ux.extra.PasswordIncrementalTransformation
 import com.sunnychung.lib.multiplatform.bigtext.ux.rememberConcurrentLargeAnnotatedBigTextFieldState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch

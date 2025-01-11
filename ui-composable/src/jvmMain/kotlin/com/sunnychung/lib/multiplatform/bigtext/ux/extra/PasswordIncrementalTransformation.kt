@@ -1,4 +1,4 @@
-package com.sunnychung.lib.multiplatform.bigtext.demo
+package com.sunnychung.lib.multiplatform.bigtext.ux.extra
 
 import com.sunnychung.lib.multiplatform.bigtext.core.BigText
 import com.sunnychung.lib.multiplatform.bigtext.core.BigTextChangeEvent
@@ -7,11 +7,13 @@ import com.sunnychung.lib.multiplatform.bigtext.core.transform.BigTextTransformO
 import com.sunnychung.lib.multiplatform.bigtext.core.transform.BigTextTransformer
 import com.sunnychung.lib.multiplatform.bigtext.core.transform.IncrementalTextTransformation
 
-class PasswordIncrementalTransformation : IncrementalTextTransformation<Unit> {
+class PasswordIncrementalTransformation(val mask: Char = '\u2022') : IncrementalTextTransformation<Unit> {
+    private val maskString = mask.toString()
+
     override fun initialize(text: BigText, transformer: BigTextTransformer) {
         if (text.isNotEmpty) {
             val length = text.length
-            transformer.replace(0 ..< length, "•".repeat(length), BigTextTransformOffsetMapping.Incremental)
+            transformer.replace(0 ..< length, maskString.repeat(length), BigTextTransformOffsetMapping.Incremental)
         }
     }
 
@@ -20,9 +22,22 @@ class PasswordIncrementalTransformation : IncrementalTextTransformation<Unit> {
             val length = change.changeEndExclusiveIndex - change.changeStartIndex
             transformer.replace(
                 range = change.changeStartIndex ..< change.changeEndExclusiveIndex,
-                text = "•".repeat(length),
+                text = maskString.repeat(length),
                 offsetMapping = BigTextTransformOffsetMapping.Incremental
             )
         }
+    }
+
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is PasswordIncrementalTransformation) return false
+
+        if (mask != other.mask) return false
+
+        return true
+    }
+
+    override fun hashCode(): Int {
+        return mask.hashCode() * 31 + 11
     }
 }
