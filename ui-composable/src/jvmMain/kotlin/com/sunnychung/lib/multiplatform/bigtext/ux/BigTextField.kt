@@ -14,10 +14,10 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.calculateEndPadding
 import androidx.compose.foundation.layout.calculateStartPadding
-import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredHeight
+import androidx.compose.foundation.layout.requiredHeightIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.isTypedEvent
 import androidx.compose.foundation.text.selection.LocalTextSelectionColors
@@ -1437,7 +1437,7 @@ private fun CoreBigTextField(
                 height = it.size.height
                 layoutCoordinates = it
                 viewState.visibleSize = Size(width = width, height = height)
-                log.v { "BigMonospaceText set width = $width" }
+                log.v { "BigMonospaceText set width = $width, height = $height" }
             }
             .clipToBounds()
             .padding(padding)
@@ -1658,6 +1658,15 @@ private fun CoreBigTextField(
                     insertTextAtCursor { false }
                 }
             }
+            .run { // sizing canvas
+                with(density) {
+                    if (isSingleLineInput) {
+                        requiredHeight(lineHeight.toDp())
+                    } else {
+                        requiredHeightIn(min = lineHeight.toDp())
+                    }
+                }
+            }
 
     ) {
         if (!isComponentReady) return@Box
@@ -1680,15 +1689,7 @@ private fun CoreBigTextField(
 
             val startInstant = KInstant.now()
 
-            Canvas(modifier = Modifier.fillMaxWidth().run {
-                if (isSingleLineInput) {
-                    with (density) {
-                        requiredHeight(lineHeight.toDp())
-                    }
-                } else {
-                    fillMaxHeight()
-                }
-            }) {
+            Canvas(modifier = Modifier.fillMaxSize()) {
                 val transformedText = transformedTextRef.get() ?: return@Canvas
 
                 (firstRowIndex..lastRowIndex).forEach { i ->
@@ -1708,6 +1709,7 @@ private fun CoreBigTextField(
 
 //                    log.v { "row #$i line #$lineIndex s=$rowStartIndex e=$rowEndIndex ls=$linePositionStartIndex ro=$rowPositionOffset" }
                     log.v { "row #$i line #$lineIndex s=$rowStartIndex e=$rowEndIndex" }
+                    log.v { "row #$i line #$lineIndex y=$yOffset viewportTop=$viewportTop lineHeight=$lineHeight" }
 
                     if (isSoftWrapEnabled) {
                         renderStartIndex = rowStartIndex
