@@ -156,7 +156,7 @@ fun BigTextLabel(
             DefaultBigTextFieldContextMenu(isVisible = isVisible, onDismiss = onDismiss, entries = entries, testTag = testTag)
         },
     isSelectable: Boolean = false,
-    isSoftWrapEnabled: Boolean = false,
+    isSoftWrapEnabled: Boolean = true,
     inputFilter: BigTextInputFilter? = null,
     textTransformation: IncrementalTextTransformation<*>? = null,
     textDecorator: BigTextDecorator? = null,

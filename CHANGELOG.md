@@ -10,12 +10,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 UI
 - Crash when `BigTextFieldState.replaceTextAtCursor` is called with a selection.
 - Incorrect selection behavior if the "Shift" key was holding while the focus was going away
+- For BigTextLabel, soft wrap should be on by default
 
 
 ## UI [2.0.0], DS [2.0.0] - 2025-01-05
 
 ### Breaking Change
 UI
+- BigMonospaceTextField is renamed to BigTextField, BigMonospaceText is renamed to BigTextLabel 
 - BigTextManipulator and onTextManipulatorReady are removed. Replaced by BigText, BigTextFieldState and BigTextViewState.
 - Default cursor color has been changed
 
