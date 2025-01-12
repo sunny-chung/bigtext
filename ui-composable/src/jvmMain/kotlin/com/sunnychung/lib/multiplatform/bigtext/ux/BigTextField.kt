@@ -355,6 +355,7 @@ fun CoreBigTextField(
     val coroutineScope = rememberCoroutineScope()
     val focusRequester = remember { FocusRequester() }
     val textMeasurer = rememberTextMeasurer(0)
+    var lineHeight by remember { mutableStateOf(0f) }
     val textLayouter = remember(density, fontFamilyResolver, textStyle, textMeasurer) {
         log.d { "Recreate layouter" }
         MonospaceTextLayouter(
@@ -369,7 +370,9 @@ fun CoreBigTextField(
                 style = textStyle,
 //                density, fontFamilyResolver
             )
-        )
+        ).also {
+            lineHeight = (it.charMeasurer as ComposeUnicodeCharMeasurer).getRowHeight()
+        }
     }
     // if the value of `viewState.isLayoutDisabled` is changed, trigger a recomposition
     viewState.isLayoutDisabledFlow.collectAsState(initial = false).value
@@ -388,7 +391,6 @@ fun CoreBigTextField(
             (padding.calculateStartPadding(LayoutDirection.Ltr) + padding.calculateEndPadding(LayoutDirection.Ltr)).toPx()
         }
     }
-    var lineHeight by remember { mutableStateOf(0f) }
     var layoutResult by remember(textLayouter, width) { mutableStateOf<BigTextSimpleLayoutResult?>(null) }
     var numOfComputationsInProgress by remember { mutableStateOf(0) }
     var isTransformedStateReady by remember(weakRefOf(text), textTransformation) {
