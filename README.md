@@ -224,7 +224,7 @@ BigTextField(
     textTransformation = remember { PhoneNumberIncrementalTransformation() }, // `remember` is needed to avoid recomputation!
     isSingleLineInput = true,
     maxInputLength = 3 + 4 + 4,
-    inputFilter = remember { it.replace("[^0-9]".toRegex(), "") },
+    inputFilter = remember { { it.replace("[^0-9]".toRegex(), "") } },
     // ...
 )
 ```
@@ -245,7 +245,7 @@ The time complexity of implementations of the following functions should be sign
 - `BigTextDecorator.onApplyDecorationOnOriginal`
 - `BigTextDecorator.onApplyDecorationOnTransformation`
 
-Decorator allows large amount of changing dense styles that do not change the text layout. It is especially designed for syntax highlighting. Different from incremental transformation, decorator transforms styles just before they are rendered, only transforms text that within the viewport, and the transformation result is not persisted.
+Decorator allows large amount of changing dense styles that do not change the text layout or character width. It is especially designed for syntax highlighting. Different from incremental transformation, decorator transforms styles just before they are rendered, only transforms text that within the viewport, and the transformation result is not persisted.
 
 See [GraphqlSyntaxHighlightDecorator](https://www.github.com/sunny-chung/hello-http/tree/main/src/jvmMain/kotlin/com/sunnychung/application/multiplatform/hellohttp/ux/transformation/incremental/GraphqlSyntaxHighlightDecorator.kt) is an example to use an incremental parser to handle input events, and use `BigTextDecorator` to apply syntax highlighting styles.
 
@@ -308,6 +308,55 @@ fun onPressEnterAddIndent(textState: BigTextFieldState) {
     textState.replaceTextAtCursor(newSpaces)
 }
 ```
+
+### Keep Using String for Compatibility
+
+If you don't need to deal with big text and want to keep using String, you must use a unique cache key for each content with BigTextField. For example:
+
+```kotlin
+@Composable
+fun MyTextField(initialValue: String, onValueChange: (String) -> Unit, recordType: RecordType, recordId: Long) {
+    val textState by rememberConcurrentLargeAnnotatedBigTextFieldState(initialValue, recordType, recordId /*, any other cache keys*/)
+
+    BigTextField(
+        textFieldState = textState,
+        onTextChange = {
+            onValueChange(it.bigText.buildString())
+        },
+        // ...
+    )
+}
+```
+
+The initialValue is used only in the first recomposition where cache keys are changed. It is then ignored until cache keys change.
+
+
+## FAQ
+
+Q: Can it be used for general-purpose small text?
+
+A: Sure, and use small or tiny text buffer to save memory.
+
+```kotlin
+val textState = rememberSaveable(cacheKeys) {
+    mutableStateOf(
+        BigTextFieldState(
+            createFromTinyAnnotatedString(AnnotatedString(initialValue)),
+            BigTextViewState()
+        )
+    )
+}
+```
+
+
+Q: My text is small, and my application use String everywhere. Can BigTextField be used with String instead of BigText?
+
+A: Yes. Refer to [Keep Using String for Compatibility](#keep-using-string-for-compatibility).
+
+
+Q: The cursor goes into middle of a character when multiple fonts are used for the same text field! Is it a bug?
+
+A: Only text value and text transformation support multiple fonts, not decorators. If it is a must to use decorator, use together with transformation -- transform it to a desired font first, then decorate it.
 
 
 ## More References
