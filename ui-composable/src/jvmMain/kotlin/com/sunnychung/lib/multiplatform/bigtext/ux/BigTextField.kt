@@ -16,10 +16,9 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.calculateEndPadding
 import androidx.compose.foundation.layout.calculateStartPadding
-import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredHeight
-import androidx.compose.foundation.layout.requiredHeightIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.isTypedEvent
 import androidx.compose.foundation.text.selection.LocalTextSelectionColors
@@ -121,6 +120,7 @@ import com.sunnychung.lib.multiplatform.bigtext.util.debouncedStateOf
 import com.sunnychung.lib.multiplatform.bigtext.util.isSurrogatePairFirst
 import com.sunnychung.lib.multiplatform.bigtext.util.string
 import com.sunnychung.lib.multiplatform.bigtext.util.weakRefOf
+import com.sunnychung.lib.multiplatform.bigtext.ux.compose.forceHeightAtLeast
 import com.sunnychung.lib.multiplatform.bigtext.ux.compose.rememberLast
 import com.sunnychung.lib.multiplatform.kdatetime.KInstant
 import com.sunnychung.lib.multiplatform.kdatetime.extension.milliseconds
@@ -1668,9 +1668,11 @@ fun CoreBigTextField(
                 with(density) {
                     if (isSingleLineInput) {
                         requiredHeight(lineHeight.toDp())
+                            .forceHeightAtLeast(minHeight = lineHeight.roundToInt())
                     } else {
-                        requiredHeightIn(min = lineHeight.toDp())
+                        forceHeightAtLeast(minHeight = lineHeight.roundToInt())
                     }
+                        .defaultMinSize(minWidth = 100.dp)
                 }
             }
 
@@ -1695,8 +1697,11 @@ fun CoreBigTextField(
 
             val startInstant = KInstant.now()
 
-            Canvas(modifier = Modifier.fillMaxSize()) {
-                val transformedText = transformedTextRef.get() ?: return@Canvas
+            Canvas(modifier = Modifier.matchParentSize()) {
+                val transformedText = transformedTextRef.get() ?: run {
+                    log.v { "tf without transformedTextRef return canvas" }
+                    return@Canvas
+                }
 
                 (firstRowIndex..lastRowIndex).forEach { i ->
                     val lineIndex = transformedText.findOriginalLineIndexByRowIndex(i)
