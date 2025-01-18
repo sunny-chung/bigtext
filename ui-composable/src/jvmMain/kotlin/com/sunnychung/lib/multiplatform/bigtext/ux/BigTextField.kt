@@ -335,6 +335,7 @@ fun CoreBigTextField(
     onTextLayout: ((BigTextSimpleLayoutResult) -> Unit)? = null,
     onHeavyComputation: suspend (computation: suspend () -> Unit) -> Unit = { it() },
     onTransformInit: ((BigTextTransformed) -> Unit)? = null,
+    onFinishInit: () -> Unit = {},
 ) {
     log.d { "CoreBigMonospaceText recompose" }
 
@@ -401,10 +402,26 @@ fun CoreBigTextField(
     val isComponentReady = fun(): Boolean {
         return numOfComputationsInProgress <= 0 && isTransformedStateReady && contentWidth > 0
     }
+    val onFinishInitRef by rememberUpdatedState(weakRefOf(onFinishInit))
+    var hasCalledFinishInit by remember(weakRefOf(text)) { mutableStateOf(false) }
     var forceRecompose by remember { mutableStateOf(0L) }
     forceRecompose
 
     viewState.version // observe value changes
+
+    fun callFinishInitIfReady() {
+        if (isComponentReady() && !hasCalledFinishInit) {
+            coroutineScope.launch { // defer execution to make "requestFocus" working
+                if (isComponentReady() && !hasCalledFinishInit) {
+                    log.d { "Calling finish init" }
+                    onFinishInitRef.get()?.invoke()
+                    hasCalledFinishInit = true
+                }
+            }
+        }
+    }
+
+    callFinishInitIfReady()
 
     fun heavyCompute(computation: suspend () -> Unit) {
         ++numOfComputationsInProgress

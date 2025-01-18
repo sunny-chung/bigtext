@@ -60,7 +60,7 @@ Memory usage complexity: O(BigText buffer size) + O(transformed buffer size) + O
 - Multiple line heights are not yet supported. All the rows are assumed to have same height as the given text style.
 - Emoji modifiers and sequences are not yet supported (Contribution is welcome!)
 - Breaking by word in soft wrap according to Unicode algorithm are not yet available (Contribution is welcome!)
-- `requestFocus` does not work properly
+- `requestFocus` does not work properly (see [workaround](#requesting-focus-a-temporary-workaround-available-since-v201))
 - Styles (e.g. underline) on space characters do not work properly
 - Following parameters in Jetpack Compose BasicTextField/BasicText have no equivalent in this library or easy workaround:
   - Text directions
@@ -329,6 +329,21 @@ fun MyTextField(initialValue: String, onValueChange: (String) -> Unit, recordTyp
 ```
 
 The initialValue is used only in the first recomposition where cache keys are changed. It is then ignored until cache keys change.
+
+### Requesting focus (a temporary workaround available since v2.0.1)
+
+To request focus before BigTextField is ready,
+
+```kotlin
+val focusRequester = remember { FocusRequester() }
+
+CoreBigTextField(
+    // ...
+    onFinishInit = { focusRequester.requestFocus() }
+)
+```
+
+If `requestFocus()` is invoked after BigTextField is ready, it would work without this workaround.
 
 
 ## FAQ
