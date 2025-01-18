@@ -109,7 +109,13 @@ class BigTextViewState {
     }
 
     fun setSelection(range: IntRange) {
-        val transformedText = transformedText?.get() ?: return
+        val transformedText = transformedText?.get() ?: run {
+            // if transformedText is not available, set the selection without checking the upper bound
+            require(range.start >= 0) { "Range start ${range.start} is invalid" }
+            require(range.endInclusive + 1 >= 0) { "Range end ${range.endInclusive} is invalid" }
+            selection = range
+            return
+        }
         val text = transformedText.originalText
         require(range.start in 0 .. text.length) { "Range start ${range.start} is out of range. Text length: ${text.length}" }
         require(range.endInclusive + 1 in 0 .. text.length) { "Range end ${range.endInclusive} is out of range. Text length: ${text.length}" }
@@ -231,7 +237,13 @@ class BigTextViewState {
     }
 
     var transformedText: WeakRefKey<BigTextTransformed>? = null
-        internal set
+        internal set(value) {
+            field = value
+
+            val transformedText = value?.get() ?: return
+            updateTransformedCursorIndexByOriginal(transformedText)
+            updateTransformedSelectionBySelection(transformedText)
+        }
 
     private val isLayoutDisabledMutableStateFlow = MutableStateFlow(false)
 
