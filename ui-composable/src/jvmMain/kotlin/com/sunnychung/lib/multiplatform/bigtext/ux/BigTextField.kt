@@ -1698,10 +1698,10 @@ fun CoreBigTextField(
                 with(density) {
                     if (isSingleLineInput) {
                         requiredHeight(lineHeight.toDp())
-                            .forceHeightAtLeast(minHeight = lineHeight.roundToInt())
                     } else {
-                        forceHeightAtLeast(minHeight = lineHeight.roundToInt())
+                        this@run
                     }
+                        .forceHeightAtLeast(minHeight = lineHeight.roundToInt())
                         .defaultMinSize(minWidth = 100.dp)
                 }
             }

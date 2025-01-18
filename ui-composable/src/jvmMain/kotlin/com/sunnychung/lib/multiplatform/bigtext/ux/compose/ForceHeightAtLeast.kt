@@ -7,11 +7,11 @@ import androidx.compose.ui.unit.Constraints
 fun Modifier.forceHeightAtLeast(minHeight: Int): Modifier = this.layout { measurable, constraints ->
     val minWidth = constraints.minWidth
     val maxWidth = constraints.maxWidth
-    val minHeight = constraints.minHeight.coerceAtLeast(minHeight)
-    val maxHeight = constraints.maxHeight.coerceAtLeast(minHeight)
-    val placeable = measurable.measure(Constraints(minWidth, maxWidth, minHeight, maxHeight))
-//    println("M minHeight=$minHeight maxHeight=$maxHeight measured=${placeable.width}*${placeable.height}, ${placeable.measuredWidth}*${placeable.measuredHeight}")
-    layout(placeable.width, placeable.height) {
+    val minCHeight = constraints.minHeight.coerceAtLeast(minHeight)
+    val maxCHeight = constraints.maxHeight.coerceAtLeast(minHeight).coerceAtLeast(minCHeight)
+    val placeable = measurable.measure(Constraints(minWidth, maxWidth, minCHeight, maxCHeight))
+//    println("M minHeight=$minCHeight maxHeight=$maxCHeight measured=${placeable.width}*${placeable.height}, ${placeable.measuredWidth}*${placeable.measuredHeight}")
+    layout(placeable.width, placeable.height.coerceAtLeast(minCHeight)) {
         placeable.place(0, 0)
     }
 }
