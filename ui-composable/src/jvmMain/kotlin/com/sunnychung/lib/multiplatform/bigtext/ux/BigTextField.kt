@@ -397,7 +397,10 @@ fun CoreBigTextField(
     var isTransformedStateReady by remember(weakRefOf(text), textTransformation) {
         mutableStateOf(false)
     }
-    val isComponentReady = numOfComputationsInProgress <= 0 && isTransformedStateReady
+    // isComponentReady is a function, because its dependent variable can change within a recomposition
+    val isComponentReady = fun(): Boolean {
+        return numOfComputationsInProgress <= 0 && isTransformedStateReady && contentWidth > 0
+    }
     var forceRecompose by remember { mutableStateOf(0L) }
     forceRecompose
 
@@ -520,7 +523,7 @@ fun CoreBigTextField(
         }
     }
 
-    if (isComponentReady) {
+    if (isComponentReady()) {
         rememberLast(height, transformedText.numOfRows, lineHeight) {
             scrollState::class.declaredMemberProperties.first { it.name == "maxValue" }
                 .apply {
@@ -717,8 +720,9 @@ fun CoreBigTextField(
         )
     }
 
-    fun scrollToCursor() = with(density) {
-        val transformedText = transformedTextRef.get() ?: return
+    fun scrollToCursor(): Boolean = with(density) {
+        if (!isComponentReady()) return false
+        val transformedText = transformedTextRef.get() ?: return false
         val row = transformedText.findRowIndexByPosition(viewState.transformedCursorIndex)
 
         if (!isSoftWrapEnabled) {
@@ -743,7 +747,7 @@ fun CoreBigTextField(
             }
         }
 
-        val layoutResult = layoutResult ?: return
+        val layoutResult = layoutResult ?: return false
 
         // scroll to cursor position if out of visible range
         val visibleVerticalRange = scrollState.value .. scrollState.value + height
@@ -759,6 +763,8 @@ fun CoreBigTextField(
                 scrollState.animateScrollTo(scrollToPosition)
             }
         }
+
+        true
     }
 
     fun recordCursorXPosition() {
@@ -1415,9 +1421,10 @@ fun CoreBigTextField(
     }
     
     if (viewState.isScrollToCursorNeeded) {
-        scrollToCursor()
-        showCursor()
-        viewState.isScrollToCursorNeeded = false
+        if (scrollToCursor()) {
+            showCursor()
+            viewState.isScrollToCursorNeeded = false
+        }
     }
 
     val tv = remember { TextFieldValue() } // this value is not used
@@ -1453,17 +1460,17 @@ fun CoreBigTextField(
             }
             .clipToBounds()
             .padding(padding)
-            .runIf(isComponentReady) {
+            .runIf(isComponentReady()) {
                 scrollable(scrollableState, orientation = Orientation.Vertical)
                     .runIf(!isSoftWrapEnabled) {
                         scrollable(horizontalScrollState, orientation = Orientation.Horizontal, reverseDirection = true)
                     }
             }
             .focusRequester(focusRequester)
-            .runIf(isComponentReady && isSelectable) {
+            .runIf(isComponentReady() && isSelectable) {
                 pointerHoverIcon(PointerIcon.Text)
             }
-            .runIf(isComponentReady) {
+            .runIf(isComponentReady()) {
                 onDrag(
                     enabled = isSelectable,
                     onDragStart = {
@@ -1648,7 +1655,7 @@ fun CoreBigTextField(
                     }
             }
 //            .then(BigTextInputModifierElement(1))
-            .focusable(isComponentReady && isSelectable) // `focusable` should be after callback modifiers that use focus
+            .focusable(isComponentReady() && isSelectable) // `focusable` should be after callback modifiers that use focus
             .semantics {
                 log.w { "semantic lambda" }
                 val text = textRef.get() ?: return@semantics
@@ -1683,9 +1690,15 @@ fun CoreBigTextField(
             }
 
     ) {
-        if (!isComponentReady) return@Box
+        if (!isComponentReady()) {
+            log.v { "tf isComponentReady=false '${text.buildString().abbr()}' return box" }
+            return@Box
+        }
 
-        val transformedText = transformedTextRef.get() ?: return@Box
+        val transformedText = transformedTextRef.get() ?: run {
+            log.v { "tf without transformedTextRef return box" }
+            return@Box
+        }
         val viewportBottom = viewportTop + height
         if (lineHeight > 0 && transformedText.hasLayouted) {
 
@@ -1891,6 +1904,8 @@ fun CoreBigTextField(
 
             val endInstant = KInstant.now()
             log.d { "Declare BigText content for render took ${endInstant - startInstant}" }
+        } else {
+            log.v { "tf else lineHeight=$lineHeight && transformedText.hasLayouted=${transformedText.hasLayouted}" }
         }
 
         if (isSelectable) {
