@@ -32,6 +32,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
@@ -440,7 +441,12 @@ fun CoreBigTextField(
 
     val textRef = weakRefOf(text)
     val transformedTextRef = weakRefOf(transformedText)
-    val onTextChangeRef = weakRefOf(onTextChange)
+//    val onTextChangeRef = weakRefOf(onTextChange)
+//    val onTextChangeUpdated = rememberUpdatedState(onTextChange)
+//    val onTextChangeRef = remember(weakRefOf(onTextChangeUpdated)) {
+//        LazyDelegate { onTextChangeUpdated }
+//    }
+    val onTextChangeRef by rememberUpdatedState(weakRefOf(onTextChange))
 
 //    log.v { "text = |${text.buildString()}|" }
 //    log.v { "transformedText = |${transformedText.buildString()}|" }
