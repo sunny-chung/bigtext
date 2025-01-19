@@ -12,6 +12,7 @@ import androidx.compose.foundation.gestures.onDrag
 import androidx.compose.foundation.gestures.rememberScrollableState
 import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.gestures.scrollable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.calculateEndPadding
@@ -330,6 +331,7 @@ fun CoreBigTextField(
     scrollState: ScrollState = rememberScrollState(),
     horizontalScrollState: ScrollState = rememberScrollState(),
     viewState: BigTextViewState = remember(weakRefOf(text)) { BigTextViewState() },
+//    interactionSource: MutableInteractionSource = remember(weakRefOf(text)) { MutableInteractionSource() },
     keyboardInputProcessor: BigTextKeyboardInputProcessor? = null,
     onPointerEvent: ((event: PointerEvent, tag: String?) -> Unit)? = null,
     onTextLayout: ((BigTextSimpleLayoutResult) -> Unit)? = null,
@@ -1672,7 +1674,8 @@ fun CoreBigTextField(
                     }
             }
 //            .then(BigTextInputModifierElement(1))
-            .focusable(isComponentReady() && isSelectable) // `focusable` should be after callback modifiers that use focus
+            // focusable cannot be always true, otherwise it would crash due to this bug: https://issuetracker.google.com/issues/274655703
+            .focusable(isComponentReady() && isSelectable) // `focusable` should be after callback modifiers that use focus (https://issuetracker.google.com/issues/186567354)
             .semantics {
                 log.w { "semantic lambda" }
                 val text = textRef.get() ?: return@semantics
