@@ -5,6 +5,7 @@ package com.sunnychung.lib.multiplatform.bigtext.ux
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.ScrollState
+import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -64,6 +65,7 @@ import androidx.compose.ui.input.pointer.isShiftPressed
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalClipboardManager
@@ -87,6 +89,7 @@ import androidx.compose.ui.text.input.SetComposingTextCommand
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.input.TextInputSession
 import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.TextUnit
@@ -1697,16 +1700,62 @@ fun CoreBigTextField(
                     insertTextAtCursor { false }
                 }
             }
+//            .background(Color.Red)
             .run { // sizing canvas
-                with(density) {
-                    if (isSingleLineInput) {
-                        requiredHeight(lineHeight.toDp())
-                    } else {
-                        this@run
-                    }
-                        .forceHeightAtLeast(minHeight = lineHeight.roundToInt())
-                        .defaultMinSize(minWidth = 100.dp)
+//                with(density) {
+//                    if (isSingleLineInput) {
+//                        requiredHeight(lineHeight.toDp())
+//                    } else {
+//                        this@run
+//                    }
+//                        .forceHeightAtLeast(minHeight = lineHeight.roundToInt())
+//                        .defaultMinSize(minWidth = 100.dp)
+//                }
+
+                val minWidthIfUnbounded = with(density) {
+                    100.dp.roundToPx()
                 }
+
+                defaultMinSize(minWidth = 100.dp)
+                    .layout { measurable, constraints ->
+                        val lineHeightInt = lineHeight.roundToInt()
+                        var minH = constraints.minHeight
+                        var maxH = constraints.maxHeight
+                        var minW = constraints.minWidth
+                        var maxW = constraints.maxWidth
+                        if (isSingleLineInput) {
+                            minH = lineHeightInt
+                            maxH = lineHeightInt
+                        } else if (constraints.hasBoundedHeight) {
+                            maxH = maxH.coerceAtLeast(lineHeightInt)
+                            minH = maxH
+                        } else { // unbounded
+                            val transformedText = transformedTextRef.get()
+                            if (transformedText == null) {
+                                maxH = lineHeightInt
+                            } else {
+                                maxH = (transformedText.numOfRows * lineHeight).toInt().coerceAtLeast(lineHeightInt)
+                            }
+                            minH = maxH
+                        }
+                        if (!constraints.hasBoundedWidth) {
+                            maxW = (transformedText.maxLineWidth.toFloat() / transformedText.widthMultiplier).roundToInt()
+                                .coerceAtLeast(minWidthIfUnbounded)
+                            minW = maxW
+                        } else if (minW == 0) { // unspecified
+//                            maxW = minWidthIfUnbounded
+                        } else {
+//                            minW = maxW
+                        }
+                        val placeable = measurable.measure(Constraints(
+                            minWidth = minW, maxWidth = maxW, minHeight = minH, maxHeight = maxH
+                        ))
+//                        println("tf measure box cw=$minW..$maxW ch=$minH..$maxH => ${placeable.width} * ${placeable.height}")
+                        layout(placeable.width.coerceIn(minW, maxW), placeable.height.coerceIn(minH, maxH)) {
+                            placeable.place(0, 0)
+                        }
+                    }
+//                    .background(Color.Blue)
             }
 
     ) {
