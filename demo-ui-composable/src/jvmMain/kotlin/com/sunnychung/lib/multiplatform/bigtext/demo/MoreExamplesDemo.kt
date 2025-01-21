@@ -14,10 +14,12 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.rememberScrollbarAdapter
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -47,9 +49,15 @@ import com.sunnychung.lib.multiplatform.bigtext.ux.rememberConcurrentLargeAnnota
 
 @Composable
 fun MoreExamplesDemoView() {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+    ) {
         SingleLineDemoView()
         MouseHoverAnnotatedTextDemo()
+        GrowingTextFieldDemo()
         SharedStateDemoView()
     }
 }
@@ -163,6 +171,30 @@ private fun MouseHoverAnnotatedTextDemo() {
 }
 
 @Composable
+private fun GrowingTextFieldDemo() {
+    Column(
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Text("Growing Text Field", fontSize = 16.sp)
+
+        val bigTextFieldState by rememberConcurrentLargeAnnotatedBigTextFieldState("Type something")
+
+        BigTextField(
+            text = bigTextFieldState.text,
+            viewState = bigTextFieldState.viewState,
+            fontFamily = FontFamily.SansSerif,
+            onTextChange = {},
+            isSoftWrapEnabled = false,
+            cursorColor = Color(22, 40, 29),
+            modifier = Modifier
+                .fillMaxWidth()
+                .border(1.dp, Color(22, 40, 29), RoundedCornerShape(6.dp))
+        )
+    }
+}
+
+@Composable
 private fun SharedStateDemoView() {
     val text = remember { ConcurrentBigText(BigText.createFromLargeAnnotatedString(AnnotatedString("Top Content\n\n# Section Header 1\n\nContent 1.1\n`Content 1.2`\nContent 1.3\n\n# Section Header 2\n\nCon*tent* 2.1\n_Conten_t 2.2\n\n# Section Header 3\n\n~Content 3.1~\nContent 3.2\nContent 3.3\nContent 3.4\nContent 3.5\nContent 3.6\n"))) }
     val bigTextFieldState1 by remember { mutableStateOf(BigTextFieldState(text, BigTextViewState())) }
@@ -172,7 +204,7 @@ private fun SharedStateDemoView() {
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Text("Shared BigText State and Incremental-offset Transformation", fontSize = 16.sp)
 
-        Row(Modifier.fillMaxWidth()) {
+        Row(Modifier.fillMaxWidth().height(300.dp)) {
             Box(Modifier.weight(1f)) {
                 BigTextField(
                     textFieldState = bigTextFieldState1,
