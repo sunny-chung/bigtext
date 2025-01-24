@@ -5,7 +5,6 @@ package com.sunnychung.lib.multiplatform.bigtext.ux
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.ScrollState
-import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -13,14 +12,12 @@ import androidx.compose.foundation.gestures.onDrag
 import androidx.compose.foundation.gestures.rememberScrollableState
 import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.gestures.scrollable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.calculateEndPadding
 import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.requiredHeight
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.isTypedEvent
 import androidx.compose.foundation.text.selection.LocalTextSelectionColors
@@ -125,7 +122,6 @@ import com.sunnychung.lib.multiplatform.bigtext.util.debouncedStateOf
 import com.sunnychung.lib.multiplatform.bigtext.util.isSurrogatePairFirst
 import com.sunnychung.lib.multiplatform.bigtext.util.string
 import com.sunnychung.lib.multiplatform.bigtext.util.weakRefOf
-import com.sunnychung.lib.multiplatform.bigtext.ux.compose.forceHeightAtLeast
 import com.sunnychung.lib.multiplatform.bigtext.ux.compose.rememberLast
 import com.sunnychung.lib.multiplatform.kdatetime.KInstant
 import com.sunnychung.lib.multiplatform.kdatetime.extension.milliseconds
@@ -677,14 +673,21 @@ fun CoreBigTextField(
         delta
     }
     val windowInfo = LocalWindowInfo.current
+    var dragStartViewportTop by remember { mutableStateOf(0f) }
+    var dragStartViewportLeft by remember { mutableStateOf(0f) }
+    var dragStartPoint by remember { mutableStateOf<Offset>(Offset.Zero) }
     var draggedPoint by remember { mutableStateOf<Offset>(Offset.Zero) }
+    var draggedPointAccumulated by remember { mutableStateOf<Offset>(Offset.Zero) }
+    var dragOffset by remember { mutableStateOf<Offset>(Offset.Zero) }
+    var continuousDragOffset by remember { mutableStateOf<Offset>(Offset.Zero) }
+    var continuousDragLastMoveTime by remember { mutableStateOf(KInstant.now()) }
     var selectionEnd by remember { mutableStateOf<Int>(-1) }
     var isFocused by remember { mutableStateOf(false) }
 
     var isShowContextMenu by remember { mutableStateOf(false) }
 
-    val viewportTop = scrollState.value.toFloat()
-    val viewportLeft = if (isSoftWrapEnabled) 0f else horizontalScrollState.value.toFloat()
+    val viewportTop by rememberUpdatedState(scrollState.value.toFloat())
+    val viewportLeft by rememberUpdatedState(if (isSoftWrapEnabled) 0f else horizontalScrollState.value.toFloat())
 
     fun getTransformedCharIndex(x: Float, y: Float, mode: ResolveCharPositionMode): Int {
         val transformedText = transformedTextRef.get() ?: return 0
@@ -1421,6 +1424,41 @@ fun CoreBigTextField(
         return result
     }
 
+    fun onDragSelectAndScroll() {
+        val transformedText = transformedTextRef.get() ?: return
+        if (transformedText.isEmpty) {
+            viewState.transformedSelection = IntRange.EMPTY
+            viewState.selection = EMPTY_SELECTION_RANGE
+            viewState.transformedCursorIndex = 0
+            viewState.cursorIndex = 0
+            return
+        }
+        val selectionStart = viewState.transformedSelectionStart
+        val selectedCharIndex = getTransformedCharIndex(
+            x = draggedPointAccumulated.x + 0f * (dragStartViewportLeft - viewportLeft),
+            y = draggedPointAccumulated.y + 0f * (dragStartViewportTop - viewportTop),
+            mode = ResolveCharPositionMode.Selection
+        )
+            .let {
+                if (it >= selectionStart) {
+                    viewState.roundedTransformedCursorIndex(it, CursorAdjustDirection.Forward, transformedText, it, true)
+                } else {
+                    viewState.roundedTransformedCursorIndex(it, CursorAdjustDirection.Backward, transformedText, it, true)
+                }
+            }
+        selectionEnd = selectedCharIndex
+        viewState.transformedSelection = minOf(selectionStart, selectionEnd) until maxOf(selectionStart, selectionEnd)
+        log.d { "t sel = ${viewState.transformedSelection}" }
+        viewState.updateSelectionByTransformedSelection(transformedText)
+        viewState.transformedCursorIndex = minOf(
+            transformedText.length,
+            selectionEnd + if (selectionEnd == viewState.transformedSelection.last) 1 else 0
+        )
+        viewState.updateCursorIndexByTransformed(transformedText)
+        recordCursorXPosition()
+        scrollToCursor()
+    }
+
     var textManipulateListener by remember { mutableStateOf<BigTextChangeCallback?>(null) }
 
     remember(weakRefOf(text)) {
@@ -1508,6 +1546,10 @@ fun CoreBigTextField(
                         val transformedText = transformedTextRef.get() ?: return@onDrag
                         val isHoldingShiftKey = windowInfo.keyboardModifiers.isShiftPressed
                         draggedPoint = it
+                        draggedPointAccumulated = it
+                        dragStartPoint = it
+                        dragStartViewportTop = viewportTop
+                        dragStartViewportLeft = viewportLeft
                         if (!isHoldingShiftKey) {
                             val selectedCharIndex = getTransformedCharIndex(x = it.x, y = it.y, mode = ResolveCharPositionMode.Selection)
                                 .let {
@@ -1524,34 +1566,22 @@ fun CoreBigTextField(
                     },
                     onDrag = { // onDragStart happens before onDrag
                         log.v { "onDrag ${it.x} ${it.y}" }
-                        val transformedText = transformedTextRef.get() ?: return@onDrag
                         draggedPoint += it
-                        if (transformedText.isEmpty) {
-                            viewState.transformedSelection = IntRange.EMPTY
-                            viewState.selection = EMPTY_SELECTION_RANGE
-                            viewState.transformedCursorIndex = 0
-                            viewState.cursorIndex = 0
-                            return@onDrag
-                        }
-                        val selectionStart = viewState.transformedSelectionStart
-                        val selectedCharIndex = getTransformedCharIndex(x = draggedPoint.x, y = draggedPoint.y, mode = ResolveCharPositionMode.Selection)
-                            .let {
-                                if (it >= selectionStart) {
-                                    viewState.roundedTransformedCursorIndex(it, CursorAdjustDirection.Forward, transformedText, it, true)
-                                } else {
-                                    viewState.roundedTransformedCursorIndex(it, CursorAdjustDirection.Backward, transformedText, it, true)
-                                }
-                            }
-                        selectionEnd = selectedCharIndex
-                        viewState.transformedSelection = minOf(selectionStart, selectionEnd) until maxOf(selectionStart, selectionEnd)
-                        log.d { "t sel = ${viewState.transformedSelection}" }
-                        viewState.updateSelectionByTransformedSelection(transformedText)
-                        viewState.transformedCursorIndex = minOf(
-                            transformedText.length,
-                            selectionEnd + if (selectionEnd == viewState.transformedSelection.last) 1 else 0
-                        )
-                        viewState.updateCursorIndexByTransformed(transformedText)
-                        recordCursorXPosition()
+                        draggedPointAccumulated += it
+                        log.v { "onDrag ${it.x}, ${it.y} -- ${draggedPoint.x}, ${draggedPoint.y} -- ${draggedPointAccumulated.x} ${draggedPointAccumulated.y}" }
+                        continuousDragOffset = (draggedPoint - dragStartPoint) //* 0.25f
+                        continuousDragLastMoveTime = KInstant.now()
+                        onDragSelectAndScroll()
+                    },
+                    onDragEnd = {
+                        println("onDragEnd")
+                        dragOffset = Offset.Zero
+                        dragStartPoint = Offset.Zero
+                        continuousDragOffset = Offset.Zero
+                        draggedPointAccumulated = Offset.Zero
+                    },
+                    onDragCancel = {
+                        println("onDragCancel")
                     }
                 )
                     .pointerInput(isEditable, isSelectable, weakRefOf(text), transformedText.hasLayouted, weakRefOf(viewState), viewportTop, viewportLeft, lineHeight, contentWidth, transformedText.length, transformedText.hashCode(), onPointerEvent) {
@@ -2027,6 +2057,33 @@ fun CoreBigTextField(
         cursorShowTrigger.send(Unit) // activate the flow
     }
 
+    LaunchedEffect(transformedTextRef, continuousDragOffset.x * continuousDragOffset.y != 0f) {
+//        return@LaunchedEffect
+        if (continuousDragOffset.x != 0f || continuousDragOffset.y != 0f) {
+            while (coroutineContext.isActive) {
+                if ((continuousDragOffset.x != 0f || continuousDragOffset.y != 0f) && (KInstant.now() - continuousDragLastMoveTime) >= 300.milliseconds()) {
+                    val it = continuousDragOffset
+                    log.v { "cont drag ${it.x} ${it.y} -- ${draggedPointAccumulated.x} ${draggedPointAccumulated.y}" }
+                    val transformedText = transformedTextRef.get() ?: return@LaunchedEffect
+                    if (transformedText.isEmpty) {
+                        viewState.transformedSelection = IntRange.EMPTY
+                        viewState.selection = EMPTY_SELECTION_RANGE
+                        viewState.transformedCursorIndex = 0
+                        viewState.cursorIndex = 0
+                        return@LaunchedEffect
+                    }
+//                    draggedPointAccumulated += it
+//                    viewportTop += it.y
+                    scrollState.scrollBy(it.y) // note that viewportTop is updated in the next frame
+//                    viewportLeft += it.x
+                    horizontalScrollState.scrollBy(it.x) // note that viewportLeft is updated in the next frame
+                    onDragSelectAndScroll()
+                }
+                delay(100L)
+            }
+        }
+    }
+
     DisposableEffect(textInputSessionRef, weakRefOf(transformedText)) {
         onDispose {
             textInputSessionRef?.get()?.dispose()
@@ -2046,6 +2103,8 @@ fun CoreBigTextField(
             log.d { "BigTextField onDispose -- disposed text manipulate listener and change hook" }
         }
     }
+
+    fun endOfFunction() = Unit
 }
 
 private enum class ResolveCharPositionMode {
