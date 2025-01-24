@@ -541,26 +541,20 @@ fun CoreBigTextField(
         }
     }
 
-    fun getScrollableHeight(): Int {
-        val transformedText = transformedTextRef.get() ?: return 0
-        val scrollableHeight = maxOf(
-            0f,
-            transformedText.numOfRows * lineHeight - height +
-                    with(density) {
-                        (padding.calculateTopPadding() + padding.calculateBottomPadding()).toPx()
-                    }
-        )
-        return scrollableHeight.roundToInt()
-    }
-
     if (isComponentReady()) {
         rememberLast(height, transformedText.numOfRows, lineHeight) {
             scrollState::class.declaredMemberProperties.first { it.name == "maxValue" }
                 .apply {
                     (this as KMutableProperty<Int>)
                     setter.isAccessible = true
-                    val scrollableHeight = getScrollableHeight()
-                    setter.call(scrollState, scrollableHeight)
+                    val scrollableHeight = maxOf(
+                        0f,
+                        transformedText.numOfRows * lineHeight - height +
+                                with(density) {
+                                    (padding.calculateTopPadding() + padding.calculateBottomPadding()).toPx()
+                                }
+                    )
+                    setter.call(scrollState, scrollableHeight.roundToInt())
                 }
 
             scrollState::class.declaredMemberProperties.first { it.name == "viewportSize" }
@@ -1527,9 +1521,7 @@ fun CoreBigTextField(
             .clipToBounds()
             .padding(padding)
             .runIf(isComponentReady()) {
-                runIf(getScrollableHeight() > 0) {
-                    scrollable(scrollableState, orientation = Orientation.Vertical)
-                }
+                scrollable(scrollableState, orientation = Orientation.Vertical)
                     .runIf(!isSoftWrapEnabled) {
                         scrollable(horizontalScrollState, orientation = Orientation.Horizontal, reverseDirection = true)
                     }
