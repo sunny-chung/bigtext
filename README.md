@@ -5,6 +5,8 @@
 
 ![JVM](https://img.shields.io/badge/JVM-blue)
 
+[![As Seen In - jetc.dev Newsletter Issue #249](https://img.shields.io/badge/As_Seen_In-jetc.dev_Newsletter_Issue_%23249-blue?logo=Jetpack+Compose&amp;logoColor=white)](https://jetc.dev/issues/249.html)
+
 **BigText** is an in-memory data structure capable of manipulating large string (tested up to 100 MB) specialized for text editing applications. It is independent of UI frameworks, only supports JVM currently but is planned to go Kotlin Multiplatform. It is possible to implement your own text buffer for BigText to support other CharSequence.
 
 **BigTextField** is a Jetpack Compose text field component utilizing BigText to provide the capability of editing large styleable text, and is designed to fix the known issues and limitations of the existing `TextField`, `BasicTextField` and `BasicTextField2`. It aims to replace `BasicTextField`. It is efficient enough to be used for syntax highlighting. It is available for desktop platforms only, but is planned to support all platforms that supported by Jetpack Compose Multiplatform.
