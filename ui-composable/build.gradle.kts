@@ -4,7 +4,7 @@ plugins {
     id("sunnychung.publication")
 }
 
-version = "2.0.1-SNAPSHOT"
+version = "2.0.1"
 
 kotlin {
     jvm {
