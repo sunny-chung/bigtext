@@ -1418,7 +1418,7 @@ fun CoreBigTextField(
         return result
     }
 
-    fun onDragSelectAndScroll() {
+    fun onDragSelectAndScroll(dragAdditionalOffset: Offset = Offset.Zero) {
         val transformedText = transformedTextRef.get() ?: return
         if (transformedText.isEmpty) {
             viewState.transformedSelection = IntRange.EMPTY
@@ -1429,8 +1429,8 @@ fun CoreBigTextField(
         }
         val selectionStart = viewState.transformedSelectionStart
         val selectedCharIndex = getTransformedCharIndex(
-            x = draggedPointAccumulated.x + 0f * (dragStartViewportLeft - viewportLeft),
-            y = draggedPointAccumulated.y + 0f * (dragStartViewportTop - viewportTop),
+            x = draggedPointAccumulated.x + dragAdditionalOffset.x + 0f * (dragStartViewportLeft - viewportLeft),
+            y = draggedPointAccumulated.y + dragAdditionalOffset.y + 0f * (dragStartViewportTop - viewportTop),
             mode = ResolveCharPositionMode.Selection
         )
             .let {
@@ -2069,7 +2069,7 @@ fun CoreBigTextField(
                     scrollState.scrollBy(it.y) // note that viewportTop is updated in the next frame
 //                    viewportLeft += it.x
                     horizontalScrollState.scrollBy(it.x) // note that viewportLeft is updated in the next frame
-                    onDragSelectAndScroll()
+                    onDragSelectAndScroll(it) // include the offset into calculation for more accurate cursor positions
                 }
                 delay(100L)
             }
