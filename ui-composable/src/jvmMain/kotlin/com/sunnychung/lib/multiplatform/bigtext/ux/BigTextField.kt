@@ -1652,6 +1652,7 @@ fun CoreBigTextField(
                             viewState.updateTransformedCursorIndexByOriginal(transformedText)
                             recordCursorXPosition()
                             showCursor()
+                            focusRequester.requestFocus()
                         })
                     }
                     .onFocusChanged {
