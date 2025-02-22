@@ -115,7 +115,6 @@ import com.sunnychung.lib.multiplatform.bigtext.extension.toTextInput
 import com.sunnychung.lib.multiplatform.bigtext.platform.MacOS
 import com.sunnychung.lib.multiplatform.bigtext.platform.currentOS
 import com.sunnychung.lib.multiplatform.bigtext.util.AnnotatedStringBuilder
-import com.sunnychung.lib.multiplatform.bigtext.util.WeakRefKey
 import com.sunnychung.lib.multiplatform.bigtext.util.annotatedString
 import com.sunnychung.lib.multiplatform.bigtext.util.buildTestTag
 import com.sunnychung.lib.multiplatform.bigtext.util.debouncedStateOf
@@ -665,7 +664,19 @@ fun CoreBigTextField(
         coroutineScope.launch {
             scrollState.scrollBy(-delta)
         }
-        delta
+        val predictConsume = if (delta < 0) { // downwards
+            -minOf(
+                (scrollState.maxValue - scrollState.value).toFloat().coerceAtLeast(0f),
+                -delta
+            )
+        } else { // upwards
+            minOf(
+                (scrollState.value.toFloat() - 0).coerceAtLeast(0f),
+                delta
+            )
+        }
+//        log.v { "predictConsume=$predictConsume m=${(scrollState.maxValue - scrollState.value)} d=$delta" }
+        predictConsume
     }
     val windowInfo = LocalWindowInfo.current
     var dragStartViewportTop by remember { mutableStateOf(0f) }
