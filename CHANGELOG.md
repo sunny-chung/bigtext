@@ -15,6 +15,7 @@ UI
 - Text input via IME was broken
 - Double clicking in text field may lose focus
 - Scroll deltas are consumed even the text or text field is not scrollable
+- Colored text background among characters are not continuous
 
 ## UI [2.0.1] - 2025-01-25
 

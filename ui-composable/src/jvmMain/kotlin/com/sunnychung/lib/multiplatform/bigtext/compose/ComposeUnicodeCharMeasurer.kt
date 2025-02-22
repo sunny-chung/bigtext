@@ -11,6 +11,7 @@ import com.sunnychung.lib.multiplatform.bigtext.util.isSurrogatePairSecond
 import com.sunnychung.lib.multiplatform.bigtext.util.log
 import com.sunnychung.lib.multiplatform.bigtext.util.string
 import java.util.concurrent.ConcurrentHashMap
+import kotlin.math.floor
 
 private val charsRequiringWrapping = setOf(" ", "\t")
 
@@ -159,7 +160,8 @@ class ComposeUnicodeCharMeasurer(private val measurer: TextMeasurer, private val
                 b.width
             }*/
             log.v { "char '$s' bl=${result.firstBaseline} r=$result top=${result.getLineTop(index)} bottom=${result.getLineBottom(index)} bound=${result.getBoundingBox(charIndex + indexOffset)} rbound=${result.getBoundingBox(charIndex)}" }
-            w to refCharHeight - result.firstBaseline - refCharHeightBaselineDiff /* from observation, `result.getLineTop()` <= 0 */
+            // floor the character width, otherwise there is a tiny space visible between each character pairs if they have a colored text background
+            floor(w) to refCharHeight - result.firstBaseline - refCharHeightBaselineDiff /* from observation, `result.getLineTop()` <= 0 */
                 .also {
                     charIndex += s.length
                 }
