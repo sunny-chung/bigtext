@@ -2,7 +2,7 @@ package com.sunnychung.lib.multiplatform.bigtext.util
 
 import java.lang.ref.WeakReference
 
-class WeakRefKey<T : Any>(value: T) {
+class WeakRefKey<T : Any>(value: T?) {
     private val ref = WeakReference<T>(value)
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
@@ -24,4 +24,4 @@ class WeakRefKey<T : Any>(value: T) {
     fun get(): T? = ref.get()
 }
 
-fun <T : Any> weakRefOf(value: T) = WeakRefKey(value)
+fun <T : Any> weakRefOf(value: T?) = WeakRefKey(value)

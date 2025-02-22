@@ -381,7 +381,8 @@ fun CoreBigTextField(
     viewState.isLayoutDisabledFlow.collectAsState(initial = false).value
     val isLayoutEnabled = !viewState.isLayoutDisabled // not using the value from flow because it is not instantly updated
 
-    var textInputSessionRef by remember { mutableStateOf<WeakRefKey<TextInputSession>?>(null) }
+    var textInputSessionRef by remember { mutableStateOf<TextInputSession?>(null) }
+    val textInputSessionUpdatedRef by rememberUpdatedState(weakRefOf(textInputSessionRef))
 
     var isCursorVisible by remember { mutableStateOf(true) }
     val cursorShowTrigger = remember { Channel<Unit>(capacity = 1, onBufferOverflow = BufferOverflow.DROP_OLDEST) }
@@ -1658,10 +1659,9 @@ fun CoreBigTextField(
                     .onFocusChanged {
                         log.v { "BigMonospaceText onFocusChanged ${it.isFocused} ${it.hasFocus} ${it.isCaptured}" }
                         isFocused = it.isFocused
+                        textInputSessionRef?.dispose()
                         if (isEditable) {
                             if (it.isFocused) {
-                                textInputSessionRef?.get()?.dispose()
-
                                 val textInputSession = textInputService?.startInput(
                                     tv,
                                     ImeOptions.Default,
@@ -1692,7 +1692,7 @@ fun CoreBigTextField(
                                     )
                                 )
                                 if (textInputSession != null) {
-                                    textInputSessionRef = weakRefOf(textInputSession)
+                                    textInputSessionRef = textInputSession
                                     log.v { "started text input session" }
                                 }
                                 showCursor()
@@ -2077,9 +2077,9 @@ fun CoreBigTextField(
         }
     }
 
-    DisposableEffect(textInputSessionRef, weakRefOf(transformedText)) {
+    DisposableEffect(Unit) {
         onDispose {
-            textInputSessionRef?.get()?.dispose()
+            textInputSessionUpdatedRef.get()?.dispose()
             log.d { "BigTextField onDispose -- disposed input session" }
         }
     }
