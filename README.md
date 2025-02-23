@@ -347,6 +347,19 @@ CoreBigTextField(
 
 If `requestFocus()` is invoked after BigTextField is ready, it would work without this workaround.
 
+### Reducing Latency while Using Many BigTexts or BigTextFields
+
+BigTextField uses Kotlin Coroutines at this moment. Due to the nature of Kotlin Coroutines, you may experience significant delays (0.6+ seconds) while rendering 10+ BigTextField. It is possible to improve (not eliminate) the latency a little bit by configuring BigTextField to use `Dispatchers.Main.immediate`.
+
+```kotlin
+CoreBigTextField(
+    // ...
+    provideUiCoroutineContext = { Dispatchers.Main.immediate }
+)
+```
+
+As Kotlin Coroutine is the only supported way to modify UI states from other threads in Compose Multiplatform, this is a limitation of the BigText integration with Compose.
+
 
 ## FAQ
 

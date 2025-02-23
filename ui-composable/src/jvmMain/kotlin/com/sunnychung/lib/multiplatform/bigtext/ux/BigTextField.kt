@@ -124,6 +124,8 @@ import com.sunnychung.lib.multiplatform.bigtext.util.weakRefOf
 import com.sunnychung.lib.multiplatform.bigtext.ux.compose.rememberLast
 import com.sunnychung.lib.multiplatform.kdatetime.KInstant
 import com.sunnychung.lib.multiplatform.kdatetime.extension.milliseconds
+import kotlinx.coroutines.CloseableCoroutineDispatcher
+import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.BufferOverflow
@@ -137,7 +139,10 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.newFixedThreadPoolContext
 import kotlinx.coroutines.withContext
+import kotlin.coroutines.CoroutineContext
+import kotlin.coroutines.EmptyCoroutineContext
 import kotlin.math.roundToInt
 import kotlin.random.Random
 import kotlin.reflect.KMutableProperty
@@ -302,7 +307,12 @@ fun BigTextField(
     onHeavyComputation = onHeavyComputation,
 )
 
-@OptIn(ExperimentalFoundationApi::class, ExperimentalComposeUiApi::class, ExperimentalCoroutinesApi::class)
+@OptIn(
+    ExperimentalFoundationApi::class,
+    ExperimentalComposeUiApi::class,
+    ExperimentalCoroutinesApi::class,
+    DelicateCoroutinesApi::class,
+)
 @ExperimentalBigTextUiApi
 @Composable
 fun CoreBigTextField(
@@ -336,6 +346,7 @@ fun CoreBigTextField(
     onHeavyComputation: suspend (computation: suspend () -> Unit) -> Unit = { it() },
     onTransformInit: ((BigTextTransformed) -> Unit)? = null,
     onFinishInit: () -> Unit = {},
+    provideUiCoroutineContext: () -> CoroutineContext = { EmptyCoroutineContext },
 ) {
     log.d { "CoreBigMonospaceText recompose" }
 
@@ -354,7 +365,10 @@ fun CoreBigTextField(
         fontSynthesis = FontSynthesis.None,
     )
 
-    val coroutineScope = rememberCoroutineScope()
+    val coroutineScope = rememberCoroutineScope(provideUiCoroutineContext)
+    val heavyJobScope = rememberCoroutineScope {
+        newFixedThreadPoolContext(2, "BigTextFieldHeavyCoroutines")
+    }
     val focusRequester = remember { FocusRequester() }
     val textMeasurer = rememberTextMeasurer(0)
     var lineHeight by remember { mutableStateOf(0f) }
@@ -427,10 +441,12 @@ fun CoreBigTextField(
     fun heavyCompute(computation: suspend () -> Unit) {
         ++numOfComputationsInProgress
         ++viewState.numOfComputationsInProgress
-        coroutineScope.launch {
+        heavyJobScope.launch {
             onHeavyComputation(computation)
-            --numOfComputationsInProgress
-            --viewState.numOfComputationsInProgress
+            coroutineScope.launch {
+                --numOfComputationsInProgress
+                --viewState.numOfComputationsInProgress
+            }
         }
     }
 
@@ -506,11 +522,8 @@ fun CoreBigTextField(
 
                 heavyCompute {
                     transformedText.onLayoutCallback = {
-                        if (transformedText.isThreadSafe) {
-//                        coroutineScope.launch(context = Dispatchers.Main) {
-                                fireOnLayout()
-//                        }
-                        } else {
+                        // this callback actually will be invoked by transformedText.setContentWidth()
+                        coroutineScope.launch {
                             fireOnLayout()
                         }
                     }
@@ -525,9 +538,7 @@ fun CoreBigTextField(
                         (transformedText as? BigTextImpl)?.printDebug("after init layout")
                     }
 
-                    withContext(coroutineScope.coroutineContext) {
-                        transformedText.onLayoutCallback?.invoke()
-                    }
+                    transformedText.onLayoutCallback?.invoke()
                 }
             }
             if (transformedText.isThreadSafe) {
@@ -2092,6 +2103,9 @@ fun CoreBigTextField(
         onDispose {
             textInputSessionUpdatedRef.get()?.dispose()
             log.d { "BigTextField onDispose -- disposed input session" }
+
+            (heavyJobScope.coroutineContext as? CloseableCoroutineDispatcher)?.close()
+            log.d { "BigTextField onDispose -- closed coroutineContext" }
         }
     }
 

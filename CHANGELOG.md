@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### New
+UI
+- `provideUiCoroutineContext` -- an experimental API to improve the concurrent UI rendering latency
+
 ### Change
 DS
 - `weakRefOf()` and `WeakRefKey()` now accept a nullable parameter
