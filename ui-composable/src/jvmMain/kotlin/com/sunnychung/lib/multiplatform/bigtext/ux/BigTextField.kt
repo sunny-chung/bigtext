@@ -141,6 +141,8 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.newFixedThreadPoolContext
 import kotlinx.coroutines.withContext
+import java.util.Collections
+import java.util.WeakHashMap
 import kotlin.coroutines.CoroutineContext
 import kotlin.coroutines.EmptyCoroutineContext
 import kotlin.math.roundToInt
@@ -150,6 +152,8 @@ import kotlin.reflect.full.declaredMemberProperties
 import kotlin.reflect.jvm.isAccessible
 
 private val NEW_LINE_REGEX = "\r?\n".toRegex()
+
+private val CoroutineContexts = Collections.synchronizedSet(Collections.newSetFromMap(WeakHashMap<CoroutineContext, Boolean>()))
 
 @Composable
 fun BigTextLabel(
@@ -367,7 +371,9 @@ fun CoreBigTextField(
 
     val coroutineScope = rememberCoroutineScope(provideUiCoroutineContext)
     val heavyJobScope = rememberCoroutineScope {
-        newFixedThreadPoolContext(2, "BigTextFieldHeavyCoroutines")
+        newFixedThreadPoolContext(2, "BigTextFieldHeavyCoroutines").also {
+            CoroutineContexts += it
+        }
     }
     val focusRequester = remember { FocusRequester() }
     val textMeasurer = rememberTextMeasurer(0)
@@ -2105,6 +2111,7 @@ fun CoreBigTextField(
             log.d { "BigTextField onDispose -- disposed input session" }
 
             (heavyJobScope.coroutineContext as? CloseableCoroutineDispatcher)?.close()
+            CoroutineContexts -= heavyJobScope.coroutineContext
             log.d { "BigTextField onDispose -- closed coroutineContext" }
         }
     }
@@ -2139,4 +2146,18 @@ enum class CursorAdjustDirection {
 
 private enum class ContextMenuItem {
     Copy, Paste, Cut, Undo, Redo, SelectAll
+}
+
+/**
+ * This function is intended for tests only.
+ * This function destroys all worker coroutine contexts that are in use.
+ */
+fun clearAllBigTextWorkerCoroutineContexts() {
+    synchronized(CoroutineContexts) {
+        while (CoroutineContexts.isNotEmpty()) {
+            val it = CoroutineContexts.firstOrNull()
+            (it as? CloseableCoroutineDispatcher)?.close()
+            CoroutineContexts.remove(it)
+        }
+    }
 }
