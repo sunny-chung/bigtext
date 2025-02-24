@@ -9,6 +9,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Nothing yet.
 
 
+## UI [2.0.3] - 2025-02-24
+
+### New
+UI
+- `clearAllBigTextWorkerCoroutineContexts()` for cleaning the environment of failed tests
+
+
 ## UI [2.0.2] , DS [2.0.1] - 2025-02-23
 
 ### New
