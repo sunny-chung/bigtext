@@ -9,6 +9,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Nothing yet.
 
 
+## UI [2.0.4] - 2025-02-25
+
+### Fixed
+UI
+- Most global functions are unresolvable due to a Kotlin compiler bug producing a corrupted kotlin_module file (KT-46038)
+
+
 ## UI [2.0.3] - 2025-02-24
 
 ### New
