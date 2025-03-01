@@ -9,6 +9,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Nothing yet.
 
 
+## UI [2.0.10] - 2025-03-01
+
+### Fixed
+UI
+- `clearAllBigTextWorkerCoroutineContexts()` was not cleaning properly
+
+
 ## UI [2.0.4] - 2025-02-25
 
 ### Fixed

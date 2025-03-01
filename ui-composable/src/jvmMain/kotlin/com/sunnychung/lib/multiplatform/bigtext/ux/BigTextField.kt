@@ -127,6 +127,7 @@ import com.sunnychung.lib.multiplatform.kdatetime.extension.milliseconds
 import kotlinx.coroutines.CloseableCoroutineDispatcher
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExecutorCoroutineDispatcher
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.channels.Channel
@@ -142,7 +143,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.newFixedThreadPoolContext
 import kotlinx.coroutines.withContext
 import java.util.Collections
-import java.util.WeakHashMap
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.TimeUnit
 import kotlin.coroutines.CoroutineContext
 import kotlin.coroutines.EmptyCoroutineContext
 import kotlin.math.roundToInt
@@ -153,7 +155,7 @@ import kotlin.reflect.jvm.isAccessible
 
 private val NEW_LINE_REGEX = "\r?\n".toRegex()
 
-private val CoroutineContexts = Collections.synchronizedSet(Collections.newSetFromMap(WeakHashMap<CoroutineContext, Boolean>()))
+val BigTextCoroutineContexts: MutableSet<CoroutineContext> = Collections.synchronizedSet(mutableSetOf<CoroutineContext>())
 
 @Composable
 fun BigTextLabel(
@@ -372,7 +374,9 @@ fun CoreBigTextField(
     val coroutineScope = rememberCoroutineScope(provideUiCoroutineContext)
     val heavyJobScope = rememberCoroutineScope {
         newFixedThreadPoolContext(2, "BigTextFieldHeavyCoroutines").also {
-            CoroutineContexts += it
+            BigTextCoroutineContexts.add(it).also { result ->
+                log.d { "Add $result CoroutineContext $it. Count = ${BigTextCoroutineContexts.size}" }
+            }
         }
     }
     val focusRequester = remember { FocusRequester() }
@@ -2110,9 +2114,16 @@ fun CoreBigTextField(
             textInputSessionUpdatedRef.get()?.dispose()
             log.d { "BigTextField onDispose -- disposed input session" }
 
-            (heavyJobScope.coroutineContext as? CloseableCoroutineDispatcher)?.close()
-            CoroutineContexts -= heavyJobScope.coroutineContext
-            log.d { "BigTextField onDispose -- closed coroutineContext" }
+            (heavyJobScope.coroutineContext as? CloseableCoroutineDispatcher)?.let {
+                it.close()
+                ((it as? ExecutorCoroutineDispatcher)?.executor as? ExecutorService)?.let {
+                    it.shutdownNow()
+//                    it.awaitTermination(5, TimeUnit.SECONDS)
+                    log.d { "Dispose ExecutorService $it" }
+                }
+                BigTextCoroutineContexts -= it
+                log.d { "BigTextField onDispose -- closed coroutineContext -- $it" }
+            }
         }
     }
 
@@ -2153,11 +2164,26 @@ private enum class ContextMenuItem {
  * This function destroys all worker coroutine contexts that are in use.
  */
 fun clearAllBigTextWorkerCoroutineContexts() {
-    synchronized(CoroutineContexts) {
-        while (CoroutineContexts.isNotEmpty()) {
-            val it = CoroutineContexts.firstOrNull()
-            (it as? CloseableCoroutineDispatcher)?.close()
-            CoroutineContexts.remove(it)
+    val threads = mutableListOf<Thread>()
+    synchronized(BigTextCoroutineContexts) {
+        log.d { "Ready to clean ${BigTextCoroutineContexts.size} CoroutineContexts" }
+        while (BigTextCoroutineContexts.isNotEmpty()) {
+            val it = BigTextCoroutineContexts.firstOrNull()
+            threads += Thread {
+                (it as? CloseableCoroutineDispatcher)?.let { d ->
+                    d.close()
+                    ((it as? ExecutorCoroutineDispatcher)?.executor as? ExecutorService)?.let {
+                        it.shutdownNow()
+                        it.awaitTermination(5, TimeUnit.SECONDS)
+                        log.d {"Closed ExecutorService $it" }
+                    }
+                    log.d {"closed BT worker dispatcher -- $it" }
+                }
+            }.apply {
+                start()
+            }
+            BigTextCoroutineContexts.remove(it)
         }
     }
+    threads.forEach { it.join() }
 }
