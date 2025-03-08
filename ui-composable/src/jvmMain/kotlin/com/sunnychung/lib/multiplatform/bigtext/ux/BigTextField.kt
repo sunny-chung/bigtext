@@ -372,14 +372,7 @@ fun CoreBigTextField(
         fontSynthesis = FontSynthesis.None,
     )
 
-    val coroutineScope = rememberCoroutineScope(provideUiCoroutineContext)
-    val heavyJobScope = rememberCoroutineScope {
-        newFixedThreadPoolContext(2, "BigTextFieldHeavyCoroutines").also {
-            BigTextCoroutineContexts.add(it).also { result ->
-                log.d { "Add $result CoroutineContext $it. Count = ${BigTextCoroutineContexts.size}" }
-            }
-        }
-    }
+    val coroutineScope = rememberCoroutineScope()
     val focusRequester = remember { FocusRequester() }
     val textMeasurer = rememberTextMeasurer(0)
     var lineHeight by remember { mutableStateOf(0f) }
@@ -2124,17 +2117,6 @@ fun CoreBigTextField(
         onDispose {
             textInputSessionUpdatedRef.get()?.dispose()
             log.d { "BigTextField onDispose -- disposed input session" }
-
-            (heavyJobScope.coroutineContext as? CloseableCoroutineDispatcher)?.let {
-                it.close()
-                ((it as? ExecutorCoroutineDispatcher)?.executor as? ExecutorService)?.let {
-                    it.shutdownNow()
-//                    it.awaitTermination(5, TimeUnit.SECONDS)
-                    log.d { "Dispose ExecutorService $it" }
-                }
-                BigTextCoroutineContexts -= it
-                log.d { "BigTextField onDispose -- closed coroutineContext -- $it" }
-            }
         }
     }
 
