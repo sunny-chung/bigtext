@@ -112,9 +112,11 @@ import com.sunnychung.lib.multiplatform.bigtext.extension.isCtrlOrCmdPressed
 import com.sunnychung.lib.multiplatform.bigtext.extension.replaceAll
 import com.sunnychung.lib.multiplatform.bigtext.extension.runIf
 import com.sunnychung.lib.multiplatform.bigtext.extension.toTextInput
+import com.sunnychung.lib.multiplatform.bigtext.platform.AsyncOperation
 import com.sunnychung.lib.multiplatform.bigtext.platform.MacOS
 import com.sunnychung.lib.multiplatform.bigtext.platform.currentOS
 import com.sunnychung.lib.multiplatform.bigtext.util.AnnotatedStringBuilder
+import com.sunnychung.lib.multiplatform.bigtext.util.AsyncContext
 import com.sunnychung.lib.multiplatform.bigtext.util.annotatedString
 import com.sunnychung.lib.multiplatform.bigtext.util.buildTestTag
 import com.sunnychung.lib.multiplatform.bigtext.util.debouncedStateOf
@@ -228,7 +230,7 @@ fun BigTextField(
     keyboardInputProcessor: BigTextKeyboardInputProcessor? = null,
     onPointerEvent: ((event: PointerEvent, tag: String?) -> Unit)? = null,
     onTextLayout: ((BigTextSimpleLayoutResult) -> Unit)? = null,
-    onHeavyComputation: suspend (computation: suspend () -> Unit) -> Unit = { it() },
+    onHeavyComputation: AsyncContext.(computation: AsyncContext.() -> Unit) -> Unit = AsyncOperation.Asynchronous,
 ) {
     BigTextField(
         modifier = modifier,
@@ -285,7 +287,7 @@ fun BigTextField(
     keyboardInputProcessor: BigTextKeyboardInputProcessor? = null,
     onPointerEvent: ((event: PointerEvent, tag: String?) -> Unit)? = null,
     onTextLayout: ((BigTextSimpleLayoutResult) -> Unit)? = null,
-    onHeavyComputation: suspend (computation: suspend () -> Unit) -> Unit = { it() },
+    onHeavyComputation: AsyncContext.(computation: AsyncContext.() -> Unit) -> Unit = AsyncOperation.Asynchronous,
 ) = CoreBigTextField(
     modifier = modifier,
     text = text,
@@ -349,10 +351,9 @@ fun CoreBigTextField(
     keyboardInputProcessor: BigTextKeyboardInputProcessor? = null,
     onPointerEvent: ((event: PointerEvent, tag: String?) -> Unit)? = null,
     onTextLayout: ((BigTextSimpleLayoutResult) -> Unit)? = null,
-    onHeavyComputation: suspend (computation: suspend () -> Unit) -> Unit = { it() },
+    onHeavyComputation: AsyncContext.(computation: AsyncContext.() -> Unit) -> Unit = AsyncOperation.Asynchronous,
     onTransformInit: ((BigTextTransformed) -> Unit)? = null,
     onFinishInit: () -> Unit = {},
-    provideUiCoroutineContext: () -> CoroutineContext = { EmptyCoroutineContext },
 ) {
     log.d { "CoreBigMonospaceText recompose" }
 
@@ -448,12 +449,22 @@ fun CoreBigTextField(
 
     callFinishInitIfReady()
 
-    fun heavyCompute(computation: suspend () -> Unit) {
+    fun heavyCompute(computation: AsyncContext.() -> Unit) {
         ++numOfComputationsInProgress
         ++viewState.numOfComputationsInProgress
-        heavyJobScope.launch {
-            onHeavyComputation(computation)
-            coroutineScope.launch {
+        onHeavyComputation(object : AsyncContext {
+            override fun runOnUiDispatcher(operation: () -> Unit) {
+                if (onHeavyComputation === AsyncOperation.Synchronous) {
+                    operation() // there is no thread switching
+                } else {
+                    coroutineScope.launch { operation() }
+                }
+            }
+        }) {
+            log.d { "onHeavyComputation computation" }
+            computation()
+            runOnUiDispatcher {
+                log.d { "onHeavyComputation post ui" }
                 --numOfComputationsInProgress
                 --viewState.numOfComputationsInProgress
             }
@@ -635,7 +646,7 @@ fun CoreBigTextField(
                     if (log.config.minSeverity <= Severity.Verbose) {
                         transformedText.printDebug("init transformedState")
                     }
-                    withContext(coroutineScope.coroutineContext) {
+                    runOnUiDispatcher {
                         viewState.transformedText = weakRefOf(transformedText)
                         transformedState = it
                         isTransformedStateReady = true

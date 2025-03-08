@@ -206,14 +206,15 @@ fun TransformationTextAreaDemoView(modifier: Modifier, bodyFontFamily: FontFamil
                 isSoftWrapEnabled = isSoftWrapEnabled,
                 textTransformation = transformation,
                 onHeavyComputation = { computation -> // compute in background and display a "loading" spinner
-                    withContext(coroutineScope.coroutineContext) {
+                    runOnUiDispatcher {
                         ++numOfComputations
                     }
-                    withContext(Dispatchers.IO) {
+                    async {
                         computation()
-                    }
-                    withContext(coroutineScope.coroutineContext) {
-                        --numOfComputations
+
+                        runOnUiDispatcher {
+                            --numOfComputations
+                        }
                     }
                 },
                 scrollState = scrollState,

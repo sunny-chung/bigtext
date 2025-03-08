@@ -44,6 +44,7 @@ private enum class DemoView(val displayName: String) {
     Transformation("Transformation"),
     MixedFont("Multiple Fonts"),
     ReadOnly("Read-only"),
+    ManyTextFields("Many Text Fields"),
     MoreExamples("More Examples"),
     ComposeText("Compare with Jetpack Compose BasicTextField"),
     ComposeText2("Compare with Jetpack Compose BasicTextField2"),
@@ -80,6 +81,7 @@ fun AppView() {
             DemoView.Transformation -> TransformationDemoView()
             DemoView.MixedFont -> MixedFontDemoView()
             DemoView.ReadOnly -> ReadOnlyDemoView()
+            DemoView.ManyTextFields -> ManyTextFieldsDemo()
             DemoView.MoreExamples -> MoreExamplesDemoView()
             DemoView.ComposeText -> ComposeTextFieldView()
             DemoView.ComposeText2 -> ComposeTextField2View()
