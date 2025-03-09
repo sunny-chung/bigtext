@@ -528,7 +528,7 @@ fun CoreBigTextField(
     fun layout() {
         val transformedText = transformedTextRef.get() ?: return
         if (!coroutineScope.isActive) return
-        if (!runOnUiThreadAndReturnResult { isTransformedStateReady }) return
+        if (runOnUiThreadAndReturnResult { isLayoutEnabled && contentWidth > 0 && isContentWidthLatest && isTransformedStateReady } != true) return
         val startInstant = KInstant.now()
         transformedText.onLayoutCallback = {
             // this callback actually will be invoked by transformedText.setContentWidth()
@@ -550,7 +550,7 @@ fun CoreBigTextField(
         transformedText.onLayoutCallback?.invoke()
     }
 
-    if (isLayoutEnabled && contentWidth > 0 && isContentWidthLatest) {
+    if (isLayoutEnabled && contentWidth > 0 && isContentWidthLatest && isTransformedStateReady) {
         remember(weakRefOf(transformedText), textLayouter, contentWidth, isSoftWrapEnabled) {
             log.d { "CoreBigMonospaceText set contentWidth = $contentWidth" }
 
@@ -646,13 +646,13 @@ fun CoreBigTextField(
                     if (log.config.minSeverity <= Severity.Verbose) {
                         transformedText.printDebug("init transformedState")
                     }
-                    layout()
                     returnFromUiDispatcher {
                         viewState.transformedText = weakRefOf(transformedText)
                         transformedState = it
                         isTransformedStateReady = true
                         onTransformInit?.invoke(transformedText)
                     }
+                    layout()
                 }
             }
         } else {
