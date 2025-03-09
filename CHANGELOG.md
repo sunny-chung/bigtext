@@ -9,6 +9,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Nothing yet.
 
 
+## UI [2.1.0] - 2025-03-09
+
+Breaking change is introduced in this version to reduce rendering latency of multiple small general-purpose text fields.
+
+### Removed
+UI
+- `provideUiCoroutineContext` -- its use case is supported by `onHeavyComputation` now.
+
+### Change
+UI
+- `onHeavyComputation` is not suspend function anymore, as suspend functions must introduce unpredictable latency
+
+
 ## UI [2.0.10] - 2025-03-01
 
 ### Fixed
