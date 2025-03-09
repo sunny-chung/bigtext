@@ -115,6 +115,7 @@ import com.sunnychung.lib.multiplatform.bigtext.extension.toTextInput
 import com.sunnychung.lib.multiplatform.bigtext.platform.AsyncOperation
 import com.sunnychung.lib.multiplatform.bigtext.platform.MacOS
 import com.sunnychung.lib.multiplatform.bigtext.platform.currentOS
+import com.sunnychung.lib.multiplatform.bigtext.platform.runOnUiThreadAndReturnResult
 import com.sunnychung.lib.multiplatform.bigtext.util.AnnotatedStringBuilder
 import com.sunnychung.lib.multiplatform.bigtext.util.AsyncContext
 import com.sunnychung.lib.multiplatform.bigtext.util.annotatedString
@@ -415,7 +416,7 @@ fun CoreBigTextField(
     var layoutResult by remember(textLayouter, width) { mutableStateOf<BigTextSimpleLayoutResult?>(null) }
     var numOfComputationsInProgress by remember { mutableStateOf(0) }
     var isTransformedStateReady by remember(weakRefOf(text), textTransformation) {
-        mutableStateOf(false)
+        mutableStateOf(textTransformation == null)
     }
     // isComponentReady is a function, because its dependent variable can change within a recomposition
     val isComponentReady = fun(): Boolean {
@@ -445,18 +446,10 @@ fun CoreBigTextField(
     fun heavyCompute(computation: AsyncContext.() -> Unit) {
         ++numOfComputationsInProgress
         ++viewState.numOfComputationsInProgress
-        onHeavyComputation(object : AsyncContext {
-            override fun runOnUiDispatcher(operation: () -> Unit) {
-                if (onHeavyComputation === AsyncOperation.Synchronous) {
-                    operation() // there is no thread switching
-                } else {
-                    coroutineScope.launch { operation() }
-                }
-            }
-        }) {
+        onHeavyComputation(AsyncContext(coroutineScope)) {
             log.d { "onHeavyComputation computation" }
             computation()
-            runOnUiDispatcher {
+            returnFromUiDispatcher {
                 log.d { "onHeavyComputation post ui" }
                 --numOfComputationsInProgress
                 --viewState.numOfComputationsInProgress
@@ -512,6 +505,10 @@ fun CoreBigTextField(
     }
 
     fun fireOnLayout() {
+        if (!coroutineScope.isActive) {
+            return
+        }
+
         lineHeight = (textLayouter.charMeasurer as ComposeUnicodeCharMeasurer).getRowHeight()
         log.d { "fireOnLayout lineHeight=$lineHeight" }
         val layoutResult = BigTextSimpleLayoutResult(
@@ -525,34 +522,44 @@ fun CoreBigTextField(
         forceRecompose = Random.nextLong()
     }
 
+    /**
+     * This function should be called on a non-UI thread.
+     */
+    fun layout() {
+        val transformedText = transformedTextRef.get() ?: return
+        if (!coroutineScope.isActive) return
+        if (!runOnUiThreadAndReturnResult { isTransformedStateReady }) return
+        val startInstant = KInstant.now()
+        transformedText.onLayoutCallback = {
+            // this callback actually will be invoked by transformedText.setContentWidth()
+            coroutineScope.launch {
+                fireOnLayout()
+            }
+        }
+        transformedText.setSoftWrapEnabled(isSoftWrapEnabled)
+        transformedText.setLayouter(textLayouter)
+        transformedText.setContentWidth(contentWidth)
+
+        val endInstant = KInstant.now()
+        log.i { "BigText layout took ${endInstant - startInstant} at ${Thread.currentThread().name}" }
+
+        if (log.config.minSeverity <= Severity.Verbose) {
+            (transformedText as? BigTextImpl)?.printDebug("after init layout")
+        }
+
+        transformedText.onLayoutCallback?.invoke()
+    }
+
     if (isLayoutEnabled && contentWidth > 0 && isContentWidthLatest) {
         remember(weakRefOf(transformedText), textLayouter, contentWidth, isSoftWrapEnabled) {
             log.d { "CoreBigMonospaceText set contentWidth = $contentWidth" }
-            val transformedText = transformedTextRef.get() ?: return@remember
 
             val layout = layout@ {
+                if (!isTransformedStateReady) return@layout
                 log.d { "BigText start layout" }
-                val startInstant = KInstant.now()
 
                 heavyCompute {
-                    transformedText.onLayoutCallback = {
-                        // this callback actually will be invoked by transformedText.setContentWidth()
-                        coroutineScope.launch {
-                            fireOnLayout()
-                        }
-                    }
-                    transformedText.setSoftWrapEnabled(isSoftWrapEnabled)
-                    transformedText.setLayouter(textLayouter)
-                    transformedText.setContentWidth(contentWidth)
-
-                    val endInstant = KInstant.now()
-                    log.i { "BigText layout took ${endInstant - startInstant} at ${Thread.currentThread().name}" }
-
-                    if (log.config.minSeverity <= Severity.Verbose) {
-                        (transformedText as? BigTextImpl)?.printDebug("after init layout")
-                    }
-
-                    transformedText.onLayoutCallback?.invoke()
+                    layout()
                 }
             }
             if (transformedText.isThreadSafe) {
@@ -639,7 +646,8 @@ fun CoreBigTextField(
                     if (log.config.minSeverity <= Severity.Verbose) {
                         transformedText.printDebug("init transformedState")
                     }
-                    runOnUiDispatcher {
+                    layout()
+                    returnFromUiDispatcher {
                         viewState.transformedText = weakRefOf(transformedText)
                         transformedState = it
                         isTransformedStateReady = true

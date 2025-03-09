@@ -192,7 +192,7 @@ fun CodeEditorDemoView() {
                             onTextLayout = { bigTextLayoutResult = it },
                             isSoftWrapEnabled = isSoftWrapEnabled,
                             onHeavyComputation = { computation -> // compute in background and display a "loading" spinner
-                                runOnUiDispatcher {
+                                returnFromUiDispatcher {
                                     ++numOfComputations
                                     log.d { "numOfComputations = $numOfComputations" }
                                 }
@@ -200,7 +200,7 @@ fun CodeEditorDemoView() {
                                     log.d { "compute in IO" }
                                     computation()
 
-                                    runOnUiDispatcher {
+                                    returnFromUiDispatcher {
                                         --numOfComputations
                                         log.d { "numOfComputations = $numOfComputations" }
                                     }
