@@ -112,9 +112,12 @@ import com.sunnychung.lib.multiplatform.bigtext.extension.isCtrlOrCmdPressed
 import com.sunnychung.lib.multiplatform.bigtext.extension.replaceAll
 import com.sunnychung.lib.multiplatform.bigtext.extension.runIf
 import com.sunnychung.lib.multiplatform.bigtext.extension.toTextInput
+import com.sunnychung.lib.multiplatform.bigtext.platform.AsyncOperation
 import com.sunnychung.lib.multiplatform.bigtext.platform.MacOS
 import com.sunnychung.lib.multiplatform.bigtext.platform.currentOS
+import com.sunnychung.lib.multiplatform.bigtext.platform.runOnUiThreadAndReturnResult
 import com.sunnychung.lib.multiplatform.bigtext.util.AnnotatedStringBuilder
+import com.sunnychung.lib.multiplatform.bigtext.util.AsyncContext
 import com.sunnychung.lib.multiplatform.bigtext.util.annotatedString
 import com.sunnychung.lib.multiplatform.bigtext.util.buildTestTag
 import com.sunnychung.lib.multiplatform.bigtext.util.debouncedStateOf
@@ -228,7 +231,7 @@ fun BigTextField(
     keyboardInputProcessor: BigTextKeyboardInputProcessor? = null,
     onPointerEvent: ((event: PointerEvent, tag: String?) -> Unit)? = null,
     onTextLayout: ((BigTextSimpleLayoutResult) -> Unit)? = null,
-    onHeavyComputation: suspend (computation: suspend () -> Unit) -> Unit = { it() },
+    onHeavyComputation: AsyncContext.(computation: AsyncContext.() -> Unit) -> Unit = AsyncOperation.Asynchronous,
 ) {
     BigTextField(
         modifier = modifier,
@@ -285,7 +288,7 @@ fun BigTextField(
     keyboardInputProcessor: BigTextKeyboardInputProcessor? = null,
     onPointerEvent: ((event: PointerEvent, tag: String?) -> Unit)? = null,
     onTextLayout: ((BigTextSimpleLayoutResult) -> Unit)? = null,
-    onHeavyComputation: suspend (computation: suspend () -> Unit) -> Unit = { it() },
+    onHeavyComputation: AsyncContext.(computation: AsyncContext.() -> Unit) -> Unit = AsyncOperation.Asynchronous,
 ) = CoreBigTextField(
     modifier = modifier,
     text = text,
@@ -349,10 +352,9 @@ fun CoreBigTextField(
     keyboardInputProcessor: BigTextKeyboardInputProcessor? = null,
     onPointerEvent: ((event: PointerEvent, tag: String?) -> Unit)? = null,
     onTextLayout: ((BigTextSimpleLayoutResult) -> Unit)? = null,
-    onHeavyComputation: suspend (computation: suspend () -> Unit) -> Unit = { it() },
+    onHeavyComputation: AsyncContext.(computation: AsyncContext.() -> Unit) -> Unit = AsyncOperation.Asynchronous,
     onTransformInit: ((BigTextTransformed) -> Unit)? = null,
     onFinishInit: () -> Unit = {},
-    provideUiCoroutineContext: () -> CoroutineContext = { EmptyCoroutineContext },
 ) {
     log.d { "CoreBigMonospaceText recompose" }
 
@@ -371,14 +373,7 @@ fun CoreBigTextField(
         fontSynthesis = FontSynthesis.None,
     )
 
-    val coroutineScope = rememberCoroutineScope(provideUiCoroutineContext)
-    val heavyJobScope = rememberCoroutineScope {
-        newFixedThreadPoolContext(2, "BigTextFieldHeavyCoroutines").also {
-            BigTextCoroutineContexts.add(it).also { result ->
-                log.d { "Add $result CoroutineContext $it. Count = ${BigTextCoroutineContexts.size}" }
-            }
-        }
-    }
+    val coroutineScope = rememberCoroutineScope()
     val focusRequester = remember { FocusRequester() }
     val textMeasurer = rememberTextMeasurer(0)
     var lineHeight by remember { mutableStateOf(0f) }
@@ -421,7 +416,7 @@ fun CoreBigTextField(
     var layoutResult by remember(textLayouter, width) { mutableStateOf<BigTextSimpleLayoutResult?>(null) }
     var numOfComputationsInProgress by remember { mutableStateOf(0) }
     var isTransformedStateReady by remember(weakRefOf(text), textTransformation) {
-        mutableStateOf(false)
+        mutableStateOf(textTransformation == null)
     }
     // isComponentReady is a function, because its dependent variable can change within a recomposition
     val isComponentReady = fun(): Boolean {
@@ -448,12 +443,14 @@ fun CoreBigTextField(
 
     callFinishInitIfReady()
 
-    fun heavyCompute(computation: suspend () -> Unit) {
+    fun heavyCompute(computation: AsyncContext.() -> Unit) {
         ++numOfComputationsInProgress
         ++viewState.numOfComputationsInProgress
-        heavyJobScope.launch {
-            onHeavyComputation(computation)
-            coroutineScope.launch {
+        onHeavyComputation(AsyncContext(coroutineScope)) {
+            log.d { "onHeavyComputation computation" }
+            computation()
+            returnFromUiDispatcher {
+                log.d { "onHeavyComputation post ui" }
                 --numOfComputationsInProgress
                 --viewState.numOfComputationsInProgress
             }
@@ -508,6 +505,10 @@ fun CoreBigTextField(
     }
 
     fun fireOnLayout() {
+        if (!coroutineScope.isActive) {
+            return
+        }
+
         lineHeight = (textLayouter.charMeasurer as ComposeUnicodeCharMeasurer).getRowHeight()
         log.d { "fireOnLayout lineHeight=$lineHeight" }
         val layoutResult = BigTextSimpleLayoutResult(
@@ -521,34 +522,44 @@ fun CoreBigTextField(
         forceRecompose = Random.nextLong()
     }
 
-    if (isLayoutEnabled && contentWidth > 0 && isContentWidthLatest) {
+    /**
+     * This function should be called on a non-UI thread.
+     */
+    fun layout() {
+        val transformedText = transformedTextRef.get() ?: return
+        if (!coroutineScope.isActive) return
+        if (runOnUiThreadAndReturnResult { isLayoutEnabled && contentWidth > 0 && isContentWidthLatest && isTransformedStateReady } != true) return
+        val startInstant = KInstant.now()
+        transformedText.onLayoutCallback = {
+            // this callback actually will be invoked by transformedText.setContentWidth()
+            coroutineScope.launch {
+                fireOnLayout()
+            }
+        }
+        transformedText.setSoftWrapEnabled(isSoftWrapEnabled)
+        transformedText.setLayouter(textLayouter)
+        transformedText.setContentWidth(contentWidth)
+
+        val endInstant = KInstant.now()
+        log.i { "BigText layout took ${endInstant - startInstant} at ${Thread.currentThread().name}" }
+
+        if (log.config.minSeverity <= Severity.Verbose) {
+            (transformedText as? BigTextImpl)?.printDebug("after init layout")
+        }
+
+        transformedText.onLayoutCallback?.invoke()
+    }
+
+    if (isLayoutEnabled && contentWidth > 0 && isContentWidthLatest && isTransformedStateReady) {
         remember(weakRefOf(transformedText), textLayouter, contentWidth, isSoftWrapEnabled) {
             log.d { "CoreBigMonospaceText set contentWidth = $contentWidth" }
-            val transformedText = transformedTextRef.get() ?: return@remember
 
             val layout = layout@ {
+                if (!isTransformedStateReady) return@layout
                 log.d { "BigText start layout" }
-                val startInstant = KInstant.now()
 
                 heavyCompute {
-                    transformedText.onLayoutCallback = {
-                        // this callback actually will be invoked by transformedText.setContentWidth()
-                        coroutineScope.launch {
-                            fireOnLayout()
-                        }
-                    }
-                    transformedText.setSoftWrapEnabled(isSoftWrapEnabled)
-                    transformedText.setLayouter(textLayouter)
-                    transformedText.setContentWidth(contentWidth)
-
-                    val endInstant = KInstant.now()
-                    log.i { "BigText layout took ${endInstant - startInstant} at ${Thread.currentThread().name}" }
-
-                    if (log.config.minSeverity <= Severity.Verbose) {
-                        (transformedText as? BigTextImpl)?.printDebug("after init layout")
-                    }
-
-                    transformedText.onLayoutCallback?.invoke()
+                    layout()
                 }
             }
             if (transformedText.isThreadSafe) {
@@ -635,12 +646,13 @@ fun CoreBigTextField(
                     if (log.config.minSeverity <= Severity.Verbose) {
                         transformedText.printDebug("init transformedState")
                     }
-                    withContext(coroutineScope.coroutineContext) {
+                    returnFromUiDispatcher {
                         viewState.transformedText = weakRefOf(transformedText)
                         transformedState = it
                         isTransformedStateReady = true
                         onTransformInit?.invoke(transformedText)
                     }
+                    layout()
                 }
             }
         } else {
@@ -1614,6 +1626,7 @@ fun CoreBigTextField(
                             while (true) {
                                 val event = awaitPointerEvent()
                                 val transformedText = transformedTextRef.get() ?: return@awaitPointerEventScope
+                                if (!transformedText.hasLayouted) continue
 
                                 if (onPointerEvent != null) {
                                     val position = event.changes.first().position
@@ -1676,6 +1689,7 @@ fun CoreBigTextField(
                         if (!isSelectable) return@pointerInput
                         detectTapGestures(onDoubleTap = {
                             val transformedText = transformedTextRef.get() ?: return@detectTapGestures
+                            if (!transformedText.hasLayouted) return@detectTapGestures
 
                             val wordStart = findPreviousWordBoundaryPositionFromCursor(isIncludeCursorPosition = true)
                             val wordEndExclusive = findNextWordBoundaryPositionFromCursor()
@@ -2113,17 +2127,6 @@ fun CoreBigTextField(
         onDispose {
             textInputSessionUpdatedRef.get()?.dispose()
             log.d { "BigTextField onDispose -- disposed input session" }
-
-            (heavyJobScope.coroutineContext as? CloseableCoroutineDispatcher)?.let {
-                it.close()
-                ((it as? ExecutorCoroutineDispatcher)?.executor as? ExecutorService)?.let {
-                    it.shutdownNow()
-//                    it.awaitTermination(5, TimeUnit.SECONDS)
-                    log.d { "Dispose ExecutorService $it" }
-                }
-                BigTextCoroutineContexts -= it
-                log.d { "BigTextField onDispose -- closed coroutineContext -- $it" }
-            }
         }
     }
 

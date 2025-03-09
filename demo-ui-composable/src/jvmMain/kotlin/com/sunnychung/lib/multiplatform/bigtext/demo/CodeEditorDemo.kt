@@ -4,7 +4,6 @@ import androidx.compose.foundation.HorizontalScrollbar
 import androidx.compose.foundation.VerticalScrollbar
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.focusable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -193,17 +192,18 @@ fun CodeEditorDemoView() {
                             onTextLayout = { bigTextLayoutResult = it },
                             isSoftWrapEnabled = isSoftWrapEnabled,
                             onHeavyComputation = { computation -> // compute in background and display a "loading" spinner
-                                withContext(coroutineScope1.coroutineContext) {
+                                returnFromUiDispatcher {
                                     ++numOfComputations
                                     log.d { "numOfComputations = $numOfComputations" }
                                 }
-                                withContext(Dispatchers.IO) {
+                                async {
                                     log.d { "compute in IO" }
                                     computation()
-                                }
-                                withContext(coroutineScope1.coroutineContext) {
-                                    --numOfComputations
-                                    log.d { "numOfComputations = $numOfComputations" }
+
+                                    returnFromUiDispatcher {
+                                        --numOfComputations
+                                        log.d { "numOfComputations = $numOfComputations" }
+                                    }
                                 }
                             },
                             keyboardInputProcessor = object : BigTextKeyboardInputProcessor {
