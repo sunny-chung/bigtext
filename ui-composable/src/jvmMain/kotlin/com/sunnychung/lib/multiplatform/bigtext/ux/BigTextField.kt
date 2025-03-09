@@ -1626,6 +1626,7 @@ fun CoreBigTextField(
                             while (true) {
                                 val event = awaitPointerEvent()
                                 val transformedText = transformedTextRef.get() ?: return@awaitPointerEventScope
+                                if (!transformedText.hasLayouted) continue
 
                                 if (onPointerEvent != null) {
                                     val position = event.changes.first().position
@@ -1688,6 +1689,7 @@ fun CoreBigTextField(
                         if (!isSelectable) return@pointerInput
                         detectTapGestures(onDoubleTap = {
                             val transformedText = transformedTextRef.get() ?: return@detectTapGestures
+                            if (!transformedText.hasLayouted) return@detectTapGestures
 
                             val wordStart = findPreviousWordBoundaryPositionFromCursor(isIncludeCursorPosition = true)
                             val wordEndExclusive = findNextWordBoundaryPositionFromCursor()
