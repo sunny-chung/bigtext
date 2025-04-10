@@ -348,6 +348,7 @@ fun CoreBigTextField(
     scrollState: ScrollState = rememberScrollState(),
     horizontalScrollState: ScrollState = rememberScrollState(),
     viewState: BigTextViewState = remember(weakRefOf(text)) { BigTextViewState() },
+    isCacheTextLayoutResult: Boolean = true,
 //    interactionSource: MutableInteractionSource = remember(weakRefOf(text)) { MutableInteractionSource() },
     keyboardInputProcessor: BigTextKeyboardInputProcessor? = null,
     onPointerEvent: ((event: PointerEvent, tag: String?) -> Unit)? = null,
@@ -1986,18 +1987,30 @@ fun CoreBigTextField(
                                     .map { it.copy(start = 0, end = 2) }
                             )
                         }
+                        val textLayoutResult = if (isCacheTextLayoutResult) {
+                            (textLayouter.charMeasurer as? ComposeUnicodeCharMeasurer)?.getTextLayoutResult(annotatedUnicode, null)
+                        } else {
+                            null
+                        }
 //                        val charStyle = annotatedUnicode.spanStyles.map { it.item }.reduceOrNull { acc, it -> acc + it }?.let { textStyle + it }
                         val charWidth = textLayouter.measureCharWidth(annotatedUnicode)
                         val charYOffset = textLayouter.measureCharYOffset(annotatedUnicode)
 //                        log.v { "char '$annotatedUnicode' w=$charWidth y=$charYOffset lh=$lineHeight" }
-                        drawText(
-                            textMeasurer = textMeasurer,
-                            text = annotatedUnicode,
-                            style = textStyle,
-                            softWrap = false,
-                            topLeft = Offset(xOffset.toPx() + accumulateXOffset, yOffset.toPx() + charYOffset),
-                            size = Size(charWidth, lineHeight),
-                        )
+                        if (textLayoutResult != null) {
+                            drawText(
+                                textLayoutResult = textLayoutResult,
+                                topLeft = Offset(xOffset.toPx() + accumulateXOffset, yOffset.toPx() + charYOffset),
+                            )
+                        } else {
+                            drawText(
+                                textMeasurer = textMeasurer,
+                                text = annotatedUnicode,
+                                style = textStyle,
+                                softWrap = false,
+                                topLeft = Offset(xOffset.toPx() + accumulateXOffset, yOffset.toPx() + charYOffset),
+                                size = Size(charWidth, lineHeight),
+                            )
+                        }
                         surrogatePairFirstChar = null
                         accumulateXOffset += charWidth
                     }

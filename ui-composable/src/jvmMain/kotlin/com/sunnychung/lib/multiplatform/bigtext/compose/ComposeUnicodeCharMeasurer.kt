@@ -2,6 +2,7 @@ package com.sunnychung.lib.multiplatform.bigtext.compose
 
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextOverflow
@@ -31,6 +32,8 @@ class ComposeUnicodeCharMeasurer(private val measurer: TextMeasurer, private val
         refCharHeightBaselineDiff = it.getLineBottom(0) - it.firstBaseline
     }
     private val numRepeatMeasurePerChar = 1 // 10
+
+    private val textLayoutResults: MutableMap<CacheKey, TextLayoutResult> = ConcurrentHashMap(256) //LinkedHashMap<String, Float>(256)
 
     /**
      * Time complexity = O(S lg C)
@@ -95,6 +98,36 @@ class ComposeUnicodeCharMeasurer(private val measurer: TextMeasurer, private val
         return charYOffset[cacheKeyOf(char, spanStyle)] ?: run {
             measureAndIndex(setOf(char.string()), style)
             charYOffset[cacheKeyOf(char, spanStyle)]!!
+        }
+    }
+
+    fun getTextLayoutResult(char: CharSequence, style: TextStyle?): TextLayoutResult? {
+        if (char.length == 1 && char[0].code < 256) {
+            val style = mergeStyles(style, char as? AnnotatedString)
+            val spanStyle = style?.toSpanStyle()
+            return textLayoutResults.getOrPut(cacheKeyOf(char, spanStyle)) {
+                if (char is AnnotatedString) {
+                    measurer.measure(
+                        text = char,
+                        style = style ?: this.style,
+                        overflow = TextOverflow.Visible,
+                        softWrap = false,
+                        maxLines = 1,
+                        skipCache = true,
+                    )
+                } else {
+                    measurer.measure(
+                        text = char.string(),
+                        style = style ?: this.style,
+                        overflow = TextOverflow.Visible,
+                        softWrap = false,
+                        maxLines = 1,
+                        skipCache = true,
+                    )
+                }
+            }
+        } else {
+            return null
         }
     }
 

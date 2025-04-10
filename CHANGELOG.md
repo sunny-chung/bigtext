@@ -6,7 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
-Nothing yet.
+### Change
+UI
+- New `isCacheTextLayoutResult` parameter (default to `true`) to `CoreBigTextField` to cache `androidx.compose.ui.text.TextLayoutResult` in order to optimize text rendering performance
 
 
 ## UI [2.1.0] - 2025-03-09
