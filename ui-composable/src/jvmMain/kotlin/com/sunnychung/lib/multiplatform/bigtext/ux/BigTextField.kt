@@ -1,4 +1,4 @@
-@file:OptIn(ExperimentalBigTextUiApi::class)
+@file:OptIn(ExperimentalBigTextUiApi::class, TemporaryApi::class)
 
 package com.sunnychung.lib.multiplatform.bigtext.ux
 
@@ -94,6 +94,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import co.touchlab.kermit.Severity
 import com.sunnychung.lib.multiplatform.bigtext.annotation.ExperimentalBigTextUiApi
+import com.sunnychung.lib.multiplatform.bigtext.annotation.TemporaryApi
 import com.sunnychung.lib.multiplatform.bigtext.compose.ComposeUnicodeCharMeasurer
 import com.sunnychung.lib.multiplatform.bigtext.core.BigText
 import com.sunnychung.lib.multiplatform.bigtext.core.BigTextChangeCallback
@@ -393,7 +394,7 @@ fun CoreBigTextField(
 //                density, fontFamilyResolver
             )
         ).also {
-            lineHeight = (it.charMeasurer as ComposeUnicodeCharMeasurer).getRowHeight()
+            lineHeight = it.charMeasurer.getRowHeight()
         }
     }
     // if the value of `viewState.isLayoutDisabled` is changed, trigger a recomposition
@@ -510,7 +511,7 @@ fun CoreBigTextField(
             return
         }
 
-        lineHeight = (textLayouter.charMeasurer as ComposeUnicodeCharMeasurer).getRowHeight()
+        lineHeight = textLayouter.charMeasurer.getRowHeight()
         log.d { "fireOnLayout lineHeight=$lineHeight" }
         val layoutResult = BigTextSimpleLayoutResult(
             text = transformedText, // layout is only performed in `transformedText`

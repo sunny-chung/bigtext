@@ -6,6 +6,7 @@ import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextOverflow
+import com.sunnychung.lib.multiplatform.bigtext.annotation.TemporaryApi
 import com.sunnychung.lib.multiplatform.bigtext.core.layout.CharMeasurer
 import com.sunnychung.lib.multiplatform.bigtext.util.isSurrogatePairFirst
 import com.sunnychung.lib.multiplatform.bigtext.util.isSurrogatePairSecond
@@ -157,7 +158,8 @@ class ComposeUnicodeCharMeasurer(private val measurer: TextMeasurer, private val
         }
     }
 
-    fun getRowHeight(): Float = refCharHeight
+    @TemporaryApi
+    override fun getRowHeight(): Float = refCharHeight
 
     fun measure(targets: List<String>, style: TextStyle): List<Pair<Float, Float>> {
         log.d { "measure ${targets.size} targets" }
