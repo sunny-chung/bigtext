@@ -17,7 +17,7 @@ import kotlin.math.floor
 
 private val charsRequiringWrapping = setOf(" ", "\t")
 
-class ComposeUnicodeCharMeasurer(private val measurer: TextMeasurer, private val style: TextStyle/*, val density: Density, val fontFamilyResolver: FontFamily.Resolver*/) : CharMeasurer<TextStyle> {
+open class ComposeUnicodeCharMeasurer(private val measurer: TextMeasurer, private val style: TextStyle/*, val density: Density, val fontFamilyResolver: FontFamily.Resolver*/) : CharMeasurer<TextStyle> {
     private val charWidth: MutableMap<CacheKey, Float> = ConcurrentHashMap(128) //LinkedHashMap<String, Float>(256)
     private val charYOffset: MutableMap<CacheKey, Float> = ConcurrentHashMap(128) //LinkedHashMap<String, Float>(256)
     private val refCharHeight: Float = measurer.measure("|\n|", style, softWrap = false).let {

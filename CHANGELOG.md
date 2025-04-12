@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Change
 UI
 - New `isCacheTextLayoutResult` parameter (default to `true`) to `CoreBigTextField` to cache `androidx.compose.ui.text.TextLayoutResult` in order to optimize text rendering performance
+- Class `ComposeUnicodeCharMeasurer` is now `open`
 
 DS
 - Interface `CharMeasurer` now requires an implementation of `getRowHeight()`. This API is marked as `@TemporaryApi` and may be changed when multiple row heights would be supported.
