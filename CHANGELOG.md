@@ -6,16 +6,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+Nothing yet.
+
+
+## UI [2.2.0], DS [2.1.0] - 2025-04-16
+
 ### Change
+Common
+- Annotation class `@TemporaryApi` is renamed to `@TemporaryBigTextApi` and moved from the UI module to the data structure module
+
 UI
 - New `isCacheTextLayoutResult` parameter (default to `true`) to `CoreBigTextField` to cache `androidx.compose.ui.text.TextLayoutResult` in order to optimize text rendering performance
 - Class `ComposeUnicodeCharMeasurer` is now `open`
 
 DS
-- Interface `CharMeasurer` now requires an implementation of `getRowHeight()`. This API is marked as `@TemporaryApi` and may be changed when multiple row heights would be supported.
-
-Common
-- Annotation class `@TemporaryApi` is moved from the UI module to the data structure module 
+- Interface `CharMeasurer` now requires an implementation of `getRowHeight()`. This API is marked as `@TemporaryBigTextApi` and may be changed when multiple row heights would be supported.
 
 
 ## UI [2.1.0] - 2025-03-09
