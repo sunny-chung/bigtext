@@ -1,4 +1,4 @@
-@file:OptIn(ExperimentalBigTextUiApi::class, TemporaryApi::class)
+@file:OptIn(ExperimentalBigTextUiApi::class, TemporaryBigTextApi::class)
 
 package com.sunnychung.lib.multiplatform.bigtext.ux
 
@@ -94,7 +94,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import co.touchlab.kermit.Severity
 import com.sunnychung.lib.multiplatform.bigtext.annotation.ExperimentalBigTextUiApi
-import com.sunnychung.lib.multiplatform.bigtext.annotation.TemporaryApi
+import com.sunnychung.lib.multiplatform.bigtext.annotation.TemporaryBigTextApi
 import com.sunnychung.lib.multiplatform.bigtext.compose.ComposeUnicodeCharMeasurer
 import com.sunnychung.lib.multiplatform.bigtext.core.BigText
 import com.sunnychung.lib.multiplatform.bigtext.core.BigTextChangeCallback
@@ -144,13 +144,11 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.newFixedThreadPoolContext
 import kotlinx.coroutines.withContext
 import java.util.Collections
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.TimeUnit
 import kotlin.coroutines.CoroutineContext
-import kotlin.coroutines.EmptyCoroutineContext
 import kotlin.math.roundToInt
 import kotlin.random.Random
 import kotlin.reflect.KMutableProperty

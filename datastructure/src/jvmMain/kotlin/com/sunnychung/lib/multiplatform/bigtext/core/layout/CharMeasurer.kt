@@ -1,6 +1,6 @@
 package com.sunnychung.lib.multiplatform.bigtext.core.layout
 
-import com.sunnychung.lib.multiplatform.bigtext.annotation.TemporaryApi
+import com.sunnychung.lib.multiplatform.bigtext.annotation.TemporaryBigTextApi
 
 interface CharMeasurer<S> {
 
@@ -11,6 +11,6 @@ interface CharMeasurer<S> {
 
     fun findCharYOffset(char: CharSequence, style: S? = null): Float
 
-    @TemporaryApi
+    @TemporaryBigTextApi
     fun getRowHeight(): Float
 }

@@ -1,18 +1,18 @@
 package com.sunnychung.lib.multiplatform.bigtext.ux
 
-import com.sunnychung.lib.multiplatform.bigtext.annotation.TemporaryApi
+import com.sunnychung.lib.multiplatform.bigtext.annotation.TemporaryBigTextApi
 import com.sunnychung.lib.multiplatform.bigtext.core.layout.BigTextLayoutable
 import com.sunnychung.lib.multiplatform.bigtext.core.layout.CharMeasurer
 import com.sunnychung.lib.multiplatform.bigtext.extension.binarySearchForMaxIndexOfValueAtMost
 import com.sunnychung.lib.multiplatform.bigtext.util.weakRefOf
 
-@OptIn(TemporaryApi::class)
+@OptIn(TemporaryBigTextApi::class)
 @Deprecated("Slow")
 class BigTextLayoutResult(
     /** Number of transformed row spans of non-transformed lines */
-    @Deprecated("Slow") @property:TemporaryApi val lineRowSpans: List<Int>, // O(L)
+    @Deprecated("Slow") @property:TemporaryBigTextApi val lineRowSpans: List<Int>, // O(L)
     /** First transformed row index of non-transformed lines */
-    @Deprecated("Slow") @property:TemporaryApi val lineFirstRowIndices: List<Int>, // O(L)
+    @Deprecated("Slow") @property:TemporaryBigTextApi val lineFirstRowIndices: List<Int>, // O(L)
     /** Transformed start char index of transformed rows */
     internal val rowStartCharIndices: List<Int>, // O(R)
     @Deprecated("Slow") val rowHeight: Float,

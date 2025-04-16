@@ -1,6 +1,6 @@
 package com.sunnychung.lib.multiplatform.bigtext.test.util
 
-import com.sunnychung.lib.multiplatform.bigtext.annotation.TemporaryApi
+import com.sunnychung.lib.multiplatform.bigtext.annotation.TemporaryBigTextApi
 import com.sunnychung.lib.multiplatform.bigtext.core.layout.CharMeasurer
 
 class FixedWidthCharMeasurer(private val charWidth: Float) : CharMeasurer<Unit> {
@@ -12,6 +12,6 @@ class FixedWidthCharMeasurer(private val charWidth: Float) : CharMeasurer<Unit> 
 
     override fun findCharYOffset(char: CharSequence, style: Unit?): Float = throw NotImplementedError()
 
-    @TemporaryApi
+    @TemporaryBigTextApi
     override fun getRowHeight(): Float = 16f
 }
