@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+Nothing yet.
+
+
+## UI [2.3.0] - 2025-05-31
+
 ### New
 UI
 - `BigTextViewState.findRelativeXYOfOriginalCharIndex()` for querying coordinates of a character relative to the visible viewport of the text field or label
