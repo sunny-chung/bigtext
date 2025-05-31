@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### New
+UI
+- `BigTextViewState.findRelativeXYOfOriginalCharIndex()` for querying coordinates of a character relative to the visible viewport of the text field or label
+
 ### Change
 UI
 - The type of the parameter `onPointerEvent` has been changed to `((event: PointerEvent, charIndex: Int, tag: String?) -> Unit)?` (`charIndex: Int` is added).

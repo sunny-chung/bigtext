@@ -287,6 +287,21 @@ class BigTextViewState {
         return firstRowIndex .. lastRowIndex
     }
 
+    fun findRelativeXYOfOriginalCharIndex(originalCharIndex: Int, verticalScrollValue: Int, horizontalScrollValue: Int): Pair<Float, Float>? {
+        if (!isComponentReady) return null
+        val transformedText = transformedText?.get() ?: return null
+        val layoutResult = layoutResult ?: return null
+        val transformedCharIndex = transformedText.findTransformedPositionByOriginalPosition(originalCharIndex)
+        val row = transformedText.findRowIndexByPosition(transformedCharIndex)
+        val y = row * layoutResult.rowHeight - verticalScrollValue
+
+        val rowStart = transformedText.findRowPositionStartIndexByRowIndex(row)
+        val absX = transformedText.findWidthByPositionRangeOfSameLine(rowStart ..< transformedCharIndex)
+        val x = absX - horizontalScrollValue
+
+        return x to y
+    }
+
     fun toImmutable(): ImmutableBigTextViewState = ImmutableBigTextViewState(this)
 }
 
