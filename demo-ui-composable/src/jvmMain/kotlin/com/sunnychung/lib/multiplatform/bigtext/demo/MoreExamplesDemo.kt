@@ -123,6 +123,7 @@ private fun MouseHoverAnnotatedTextDemo() {
 
     val bigTextFieldState by rememberConcurrentLargeAnnotatedBigTextFieldState(initialText)
     var tooltip by remember { mutableStateOf<String?>(null) }
+    var mouseHoverCharIndex by remember { mutableStateOf(-1) }
     var statusText by remember { mutableStateOf("") }
 
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -148,10 +149,11 @@ private fun MouseHoverAnnotatedTextDemo() {
                 color = Color.Black,
                 cursorColor = Color.Blue,
                 fontFamily = FontFamily.SansSerif,
-                isSingleLineInput = true,
-                onPointerEvent = { event, tag ->
+                isSingleLineInput = false,
+                onPointerEvent = { event, charIndex, tag ->
                     log.d { "onPointerEvent: $tag" }
                     tooltip = tag
+                    mouseHoverCharIndex = charIndex
                     if (event.type == PointerEventType.Press) {
                         if (tag != null) {
                             statusText = "Clicked '$tag'."
@@ -163,10 +165,15 @@ private fun MouseHoverAnnotatedTextDemo() {
                 padding = PaddingValues(all = 8.dp),
                 modifier = Modifier.background(Color(255, 192, 160), RoundedCornerShape(4.dp))
                     .fillMaxWidth()
+                    .height(200.dp)
             )
         }
 
-        Text(statusText)
+        Text("${
+            if (mouseHoverCharIndex >= 0) {
+                "Position: $mouseHoverCharIndex. "
+            } else ""
+        }$statusText")
     }
 }
 

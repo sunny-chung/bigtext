@@ -179,7 +179,7 @@ fun BigTextLabel(
     scrollState: ScrollState = rememberScrollState(),
     horizontalScrollState: ScrollState = rememberScrollState(),
     viewState: BigTextViewState = remember { BigTextViewState() },
-    onPointerEvent: ((event: PointerEvent, tag: String?) -> Unit)? = null,
+    onPointerEvent: ((event: PointerEvent, charIndex: Int, tag: String?) -> Unit)? = null,
     onTextLayout: ((BigTextSimpleLayoutResult) -> Unit)? = null,
     onTransformInit: ((BigTextTransformed) -> Unit)? = null,
 ) = CoreBigTextField(
@@ -228,7 +228,7 @@ fun BigTextField(
     scrollState: ScrollState = rememberScrollState(),
     horizontalScrollState: ScrollState = rememberScrollState(),
     keyboardInputProcessor: BigTextKeyboardInputProcessor? = null,
-    onPointerEvent: ((event: PointerEvent, tag: String?) -> Unit)? = null,
+    onPointerEvent: ((event: PointerEvent, charIndex: Int, tag: String?) -> Unit)? = null,
     onTextLayout: ((BigTextSimpleLayoutResult) -> Unit)? = null,
     onHeavyComputation: AsyncContext.(computation: AsyncContext.() -> Unit) -> Unit = AsyncOperation.Asynchronous,
 ) {
@@ -285,7 +285,7 @@ fun BigTextField(
     horizontalScrollState: ScrollState = rememberScrollState(),
     viewState: BigTextViewState = remember(weakRefOf(text)) { BigTextViewState() },
     keyboardInputProcessor: BigTextKeyboardInputProcessor? = null,
-    onPointerEvent: ((event: PointerEvent, tag: String?) -> Unit)? = null,
+    onPointerEvent: ((event: PointerEvent, charIndex: Int, tag: String?) -> Unit)? = null,
     onTextLayout: ((BigTextSimpleLayoutResult) -> Unit)? = null,
     onHeavyComputation: AsyncContext.(computation: AsyncContext.() -> Unit) -> Unit = AsyncOperation.Asynchronous,
 ) = CoreBigTextField(
@@ -350,7 +350,7 @@ fun CoreBigTextField(
     isCacheTextLayoutResult: Boolean = true,
 //    interactionSource: MutableInteractionSource = remember(weakRefOf(text)) { MutableInteractionSource() },
     keyboardInputProcessor: BigTextKeyboardInputProcessor? = null,
-    onPointerEvent: ((event: PointerEvent, tag: String?) -> Unit)? = null,
+    onPointerEvent: ((event: PointerEvent, charIndex: Int, tag: String?) -> Unit)? = null,
     onTextLayout: ((BigTextSimpleLayoutResult) -> Unit)? = null,
     onHeavyComputation: AsyncContext.(computation: AsyncContext.() -> Unit) -> Unit = AsyncOperation.Asynchronous,
     onTransformInit: ((BigTextTransformed) -> Unit)? = null,
@@ -1635,7 +1635,8 @@ fun CoreBigTextField(
                                         val charSequenceUnderPointer = transformedText.subSequence(transformedCharIndex, transformedCharIndex + 1)
                                         (charSequenceUnderPointer as? AnnotatedString)?.spanStyles?.firstOrNull { it.tag.isNotEmpty() }?.tag
                                     } else null
-                                    onPointerEvent(event, tag)
+                                    val originalCharIndex = transformedText.findOriginalPositionByTransformedPosition(transformedCharIndex)
+                                    onPointerEvent(event, originalCharIndex, tag)
                                 }
 
                                 when (event.type) {
