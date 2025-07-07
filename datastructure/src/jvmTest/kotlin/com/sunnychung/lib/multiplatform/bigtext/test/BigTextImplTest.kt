@@ -1,7 +1,9 @@
 package com.sunnychung.lib.multiplatform.bigtext.test
 
+import co.touchlab.kermit.Severity
 import com.sunnychung.lib.multiplatform.bigtext.core.BigTextImpl
 import com.sunnychung.lib.multiplatform.bigtext.core.isD
+import com.sunnychung.lib.multiplatform.bigtext.core.log
 import com.sunnychung.lib.multiplatform.bigtext.extension.length
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
@@ -227,6 +229,9 @@ class BigTextImplTest {
     fun insertAtFixedPosition() {
         val t = BigTextVerifyImpl(chunkSize = 64)
         t.append("a".repeat(339))
+        if (log.config.minSeverity <= Severity.Debug) {
+            t.printDebug()
+        }
         t.insertAt(29, "E".repeat(46))
         t.insertAt(29, "D".repeat(46))
         t.insertAt(29, "C".repeat(46))

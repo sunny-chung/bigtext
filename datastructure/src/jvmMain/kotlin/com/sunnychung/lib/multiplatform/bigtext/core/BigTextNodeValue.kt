@@ -1,10 +1,10 @@
 package com.sunnychung.lib.multiplatform.bigtext.core
 
 import com.sunnychung.lib.multiplatform.bigtext.core.transform.BigTextTransformOffsetMapping
-import com.williamfiset.algorithms.datastructures.balancedtree.RedBlackTree
+import com.sunnychung.lib.multiplatform.bigtext.redblacktree.RedBlackTree
 import kotlin.random.Random
 
-open class BigTextNodeValue : Comparable<BigTextNodeValue>, DebuggableNode<BigTextNodeValue>, LengthNodeValue {
+open class BigTextNodeValue : Comparable<BigTextNodeValue>, DebuggableNode2<BigTextNodeValue>, LengthNodeValue {
     var leftNumOfLineBreaks: Int = -1
     var leftNumOfRowBreaks: Int = -1
     override var leftStringLength: Int = -1
@@ -16,7 +16,7 @@ open class BigTextNodeValue : Comparable<BigTextNodeValue>, DebuggableNode<BigTe
     var lastRowWidth: Float = 0f
     var isEndWithForceRowBreak: Boolean = false
 
-    var bufferIndex: Int = -1
+    var bufferIndex: Int = -1 // for debug purpose only
     var bufferOffsetStart: Int = -1
     var bufferOffsetEndExclusive: Int = -1
     @Deprecated("use renderNumLineBreaksInRange") var bufferNumLineBreaksInRange: Int = -1
@@ -65,7 +65,7 @@ open class BigTextNodeValue : Comparable<BigTextNodeValue>, DebuggableNode<BigTe
 
     var maxLineWidth: Long = -1
 
-    internal var node: RedBlackTree<BigTextNodeValue>.Node? = null
+    internal var node: RedBlackTree<BigTextNodeValue, BigTextNodeValue>.Node? = null
 
     private val key = RANDOM.nextInt()
 
@@ -73,7 +73,10 @@ open class BigTextNodeValue : Comparable<BigTextNodeValue>, DebuggableNode<BigTe
         middleMaxLineWidth = -1
     }
 
-    override fun attach(node: RedBlackTree<BigTextNodeValue>.Node) {
+    // Unknown K2 bug that cause calls to `fun attach(node: RedBlackTree<BigTextNodeValue, BigTextNodeValue>.Node)` cannot be compiled
+    // Kotlin is full of bugs
+    override fun attach(node: Any) {
+        val node = node as RedBlackTree<BigTextNodeValue, BigTextNodeValue>.Node
         this.node = node
     }
 
@@ -85,7 +88,7 @@ open class BigTextNodeValue : Comparable<BigTextNodeValue>, DebuggableNode<BigTe
         return compareValues(leftOverallLength, other.leftOverallLength)
     }
 
-    fun clone(node: RedBlackTree<BigTextNodeValue>.Node?): BigTextNodeValue {
+    fun clone(node: RedBlackTree<BigTextNodeValue, BigTextNodeValue>.Node?): BigTextNodeValue {
         return BigTextNodeValue().also {
             it.leftNumOfLineBreaks = leftNumOfLineBreaks
             it.leftNumOfRowBreaks = leftNumOfRowBreaks
@@ -105,7 +108,7 @@ open class BigTextNodeValue : Comparable<BigTextNodeValue>, DebuggableNode<BigTe
     }
 
     override fun debugKey(): String = "$key"
-    override fun debugLabel(node: RedBlackTree<BigTextNodeValue>.Node): String =
+    override fun debugLabel(node: RedBlackTree<BigTextNodeValue, BigTextNodeValue>.Node?): String =
 //        "$leftStringLength [$bufferIndex: $bufferOffsetStart ..< $bufferOffsetEndExclusive] L ${node.length()} r $leftNumOfRowBreaks/$rowBreakOffsets lw $lastRowWidth $isEndWithForceRowBreak '${buffer.subSequence(renderBufferStart, renderBufferEndExclusive).toString().replace("\n", "\\n")}'"
         "|${debugKey()}| $leftStringLength [$bufferIndex: $bufferOffsetStart ..< $bufferOffsetEndExclusive] L ${node.length()} r $leftNumOfRowBreaks/$rowBreakOffsets l $leftNumOfLineBreaks/$renderNumLineBreaksInRange lw $lastRowWidth $isEndWithForceRowBreak" +
                 " '${buffer.substring(bufferOffsetStart, bufferOffsetEndExclusive)}' " +
@@ -114,6 +117,8 @@ open class BigTextNodeValue : Comparable<BigTextNodeValue>, DebuggableNode<BigTe
     protected fun CharSequence.quoteForMermaid(): String {
         return toString().replace("\n", "\\n").replace("\"", "&quot;")
     }
+
+    override fun toString(): String = "{${debugKey()}}"
 
     companion object {
         private val RANDOM = Random(1000000)

@@ -173,8 +173,8 @@ class BigTextImplHorizontalLayoutTest {
         v.delete(t.length - 2 .. t.length - 2)
         v.verifyMaxLineWidth("after del", 10f)
 
-        val root = t.tree.root.value
-        println("max width = ${root.maxLineWidth}, ag start = ${root.aggregatedStartLineWidth}, ag end = ${root.aggregatedEndLineWidth}")
+        val root = t.tree.root?.value
+        println("max width = ${root?.maxLineWidth}, ag start = ${root?.aggregatedStartLineWidth}, ag end = ${root?.aggregatedEndLineWidth}")
         t.printDebug()
     }
 

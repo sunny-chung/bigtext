@@ -14,8 +14,11 @@ import com.sunnychung.lib.multiplatform.bigtext.core.ConcurrentBigText
 import com.sunnychung.lib.multiplatform.bigtext.core.LengthTree
 import com.sunnychung.lib.multiplatform.bigtext.core.PassthroughBigTextLocker
 import com.sunnychung.lib.multiplatform.bigtext.core.RedBlackTreeComputations
+import com.sunnychung.lib.multiplatform.bigtext.core.RedBlackTreeComputations2
 import com.sunnychung.lib.multiplatform.bigtext.core.StringTextBuffer
 import com.sunnychung.lib.multiplatform.bigtext.core.TextBuffer
+import com.sunnychung.lib.multiplatform.bigtext.core.getRight
+import com.sunnychung.lib.multiplatform.bigtext.core.getValue
 import com.sunnychung.lib.multiplatform.bigtext.core.isD
 import com.sunnychung.lib.multiplatform.bigtext.core.isNotNil
 import com.sunnychung.lib.multiplatform.bigtext.core.length
@@ -26,9 +29,9 @@ import com.sunnychung.lib.multiplatform.bigtext.extension.binarySearchForMinInde
 import com.sunnychung.lib.multiplatform.bigtext.extension.intersect
 import com.sunnychung.lib.multiplatform.bigtext.extension.length
 import com.sunnychung.lib.multiplatform.bigtext.extension.toNonEmptyRange
+import com.sunnychung.lib.multiplatform.bigtext.redblacktree.RedBlackTree
 import com.sunnychung.lib.multiplatform.bigtext.util.GeneralStringBuilder
 import com.sunnychung.lib.multiplatform.bigtext.util.JvmLogger
-import com.williamfiset.algorithms.datastructures.balancedtree.RedBlackTree
 
 val logT = Logger(object : MutableLoggerConfig {
     override var logWriterList: List<LogWriter> = listOf(JvmLogger())
@@ -54,8 +57,8 @@ class BigTextTransformerImpl(
     private var hasReachedExtensiveSearch: Boolean = false
 
     override val tree: LengthTree<BigTextNodeValue> = LengthTree<BigTextTransformNodeValue>(
-        object : RedBlackTreeComputations<BigTextTransformNodeValue> {
-            override fun recomputeFromLeaf(it: RedBlackTree<BigTextTransformNodeValue>.Node) = recomputeAggregatedValues(it as RedBlackTree<BigTextNodeValue>.Node)
+        object : RedBlackTreeComputations2<BigTextTransformNodeValue> {
+            override fun recomputeFromLeaf(it: RedBlackTree<BigTextTransformNodeValue, BigTextTransformNodeValue>.Node) = recomputeAggregatedValues(it as RedBlackTree<BigTextNodeValue, BigTextNodeValue>.Node)
             override fun computeWhenLeftRotate(x: BigTextTransformNodeValue, y: BigTextTransformNodeValue) {}
             override fun computeWhenRightRotate(x: BigTextTransformNodeValue, y: BigTextTransformNodeValue) {}
         }
@@ -81,20 +84,26 @@ class BigTextTransformerImpl(
         }
     }
 
-    fun RedBlackTree<BigTextNodeValue>.Node.toBigTextTransformNode(parentNode: RedBlackTree<BigTextTransformNodeValue>.Node) : RedBlackTree<BigTextTransformNodeValue>.Node {
-        if (this === originalText.tree.NIL) {
-            return (tree as LengthTree<BigTextTransformNodeValue>).NIL
+    fun RedBlackTree<BigTextNodeValue, BigTextNodeValue>.Node?.toBigTextTransformNode(parentNode: RedBlackTree<BigTextTransformNodeValue, BigTextTransformNodeValue>.Node?) : RedBlackTree<BigTextTransformNodeValue, BigTextTransformNodeValue>.Node? {
+//        if (this === originalText.tree.NIL) {
+//            return (tree as LengthTree<BigTextTransformNodeValue>).NIL
+//        }
+        if (this == null) {
+            return null
         }
 
+        val value = value.toBigTextTransformNodeValue()
+
         return (tree as LengthTree<BigTextTransformNodeValue>).Node(
-            value.toBigTextTransformNodeValue(),
-            color,
-            parentNode,
-            tree.NIL,
-            tree.NIL,
+            key = value,
+            value = value,
+            color = color,
+            parent = parentNode,
+            left = null,
+            right = null,
         ).also {
-            it.value.attach(it as RedBlackTree<BigTextNodeValue>.Node)
-            val n = it as RedBlackTree<BigTextTransformNodeValue>.Node
+            it.value.attach(it as RedBlackTree<BigTextNodeValue, BigTextNodeValue>.Node)
+            val n = it as RedBlackTree<BigTextTransformNodeValue, BigTextTransformNodeValue>.Node
             n.left = left.toBigTextTransformNode(n)
             n.right = right.toBigTextTransformNode(n)
         }
@@ -110,7 +119,7 @@ class BigTextTransformerImpl(
     }
 
     init {
-        (tree as LengthTree<BigTextTransformNodeValue>).setRoot(originalText.tree.getRoot().toBigTextTransformNode(tree.NIL))
+        (tree as LengthTree<BigTextTransformNodeValue>).setRoot(originalText.tree.getRoot().toBigTextTransformNode(null))
 //        tree.visitInPostOrder {
 //            recomputeAggregatedValues(it as RedBlackTree<BigTextNodeValue>.Node)
 //        }
@@ -444,7 +453,7 @@ class BigTextTransformerImpl(
             findTransformedPositionByOriginalPosition(originalRange.endInclusive + 1)
         }
 
-        var node: RedBlackTree<BigTextNodeValue>.Node? = endNode
+        var node: RedBlackTree<BigTextNodeValue, BigTextNodeValue>.Node? = endNode
         var nodeRange = charIndexRangeOfNode(node!!)
         val newNodesInDescendingOrder = mutableListOf<BigTextNodeValue>()
         while (node?.isNotNil() == true && (originalRange.start <= nodeRange.endInclusive || originalRange.start <= nodeRange.start)) {
@@ -496,7 +505,7 @@ class BigTextTransformerImpl(
                 if (nodeRange.start == 2083112) {
                     isD = true
                 }
-                tree.delete(node)
+                tree.deleteNode(node)
                 logT.v { inspect("T After delete " + node?.value?.debugKey()) }
             }
             node = prev
@@ -508,14 +517,15 @@ class BigTextTransformerImpl(
         }
 
         newNodesInDescendingOrder.asReversed().forEach {
-            if (node != null) {
-                node = tree.insertRight(node!!, it)
-            } else if (!tree.isEmpty) { // no previous node, so insert at leftmost of the tree
-                val leftmost = tree.leftmost(tree.getRoot())
-                node = tree.insertLeft(leftmost, it)
-            } else {
-                node = tree.insertValue(it)
-            }
+//            if (node != null) {
+//                node = tree.insertRight(node!!, it)
+//            } else if (!tree.isEmpty) { // no previous node, so insert at leftmost of the tree
+//                val leftmost = tree.leftmost(tree.getRoot())
+//                node = tree.insertLeft(leftmost, it)
+//            } else {
+//                node = tree.insertValue(it)
+//            }
+            tree.insertBeforePosition(originalRange.start, it)
         }
 
         layout(maxOf(0, renderStartPos - 1), minOf(length, renderEndPos + 1))
@@ -595,11 +605,11 @@ class BigTextTransformerImpl(
         }
     }
 
-    override fun computeCurrentNodeProperties(nodeValue: BigTextNodeValue, left: RedBlackTree<BigTextNodeValue>.Node?) = with (nodeValue) {
+    override fun computeCurrentNodeProperties(nodeValue: BigTextNodeValue, left: RedBlackTree<BigTextNodeValue, BigTextNodeValue>.Node?) = with (nodeValue) {
         super.computeCurrentNodeProperties(nodeValue, left)
 
         this as BigTextTransformNodeValue
-        left as RedBlackTree<BigTextTransformNodeValue>.Node?
+        left as RedBlackTree<BigTextTransformNodeValue, BigTextTransformNodeValue>.Node?
         leftTransformedLength = left?.transformedOffset() ?: 0
         leftRenderLength = left?.renderLength() ?: 0
         leftOverallLength = left?.overallLength() ?: 0
@@ -674,7 +684,7 @@ class BigTextTransformerImpl(
 
         var incrementalTransformLength = 0
         var incrementalTransformLimit = 0
-        var n = node as RedBlackTree<BigTextTransformNodeValue>.Node
+        var n = node as RedBlackTree<BigTextTransformNodeValue, BigTextTransformNodeValue>.Node
         var isBreakIfReachAnyIncrementalChunk = false
         while (true) {
             if (n.value.transformOffsetMapping == BigTextTransformOffsetMapping.Incremental && n.value.transformedBufferEndExclusive - n.value.transformedBufferStart > 0) {
@@ -689,7 +699,7 @@ class BigTextTransformerImpl(
             if (n === firstMarkerNode) {
                 break
             }
-            n = tree.prevNode(n as RedBlackTree<BigTextNodeValue>.Node) as RedBlackTree<BigTextTransformNodeValue>.Node
+            n = tree.prevNode(n as RedBlackTree<BigTextNodeValue, BigTextNodeValue>.Node) as RedBlackTree<BigTextTransformNodeValue, BigTextTransformNodeValue>.Node
         }
         if (incrementalTransformLimit > 0) { // incremental replacement
 //            return transformedStart - maxOf(0, incrementalTransformLength - minOf(incrementalTransformLimit, indexFromNodeStart))
@@ -762,7 +772,7 @@ class BigTextTransformerImpl(
 //
 //        return nodeStartBeforeMarkers + itOffset
 
-        var n = firstMarkerNode as RedBlackTree<BigTextTransformNodeValue>.Node
+        var n = firstMarkerNode as RedBlackTree<BigTextTransformNodeValue, BigTextTransformNodeValue>.Node
         var incrementalTransformLength = 0
         var incrementalTransformLimit = 0
         var nonIncrementalTransformLength = 0
@@ -779,7 +789,7 @@ class BigTextTransformerImpl(
             if (n.value.transformOffsetMapping != BigTextTransformOffsetMapping.Incremental && n.value.currentTransformedLength > 0) {
                 nonIncrementalTransformLength += n.value.currentTransformedLength
             }
-            n = tree.nextNode(n as RedBlackTree<BigTextNodeValue>.Node) as RedBlackTree<BigTextTransformNodeValue>.Node
+            n = tree.nextNode(n as RedBlackTree<BigTextNodeValue, BigTextNodeValue>.Node) as RedBlackTree<BigTextTransformNodeValue, BigTextTransformNodeValue>.Node
         }
         if (incrementalTransformLimit > 0) { // incremental replacement
 //            return nodeStart - maxOf(0, incrementalTransformLength - indexFromNodeStart)
@@ -934,7 +944,7 @@ class BigTextTransformerImpl(
     }
 }
 
-fun RedBlackTree<BigTextTransformNodeValue>.Node.transformedOffset(): Int =
+fun RedBlackTree<BigTextTransformNodeValue, BigTextTransformNodeValue>.Node?.transformedOffset(): Int =
     (getValue()?.leftTransformedLength ?: 0) +
             (getValue()?.currentTransformedLength ?: 0) +
             (getRight().takeIf { it.isNotNil() }?.transformedOffset() ?: 0)

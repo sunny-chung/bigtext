@@ -3,7 +3,7 @@ package com.sunnychung.lib.multiplatform.bigtext.core.transform
 import com.sunnychung.lib.multiplatform.bigtext.core.BigTextNodeValue
 import com.sunnychung.lib.multiplatform.bigtext.core.BufferOwnership
 import com.sunnychung.lib.multiplatform.bigtext.core.renderLength
-import com.williamfiset.algorithms.datastructures.balancedtree.RedBlackTree
+import com.sunnychung.lib.multiplatform.bigtext.redblacktree.RedBlackTree
 
 /**
  *
@@ -53,8 +53,8 @@ class BigTextTransformNodeValue : BigTextNodeValue() {
     override val currentOverallLength: Int
         get() = bufferLength + currentRenderLength
 
-    override fun debugLabel(node: RedBlackTree<BigTextNodeValue>.Node): String = buildString {
-        node as RedBlackTree<BigTextTransformNodeValue>.Node
+    override fun debugLabel(node: RedBlackTree<BigTextNodeValue, BigTextNodeValue>.Node?): String = buildString {
+        node as RedBlackTree<BigTextTransformNodeValue, BigTextTransformNodeValue>.Node?
 
         append("$leftStringLength ${bufferOwnership.name.first()} blen=$bufferLength [$bufferIndex: $bufferOffsetStart ..< $bufferOffsetEndExclusive] L ${node.renderLength()}")
         append(" Tr [$transformedBufferStart ..< $transformedBufferEndExclusive]")

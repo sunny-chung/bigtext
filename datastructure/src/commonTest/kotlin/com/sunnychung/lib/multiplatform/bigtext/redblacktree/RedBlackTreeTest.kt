@@ -294,4 +294,43 @@ class RedBlackTreeTest {
             assertTreeState(tree, expectedStates.getOrElse(i) { expectedStates.last() }.sortedBy { it.first })
         }
     }
+
+    @Test
+    fun testIteratorInOrder() {
+        val tree = RedBlackTree<Int, String>()
+        val keys = listOf(10, 4, 15, 2, 7)
+        for (k in keys) tree.insert(k, "v$k")
+        val expected = keys.sorted().map { "v$it" }
+        val iterated = tree.toList()
+        assertEquals(expected, iterated)
+    }
+
+    @Test
+    fun testIteratorEmptyTree() {
+        val tree = RedBlackTree<Int, String>()
+        assertFalse(tree.iterator().hasNext())
+        assertEquals(emptyList(), tree.toList())
+    }
+
+    @Test
+    fun testIteratorAfterDelete() {
+        val tree = RedBlackTree<Int, String>()
+        for (k in 1..5) tree.insert(k, "v$k")
+        tree.remove(3)
+        val expected = listOf("v1", "v2", "v4", "v5")
+        assertEquals(expected, tree.toList())
+    }
+
+    @Test
+    fun testForEachLoop() {
+        val tree = RedBlackTree<Int, String>()
+        val keys = listOf(8, 3, 10, 1, 6)
+        for (k in keys) tree.insert(k, "v$k")
+        val result = mutableListOf<String>()
+        for (v in tree) {
+            result.add(v)
+        }
+        val expected = keys.sorted().map { "v$it" }
+        assertEquals(expected, result)
+    }
 }

@@ -1,26 +1,46 @@
 package com.sunnychung.lib.multiplatform.bigtext.redblacktree
 
-private enum class Color { RED, BLACK }
+enum class Color { RED, BLACK }
 
-open class RedBlackTree<K : Comparable<K>, V> {
-    private inner class Node(
-        var key: K,
-        var value: V,
-        var color: Color,
-        var left: Node? = null,
-        var right: Node? = null,
-        var parent: Node? = null
-    )
+open class RedBlackTree<K : Comparable<K>, V> : Iterable<V> {
+    inner class Node(
+        key: K,
+        value: V,
+        color: Color,
+        left: Node? = null,
+        right: Node? = null,
+        parent: Node? = null
+    ) {
+        var parent = parent
+            internal set
+        var right = right
+            internal set
+        var left = left
+            internal set
+        var color = color
+            internal set
+        var value = value
+            internal set
+        var key = key
+            internal set
+    }
 
-    private var root: Node? = null
+    var root: Node? = null
+        protected set
 
     // --- Public API ---
+
+    val isEmpty: Boolean
+        get() = root == null
+
+    var size: Int = 0
+        protected set
 
     fun get(key: K): V? = searchNode(key)?.value
 
     fun contains(key: K): Boolean = searchNode(key) != null
 
-    fun insert(key: K, value: V) {
+    open fun insert(key: K, value: V): Node? {
         var y: Node? = null
         var x = root
 
@@ -31,7 +51,7 @@ open class RedBlackTree<K : Comparable<K>, V> {
                 key > x.key -> x = x.right
                 else -> {
                     x.value = value
-                    return
+                    return null
                 }
             }
         }
@@ -46,6 +66,8 @@ open class RedBlackTree<K : Comparable<K>, V> {
         }
 
         insertFixup(z)
+        ++size
+        return z
     }
 
     fun remove(key: K) {
@@ -57,6 +79,58 @@ open class RedBlackTree<K : Comparable<K>, V> {
         val result = mutableListOf<Pair<K, V>>()
         inOrder(root, result)
         return result
+    }
+
+    fun findNode(comparison: (Node) -> Int): Node? {
+        var x = root
+        while (x != null) {
+            val comparisonResult = comparison(x)
+            when {
+                comparisonResult < 0 -> x = x.left
+                comparisonResult > 0 -> x = x.right
+                else -> return x
+            }
+        }
+        return null
+    }
+
+    fun find(comparison: (Node) -> Int): V? = findNode(comparison)?.value
+
+    override fun iterator(): Iterator<V> = object : Iterator<V> {
+        private val stack = mutableListOf<RedBlackTree<K, V>.Node>()
+        private var current = root
+
+        init {
+            // Push all the way to the left
+            while (current != null) {
+                stack.add(current!!)
+                current = current!!.left
+            }
+            current = null
+        }
+
+        override fun hasNext(): Boolean = stack.isNotEmpty()
+
+        override fun next(): V {
+            if (!hasNext()) throw NoSuchElementException()
+            val node = stack.removeAt(stack.lastIndex)
+            var nextNode = node.right
+            while (nextNode != null) {
+                stack.add(nextNode)
+                nextNode = nextNode.left
+            }
+            return node.value
+        }
+    }
+
+    fun visitInPostOrder(visitor: (Node) -> Unit) {
+        fun visit(node: Node?) {
+            if (node == null) return
+            visit(node.left)
+            visit(node.right)
+            visitor(node)
+        }
+        visit(root)
     }
 
     // --- Internal helpers ---
@@ -81,7 +155,7 @@ open class RedBlackTree<K : Comparable<K>, V> {
         return null
     }
 
-    private fun insertFixup(z: Node) {
+    protected fun insertFixup(z: Node) {
         var z = z
         while (z.parent?.color == Color.RED) {
             val p = z.parent!!
@@ -123,7 +197,8 @@ open class RedBlackTree<K : Comparable<K>, V> {
         root?.color = Color.BLACK
     }
 
-    private fun transplant(u: Node, v: Node?) {
+    protected open fun transplant(u: Node, v: Node?) {
+        val uParent = u.parent
         if (u.parent == null) {
             root = v
         } else if (u == u.parent?.left) {
@@ -132,6 +207,8 @@ open class RedBlackTree<K : Comparable<K>, V> {
             u.parent?.right = v
         }
         v?.parent = u.parent
+        uParent?.let { n -> recompute(n) }
+        // the recomputation of `v` is called outside
     }
 
     private fun minimum(x: Node): Node {
@@ -140,7 +217,7 @@ open class RedBlackTree<K : Comparable<K>, V> {
         return curr
     }
 
-    private fun deleteNode(z: Node) {
+    open fun deleteNode(z: Node) {
         var y = z
         var yOriginalColor = y.color
         var x: Node? = null
@@ -150,10 +227,12 @@ open class RedBlackTree<K : Comparable<K>, V> {
             x = z.right
             xParent = z.parent
             transplant(z, z.right)
+            xParent?.let { n -> recomputeBottomUp(n) }
         } else if (z.right == null) {
             x = z.left
             xParent = z.parent
             transplant(z, z.left)
+            xParent?.let { n -> recomputeBottomUp(n) }
         } else {
             y = minimum(z.right!!)
             yOriginalColor = y.color
@@ -170,12 +249,25 @@ open class RedBlackTree<K : Comparable<K>, V> {
             y.left = z.left
             y.left?.parent = y
             y.color = z.color
+
+            recomputeBottomUp(y)
         }
 
         if (yOriginalColor == Color.BLACK) {
             deleteFixup(x, xParent)
         }
+        --size
     }
+
+    protected open fun recomputeBottomUp(n: Node) {
+        var p: Node? = n
+        while (p != null) {
+            recompute(p)
+            p = p.parent
+        }
+    }
+
+    protected open fun recompute(n: Node) = Unit
 
     /**
      * x is the replacement node (may be null)
@@ -248,8 +340,8 @@ open class RedBlackTree<K : Comparable<K>, V> {
         x?.color = Color.BLACK
     }
 
-    private fun rotateLeft(x: Node) {
-        val y = x.right ?: return
+    protected open fun rotateLeft(x: Node): Boolean {
+        val y = x.right ?: return false
         x.right = y.left
         if (y.left != null) y.left?.parent = x
         y.parent = x.parent
@@ -262,10 +354,11 @@ open class RedBlackTree<K : Comparable<K>, V> {
         }
         y.left = x
         x.parent = y
+        return true
     }
 
-    private fun rotateRight(x: Node) {
-        val y = x.left ?: return
+    protected open fun rotateRight(x: Node): Boolean {
+        val y = x.left ?: return false
         x.left = y.right
         if (y.right != null) y.right?.parent = x
         y.parent = x.parent
@@ -278,6 +371,7 @@ open class RedBlackTree<K : Comparable<K>, V> {
         }
         y.right = x
         x.parent = y
+        return true
     }
 
     // --- For Testing Only ---
