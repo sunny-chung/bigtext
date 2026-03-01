@@ -231,6 +231,8 @@ fun BigTextField(
     onPointerEvent: ((event: PointerEvent, charIndex: Int, tag: String?) -> Unit)? = null,
     onTextLayout: ((BigTextSimpleLayoutResult) -> Unit)? = null,
     onHeavyComputation: AsyncContext.(computation: AsyncContext.() -> Unit) -> Unit = AsyncOperation.Asynchronous,
+    onTransformInit: ((BigTextTransformed) -> Unit)? = null,
+    onFinishInit: () -> Unit = {},
 ) {
     BigTextField(
         modifier = modifier,
@@ -258,6 +260,8 @@ fun BigTextField(
         onPointerEvent = onPointerEvent,
         onTextLayout = onTextLayout,
         onHeavyComputation = onHeavyComputation,
+        onTransformInit = onTransformInit,
+        onFinishInit = onFinishInit,
     )
 }
 
@@ -288,6 +292,8 @@ fun BigTextField(
     onPointerEvent: ((event: PointerEvent, charIndex: Int, tag: String?) -> Unit)? = null,
     onTextLayout: ((BigTextSimpleLayoutResult) -> Unit)? = null,
     onHeavyComputation: AsyncContext.(computation: AsyncContext.() -> Unit) -> Unit = AsyncOperation.Asynchronous,
+    onTransformInit: ((BigTextTransformed) -> Unit)? = null,
+    onFinishInit: () -> Unit = {},
 ) = CoreBigTextField(
     modifier = modifier,
     text = text,
@@ -313,6 +319,8 @@ fun BigTextField(
     onPointerEvent = onPointerEvent,
     onTextLayout = onTextLayout,
     onHeavyComputation = onHeavyComputation,
+    onTransformInit = onTransformInit,
+    onFinishInit = onFinishInit,
 )
 
 @OptIn(
