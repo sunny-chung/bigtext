@@ -8,7 +8,7 @@ version = "2.4.0"
 
 kotlin {
     jvm {
-        jvmToolchain(17)
+        jvmToolchain(21)
         withJava()
         testRuns.named("test") {
             executionTask.configure {

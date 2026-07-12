@@ -499,6 +499,32 @@ class BigTextImplHorizontalLayoutTest {
         }
     }
 
+    @Test
+    fun widthAndHitTestingTreatEmojiSequenceAsOneVisualCharacter() {
+        val t = BigTextImpl(chunkSize = 1024).apply {
+            append("A👆🏿B")
+            setLayouter(MonospaceTextLayouter(FixedWidthCharMeasurer(16f)))
+            setSoftWrapEnabled(false)
+        }
+
+        assertEquals(16f, t.findWidthByPositionRangeOfSameLine(1..4), 0.0001f)
+        assertEquals(0f, t.findWidthByPositionRangeOfSameLine(1..1), 0.0001f)
+        assertEquals(1, t.findMaxEndPositionOfWidthSumOverPositionRangeAtMost(0, 0..t.length, true, 17))
+        assertEquals(5, t.findMaxEndPositionOfWidthSumOverPositionRangeAtMost(0, 0..t.length, true, 32))
+    }
+
+    @Test
+    fun widthPositionSearchToleratesEmptyRanges() {
+        val t = BigTextImpl(chunkSize = 1024).apply {
+            append("A")
+            setLayouter(MonospaceTextLayouter(FixedWidthCharMeasurer(16f)))
+            setSoftWrapEnabled(false)
+        }
+
+        assertEquals(0, t.findMaxEndPositionOfWidthSumOverPositionRangeAtMost(0, 1..0, true, 0))
+        assertEquals(1, t.findMinEndPositionOfWidthSumOverPositionRangeAtLeast(0, 1..0, true, 0))
+    }
+
     @ParameterizedTest
     @ValueSource(ints = [2 * 1024 * 1024, 1024, 256, 32])
     fun maxLineWidthOfTransformed(chunkSize: Int) {

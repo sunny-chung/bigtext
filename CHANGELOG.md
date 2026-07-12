@@ -6,7 +6,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
-Nothing yet.
+### New
+UI
+- Emoji sequences support
+
+DS
+- Emoji sequences support
+
+### Breaking Change!
+UI
+- Minimum Java 21 is required
+
+DS
+- Minimum Java 21 is required
+
 
 ## UI [2.4.0] - 2026-03-01
 

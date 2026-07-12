@@ -59,6 +59,24 @@ class BigTextImplLayoutTest {
     }
 
     @ParameterizedTest
+    @ValueSource(ints = [65536, 256])
+    fun emojiSequencesWrapAsOneVisualCharacter(chunkSize: Int) {
+        val testString = "A👆🏿B👨‍👩‍👧‍👦C🇭🇰D1️⃣Eá"
+        val t = BigTextImpl(chunkSize = chunkSize).apply {
+            append(testString)
+            setLayouter(MonospaceTextLayouter(FixedWidthCharMeasurer(16f)))
+            setContentWidth(16f * 2)
+        }
+
+        assertEquals(5, t.numOfRows)
+        assertEquals("A👆🏿", t.findRowString(0))
+        assertEquals("B👨‍👩‍👧‍👦", t.findRowString(1))
+        assertEquals("C🇭🇰", t.findRowString(2))
+        assertEquals("D1️⃣", t.findRowString(3))
+        assertEquals("Eá", t.findRowString(4))
+    }
+
+    @ParameterizedTest
     @ValueSource(ints = [65536, 64, 16])
     fun layoutMultipleLines1(chunkSize: Int) {
         val testString = "abcd\n1234567890<234567890<bcdefghij<BCDEFGHIJ<row break< should h<appen her<e.\nABCDEFGHIJ<BCDEFGHIJ<xyz\nabcd"

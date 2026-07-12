@@ -119,10 +119,10 @@ import com.sunnychung.lib.multiplatform.bigtext.platform.currentOS
 import com.sunnychung.lib.multiplatform.bigtext.platform.runOnUiThreadAndReturnResult
 import com.sunnychung.lib.multiplatform.bigtext.util.AnnotatedStringBuilder
 import com.sunnychung.lib.multiplatform.bigtext.util.AsyncContext
+import com.sunnychung.lib.multiplatform.bigtext.util.GraphemeClusters
 import com.sunnychung.lib.multiplatform.bigtext.util.annotatedString
 import com.sunnychung.lib.multiplatform.bigtext.util.buildTestTag
 import com.sunnychung.lib.multiplatform.bigtext.util.debouncedStateOf
-import com.sunnychung.lib.multiplatform.bigtext.util.isSurrogatePairFirst
 import com.sunnychung.lib.multiplatform.bigtext.util.string
 import com.sunnychung.lib.multiplatform.bigtext.util.weakRefOf
 import com.sunnychung.lib.multiplatform.bigtext.ux.compose.rememberLast
@@ -924,6 +924,20 @@ fun CoreBigTextField(
         }
     }
 
+    fun graphemeBoundaryAtOrBefore(text: BigText, position: Int): Int {
+        if (position <= 0 || position >= text.length) return position.coerceIn(0, text.length)
+        val start = maxOf(0, position - 128)
+        val endExclusive = minOf(text.length, position + 128)
+        return start + GraphemeClusters.boundaryAtOrBefore(text.subSequence(start, endExclusive), position - start)
+    }
+
+    fun graphemeBoundaryAtOrAfter(text: BigText, position: Int): Int {
+        if (position <= 0 || position >= text.length) return position.coerceIn(0, text.length)
+        val start = maxOf(0, position - 128)
+        val endExclusive = minOf(text.length, position + 128)
+        return start + GraphemeClusters.boundaryAtOrAfter(text.subSequence(start, endExclusive), position - start)
+    }
+
     fun insertAt(insertPos: Int, textInput: CharSequence): CharSequence {
         val text = textRef.get() ?: return ""
         var textInput = inputFilter?.filter(textInput) ?: textInput
@@ -1001,9 +1015,10 @@ fun CoreBigTextField(
 
         when (direction) {
             TextFBDirection.Forward -> {
-                if (cursor + 1 <= text.length) {
+                val endExclusive = graphemeBoundaryAtOrAfter(text, cursor + 1)
+                if (endExclusive <= text.length && cursor < endExclusive) {
 //                    onValuePreChange(BigTextChangeEventType.Delete, cursor, cursor + 1)
-                    text.delete(cursor, cursor + 1)
+                    text.delete(cursor, endExclusive)
 //                    onValuePostChange(BigTextChangeEventType.Delete, cursor, cursor + 1)
                     updateViewState()
                     if (log.config.minSeverity <= Severity.Verbose) {
@@ -1016,16 +1031,17 @@ fun CoreBigTextField(
                 }
             }
             TextFBDirection.Backward -> {
-                if (cursor - 1 >= 0) {
+                val start = graphemeBoundaryAtOrBefore(text, cursor - 1)
+                if (start >= 0 && start < cursor) {
 //                    onValuePreChange(BigTextChangeEventType.Delete, cursor - 1, cursor)
-                    text.delete(cursor - 1, cursor)
+                    text.delete(start, cursor)
 //                    onValuePostChange(BigTextChangeEventType.Delete, cursor - 1, cursor)
                     updateViewState()
                     if (log.config.minSeverity <= Severity.Verbose) {
                         (transformedText as? BigTextImpl)?.printDebug("transformedText onDelete $direction")
                     }
                     // update cursor after invoking listeners, because a transformation or change may take place
-                    viewState.cursorIndex = maxOf(0, cursor - 1)
+                    viewState.cursorIndex = start
                     viewState.updateTransformedCursorIndexByOriginal(transformedText)
                     viewState.transformedSelectionStart = viewState.transformedCursorIndex
                     log.v { "set cursor pos 3 => ${viewState.cursorIndex} t ${viewState.transformedCursorIndex}" }
@@ -1978,23 +1994,8 @@ fun CoreBigTextField(
                     var accumulateXOffset = 0f
                     val rowAnnotatedString = rowText.annotatedString()
                     log.v { "draw line #$lineIndex row #$i char 0 .. ${rowAnnotatedString.lastIndex}" }
-                    var surrogatePairFirstChar: Char? = null
-                    (0 .. rowAnnotatedString.lastIndex).forEach { j ->
-                        val charAnnotated = rowAnnotatedString.subSequence(j, j + 1)
-                        if (charAnnotated.first().isSurrogatePairFirst()) {
-                            surrogatePairFirstChar = charAnnotated.first()
-                            return@forEach
-                        }
-
-                        val annotatedUnicode = if (surrogatePairFirstChar == null) {
-                            charAnnotated
-                        } else {
-                            AnnotatedString(
-                                text = "${surrogatePairFirstChar}${charAnnotated.text}",
-                                spanStyles = charAnnotated.spanStyles
-                                    .map { it.copy(start = 0, end = 2) }
-                            )
-                        }
+                    GraphemeClusters.forEach(rowAnnotatedString.text) { clusterStart, clusterEndExclusive ->
+                        val annotatedUnicode = rowAnnotatedString.subSequence(clusterStart, clusterEndExclusive)
                         val textLayoutResult = if (isCacheTextLayoutResult) {
                             (textLayouter.charMeasurer as? ComposeUnicodeCharMeasurer)?.getTextLayoutResult(annotatedUnicode, null)
                         } else {
@@ -2019,7 +2020,6 @@ fun CoreBigTextField(
                                 size = Size(charWidth, lineHeight),
                             )
                         }
-                        surrogatePairFirstChar = null
                         accumulateXOffset += charWidth
                     }
 

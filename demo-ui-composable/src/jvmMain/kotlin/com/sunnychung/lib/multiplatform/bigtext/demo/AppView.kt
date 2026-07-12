@@ -33,6 +33,7 @@ val PRELOAD_CONTENT = linkedMapOf(
     "Unicode 100 MB" to generateRandomUnicodeContent(100 * 1024 * 1024),
     "Unicode + Emoji 4 KB" to generateRandomUnicodeWithEmojiContent(4 * 1024),
     "Unicode + Emoji 10 MB" to generateRandomUnicodeWithEmojiContent(10 * 1024 * 1024),
+    "Unicode + Emoji Sequence 10 MB" to generateRandomUnicodeWithEmojiSequenceContent(10 * 1024 * 1024),
     "Dense 10 MB" to generateDenseRandomContent(10 * 1024 * 1024),
     "Single Line 10 MB" to generateSingleLongLine(10 * 1024 * 1024),
 )
@@ -153,6 +154,50 @@ fun generateRandomUnicodeWithEmojiContent(size: Int): String {
 
             else -> throw RuntimeException("Unexpected random value: $r")
         }.toString()
+    }
+}
+
+fun generateRandomUnicodeWithEmojiSequenceContent(size: Int): String {
+    val random = Random
+    val emojiSequences = listOf(
+        "👆🏿", // emoji modifier sequence
+        "👋🏻",
+        "👨‍👩‍👧‍👦", // ZWJ family sequence
+        "👩‍💻",
+        "🧑‍🚀",
+        "❤️", // variation selector sequence
+        "☝️",
+        "🇭🇰", // regional indicator sequence
+        "🇯🇵",
+        "1️⃣", // keycap sequence
+        "#️⃣",
+        "á", // combining mark sequence
+    )
+    return buildString(size) {
+        while (length < size) {
+            append(
+                when (val r = random.nextInt(360)) {
+                    in 0 ..< 26 -> 'A'.plus(r - 0).toString()
+                    in 26 ..< 52 -> 'a'.plus(r - 26).toString()
+                    in 52 ..< 62 -> '0'.plus(r - 52).toString()
+                    in 62 ..< 72 -> " "
+                    in 72 ..< 76 -> "\n"
+                    in 76 ..< 116 -> '\u2FAC'.plus(r - 76).toString() // Traditional Chinese
+                    in 116 ..< 156 -> '\u3041'.plus(r - 116).toString() // Japanese
+                    in 156 ..< 196 -> '\uAC00'.plus(r - 156).toString() // Korean
+                    in 196 ..< 226 -> hexToUtf8String(0x20f2f + (r - 196)) // Multi-byte Unicode
+                    in 226 ..< 246 -> hexToUtf8String(0x22b5 + (r - 226)) // Symbol
+                    in 246 ..< 266 -> hexToUtf8String(0x4e07 + (r - 246)) // Simplified Chinese
+                    in 266 ..< 286 -> hexToUtf8String(0x0100 + (r - 266)) // European Latin extended
+                    in 286 ..< 306 -> "!@#$%^&*()-=_+[]{}:;\"',./<>?|\\"[r - 286].toString()
+                    in 306 ..< 316 -> "π©¥º…≈≤£¢∞"[r - 306].toString()
+                    in 316 ..< 336 -> hexToUtf8String(0x1f600 + (r - 316)) // Regular emoji
+                    in 336 ..< 348 -> hexToUtf8String(0x1f315 + (r - 336)) // Regular emoji
+                    in 348 ..< 360 -> emojiSequences[r - 348]
+                    else -> throw RuntimeException("Unexpected random value: $r")
+                }
+            )
+        }
     }
 }
 
