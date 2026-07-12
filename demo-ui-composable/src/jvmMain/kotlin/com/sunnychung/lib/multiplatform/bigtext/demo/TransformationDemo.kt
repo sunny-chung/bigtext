@@ -191,6 +191,18 @@ fun TransformationTextAreaDemoView(modifier: Modifier, bodyFontFamily: FontFamil
             ) {
                 Text("Transform")
             }
+
+            Button(
+                onClick = {
+//                    val selection = bigTextFieldState.viewState.selection
+//                    bigTextFieldState.viewState.setSelection()
+                    bigTextFieldState.replaceTextAtCursor("<replaced>")
+
+                    focusRequester.requestFocus()
+                }
+            ) {
+                Text("Replace")
+            }
         }
 
         Text("Type \${{...}} to create a transformation. Alternatively, select a word within 20 characters and click the Transform button.")
