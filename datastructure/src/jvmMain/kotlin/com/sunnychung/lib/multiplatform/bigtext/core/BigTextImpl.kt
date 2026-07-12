@@ -12,6 +12,7 @@ import com.sunnychung.lib.multiplatform.bigtext.extension.binarySearchForMinInde
 import com.sunnychung.lib.multiplatform.bigtext.extension.length
 import com.sunnychung.lib.multiplatform.bigtext.util.CircularList
 import com.sunnychung.lib.multiplatform.bigtext.util.GeneralStringBuilder
+import com.sunnychung.lib.multiplatform.bigtext.util.GraphemeClusters
 import com.sunnychung.lib.multiplatform.bigtext.util.JvmLogger
 import com.sunnychung.lib.multiplatform.bigtext.util.StringBuilder2
 import com.sunnychung.lib.multiplatform.kdatetime.KInstant
@@ -53,6 +54,7 @@ private const val EPS = 1e-4f
 
 private val accumulatedWidthCacheInterval = 64
 private val accumulatedWidthCacheHalfInterval = accumulatedWidthCacheInterval / 2
+private const val MAX_GRAPHEME_SEQUENCE_LENGTH = 128
 
 open class BigTextImpl(
     override val chunkSize: Int = 2 * 1024 * 1024, // 2 MB
@@ -1713,7 +1715,25 @@ open class BigTextImpl(
         return accumulatedWidthInDouble.toFloat()
     }
 
+    private fun graphemeBoundaryAtOrBeforePosition(position: Int): Int {
+        if (position <= 0 || position >= length) return position.coerceIn(0, length)
+        val start = maxOf(0, position - MAX_GRAPHEME_SEQUENCE_LENGTH)
+        val endExclusive = minOf(length, position + MAX_GRAPHEME_SEQUENCE_LENGTH)
+        return start + GraphemeClusters.boundaryAtOrBefore(subSequence(start, endExclusive), position - start)
+    }
+
+    private fun graphemeBoundaryAtOrAfterPosition(position: Int): Int {
+        if (position <= 0 || position >= length) return position.coerceIn(0, length)
+        val start = maxOf(0, position - MAX_GRAPHEME_SEQUENCE_LENGTH)
+        val endExclusive = minOf(length, position + MAX_GRAPHEME_SEQUENCE_LENGTH)
+        return start + GraphemeClusters.boundaryAtOrAfter(subSequence(start, endExclusive), position - start)
+    }
+
     override fun findMaxEndPositionOfWidthSumOverPositionRangeAtMost(startPosition: Int, endPositions: IntRange, isEndExclusive: Boolean, maxWidthSum: Int): Int {
+        if (endPositions.isEmpty()) {
+            return endPositions.endInclusive
+        }
+
         return binarySearchForMaxIndexOfValueAtMost(endPositions, maxWidthSum) {
             findWidthByPositionRangeOfSameLine(
                 if (isEndExclusive) {
@@ -1723,15 +1743,15 @@ open class BigTextImpl(
                 }
             ).toInt()
         }.coerceIn(endPositions).let {
-            if (it in (startPosition + 1)..< length && subSequence(it, it + 1)[0].isLowSurrogate()) {
-                it - 1
-            } else {
-                it
-            }
+            graphemeBoundaryAtOrBeforePosition(it)
         }
     }
 
     override fun findMinEndPositionOfWidthSumOverPositionRangeAtLeast(startPosition: Int, endPositions: IntRange, isEndExclusive: Boolean, minWidthSum: Int): Int {
+        if (endPositions.isEmpty()) {
+            return endPositions.start
+        }
+
         return binarySearchForMinIndexOfValueAtLeast(endPositions, minWidthSum) {
             findWidthByPositionRangeOfSameLine(
                 if (isEndExclusive) {
@@ -1740,7 +1760,9 @@ open class BigTextImpl(
                     startPosition .. it
                 }
             ).toInt()
-        }
+        }.coerceIn(endPositions).let {
+            graphemeBoundaryAtOrAfterPosition(it)
+        }.coerceIn(endPositions)
     }
 
     override fun hashCode(): Int {
@@ -1850,40 +1872,73 @@ open class BigTextImpl(
             bufferExtraData[buffer]!!
         }
         val length = buffer.length
-        var surrogatePairFirstChar: Char? = null
-        var accumulatedWidth = if ((fromCharIndex - 1) + 1 >= accumulatedWidthCacheInterval) {
-            extra.widths[((fromCharIndex - 1) + 1) / accumulatedWidthCacheInterval - 1]
-        } else {
-            0L
+        val alignedFromCharIndex = (fromCharIndex.coerceAtLeast(0) / accumulatedWidthCacheInterval) * accumulatedWidthCacheInterval
+        val fromCharIndex = graphemeBoundaryAtOrBeforeBufferPosition(buffer, alignedFromCharIndex).also { newFromCharIndex ->
+            log.v { "buildBufferExtraData from $fromCharIndex newFrom=$newFromCharIndex" }
         }
-        val fromCharIndex = ((fromCharIndex.coerceAtLeast(0) / accumulatedWidthCacheInterval) * accumulatedWidthCacheInterval).also { newFromCharIndex ->
-            log.v { "buildBufferExtraData from $fromCharIndex newFrom=$newFromCharIndex initial=$accumulatedWidth" }
+        var accumulatedWidth = findWidthSum(buffer, extra, fromCharIndex - 1)
+
+        var nextCacheEndIndex = (fromCharIndex / accumulatedWidthCacheInterval) * accumulatedWidthCacheInterval +
+                accumulatedWidthCacheInterval - 1
+        fun writeCacheThrough(indexInclusive: Int) {
+            while (nextCacheEndIndex <= indexInclusive && nextCacheEndIndex < length) {
+                val cacheIndex = nextCacheEndIndex / accumulatedWidthCacheInterval
+                if (cacheIndex in extra.widths.indices) {
+                    log.v { "buildBufferExtraData w[$cacheIndex]=$accumulatedWidth" }
+                    extra.widths[cacheIndex] = accumulatedWidth
+                }
+                nextCacheEndIndex += accumulatedWidthCacheInterval
+            }
         }
 
-        // Use (map + forEachIndexed) VS forEach: 2s VS 0.7s
         val subsequence = if (fromCharIndex == 0) buffer else buffer.subSequence(fromCharIndex, length)
-        (fromCharIndex ..< length).forEach { i ->
-            val char = subsequence.subSequence(i - fromCharIndex, i + 1 - fromCharIndex)
-            val charWidth: Float
-            if (char[0].isHighSurrogate()) {
-                surrogatePairFirstChar = char[0]
-                charWidth = 0f
-            } else if (surrogatePairFirstChar != null) {
-//                charWidth = layouter.measureCharWidth("$surrogatePairFirstChar$char")
-                charWidth = layouter.measureCharWidth(subsequence.subSequence(i - 1 - fromCharIndex, i + 1 - fromCharIndex))
-                surrogatePairFirstChar = null
-            } else {
-                charWidth = layouter.measureCharWidth(char)
-            }
-            log.v { "buildBufferExtraData c[$i]=$charWidth" }
-            val multipliedCharWidth = (charWidth * widthMultiplier).roundToLong()
-            accumulatedWidth += multipliedCharWidth
-            if ((i + 1) % accumulatedWidthCacheInterval == 0) {
-                log.v { "buildBufferExtraData w[${(i + 1) / accumulatedWidthCacheInterval - 1}]=$accumulatedWidth" }
-                extra.widths[(i + 1) / accumulatedWidthCacheInterval - 1] = accumulatedWidth
+        GraphemeClusters.forEach(subsequence) { start, endExclusive ->
+            val absoluteStart = fromCharIndex + start
+            val absoluteEndExclusive = fromCharIndex + endExclusive
+            writeCacheThrough(absoluteEndExclusive - 2)
+
+            val charWidth = layouter.measureCharWidth(buffer.subSequence(absoluteStart, absoluteEndExclusive))
+            log.v { "buildBufferExtraData c[$absoluteStart..<${absoluteEndExclusive}]=$charWidth" }
+            accumulatedWidth += (charWidth * widthMultiplier).roundToLong()
+            writeCacheThrough(absoluteEndExclusive - 1)
+        }
+        writeCacheThrough(length - 1)
+        extra.hasInitialized = true
+    }
+
+    private fun graphemeBoundaryAtOrBeforeBufferPosition(buffer: TextBuffer, position: Int): Int {
+        if (position <= 0 || position >= buffer.length) return position.coerceIn(0, buffer.length)
+        val start = maxOf(0, position - MAX_GRAPHEME_SEQUENCE_LENGTH)
+        val endExclusive = minOf(buffer.length, position + MAX_GRAPHEME_SEQUENCE_LENGTH)
+        return start + GraphemeClusters.boundaryAtOrBefore(buffer.subSequence(start, endExclusive), position - start)
+    }
+
+    private fun graphemeBoundaryAtOrAfterBufferPosition(buffer: TextBuffer, position: Int): Int {
+        if (position <= 0 || position >= buffer.length) return position.coerceIn(0, buffer.length)
+        val start = maxOf(0, position - MAX_GRAPHEME_SEQUENCE_LENGTH)
+        val endExclusive = minOf(buffer.length, position + MAX_GRAPHEME_SEQUENCE_LENGTH)
+        return start + GraphemeClusters.boundaryAtOrAfter(buffer.subSequence(start, endExclusive), position - start)
+    }
+
+    private fun findWidthSumInRange(buffer: TextBuffer, startIndex: Int, endIndexInclusive: Int): Long {
+        if (startIndex > endIndexInclusive) return 0L
+        val layouter = layouter!!
+        val start = startIndex.coerceAtLeast(0)
+        val endInclusive = endIndexInclusive.coerceAtMost(buffer.length - 1)
+        if (start > endInclusive) return 0L
+
+        val expandedStart = graphemeBoundaryAtOrBeforeBufferPosition(buffer, start)
+        val expandedEndExclusive = graphemeBoundaryAtOrAfterBufferPosition(buffer, endInclusive + 1)
+        val subsequence = buffer.subSequence(expandedStart, expandedEndExclusive)
+        var accumulatedWidth = 0L
+        GraphemeClusters.forEach(subsequence) { clusterStart, clusterEndExclusive ->
+            val absoluteEndInclusive = expandedStart + clusterEndExclusive - 1
+            if (absoluteEndInclusive in start..endInclusive) {
+                val absoluteStart = expandedStart + clusterStart
+                accumulatedWidth += (layouter.measureCharWidth(buffer.subSequence(absoluteStart, absoluteEndInclusive + 1)) * widthMultiplier).roundToLong()
             }
         }
-        extra.hasInitialized = true
+        return accumulatedWidth
     }
 
     /**
@@ -1900,69 +1955,14 @@ open class BigTextImpl(
         )
         return if (isForwardSearch) {
             val dividable = ((index + 1) / accumulatedWidthCacheInterval - 1)
-            val searchRange = (((dividable + 1) * accumulatedWidthCacheInterval - 1) + 1 .. index)
-            val subsequence = if (searchRange.isEmpty()) {
-                ""
-            } else {
-                buffer.subSequence(searchRange.first, searchRange.last + 1)
-            }
-//            var surrogatePairFirstChar = if (dividable >= 0) {
-//                buffer.subSequence(dividable, dividable + 1)[0].takeIf { it.isHighSurrogate() }
-//            } else null
+            val searchRange = (((dividable + 1) * accumulatedWidthCacheInterval - 1) + 1)..index
             (if (dividable >= 0) extraData.widths[dividable] else 0L) +
-                searchRange.sumOf { i ->
-                    val char = subsequence.subSequence(i - searchRange.first, i + 1 - searchRange.first)
-                    val charWidth: Float
-                    if (char[0].isHighSurrogate()) {
-//                        surrogatePairFirstChar = char[0]
-                        charWidth = 0f
-//                    } else if (surrogatePairFirstChar != null) {
-                    } else if (char[0].isLowSurrogate() && i > 0) { // TODO handle i == 0
-//                        charWidth = layouter.measureCharWidth("$surrogatePairFirstChar$char")
-                        charWidth = layouter.measureCharWidth(
-                            if (i - 1 - searchRange.first >= 0) {
-                                subsequence.subSequence(i - 1 - searchRange.first, i + 1 - searchRange.first)
-                            } else {
-                                buffer.subSequence(i - 1, i + 1)
-                            }
-                        )
-//                        surrogatePairFirstChar = null
-                    } else {
-                        charWidth = layouter.measureCharWidth(char)
-                    }
-                    val multipliedCharWidth = (charWidth * widthMultiplier).roundToLong()
-                    multipliedCharWidth
-                }
+                findWidthSumInRange(buffer, searchRange.first, searchRange.last)
         } else {
             val dividable = ((index + 1) / accumulatedWidthCacheInterval - 1) + 1
             val searchProgression = ((dividable + 1) * accumulatedWidthCacheInterval - 1 downTo  index + 1)
-            val subsequence = if (searchProgression.isEmpty()) {
-                ""
-            } else {
-                buffer.subSequence(searchProgression.last, searchProgression.first + 1)
-            }
-//                    val surrogatePairSecondChar = buffer.substring(dividable, dividable + 1)[0].takeIf { it.isLowSurrogate() }
             extraData.widths[dividable] -
-                searchProgression.sumOf { i ->
-                    val char = subsequence.subSequence(i - searchProgression.last, i + 1 - searchProgression.last)
-                    val charWidth: Float
-                    if (char[0].isLowSurrogate() && i > 0) { // TODO handle i == 0
-//                        charWidth = layouter.measureCharWidth("${buffer.substring(i - 1, i)}$char")
-                        charWidth = layouter.measureCharWidth(
-                            if (i - 1 - searchProgression.last >= 0) {
-                                subsequence.subSequence(i - 1 - searchProgression.last, i + 1 - searchProgression.last)
-                            } else {
-                                buffer.subSequence(i - 1, i + 1)
-                            }
-                        )
-                    } else if (char[0].isHighSurrogate()) {
-                        charWidth = 0f
-                    } else {
-                        charWidth = layouter.measureCharWidth(char)
-                    }
-                    val multipliedCharWidth = (charWidth * widthMultiplier).roundToLong()
-                    multipliedCharWidth
-                }
+                findWidthSumInRange(buffer, searchProgression.last, searchProgression.first)
         }.also {
             log.v { "findWidthSum($index) = $it" }
         }

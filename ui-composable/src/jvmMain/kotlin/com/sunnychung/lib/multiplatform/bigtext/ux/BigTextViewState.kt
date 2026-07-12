@@ -5,6 +5,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.text.input.TransformedText
 import com.sunnychung.lib.multiplatform.bigtext.core.transform.BigTextTransformed
+import com.sunnychung.lib.multiplatform.bigtext.util.GraphemeClusters
 import com.sunnychung.lib.multiplatform.bigtext.util.WeakRefKey
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -130,6 +131,13 @@ class BigTextViewState {
         }
     }
 
+    private fun isGraphemeBoundary(transformedText: BigTextTransformed, position: Int): Boolean {
+        if (position <= 0 || position >= transformedText.length) return position in 0..transformedText.length
+        val start = maxOf(0, position - 128)
+        val endExclusive = minOf(transformedText.length, position + 128)
+        return GraphemeClusters.isBoundary(transformedText.subSequence(start, endExclusive), position - start)
+    }
+
     internal fun roundedTransformedCursorIndex(transformedCursorIndex: Int, direction: CursorAdjustDirection, transformedText: BigTextTransformed, compareWithPosition: Int, isOnlyWithinBlock: Boolean): Int {
         val possibleRange = 0 .. transformedText.length
         val previousMappedPosition = transformedText.findOriginalPositionByTransformedPosition(compareWithPosition)
@@ -149,10 +157,9 @@ class BigTextViewState {
                         if (newPos == transformedText.length) {
                             return newPos
                         }
-                        val char = transformedText.subSequence(newPos, newPos + 1)
                         if (
-                            (direction == CursorAdjustDirection.Forward && !char[0].isLowSurrogate())
-                            || (direction == CursorAdjustDirection.Backward && !char[0].isLowSurrogate())
+                            (direction == CursorAdjustDirection.Forward && isGraphemeBoundary(transformedText, newPos))
+                            || (direction == CursorAdjustDirection.Backward && isGraphemeBoundary(transformedText, newPos))
                         ) {
                             return newPos
                         }
@@ -170,8 +177,7 @@ class BigTextViewState {
                 // First, try without offset
                 if (transformedCursorIndex != compareWithPosition && transformedCursorIndex in possibleRange && transformedText.findOriginalPositionByTransformedPosition(transformedCursorIndex) != previousMappedPosition) {
                     val newPos = transformedCursorIndex
-                    val char = transformedText.subSequence(newPos, newPos + 1)
-                    if (!char[0].isLowSurrogate()) {
+                    if (isGraphemeBoundary(transformedText, newPos)) {
                         return newPos
                     }
                 }
@@ -193,8 +199,7 @@ class BigTextViewState {
                         if (newPos == transformedText.length) {
                             return newPos
                         }
-                        val char = transformedText.subSequence(newPos, newPos + 1)
-                        if (!char[0].isLowSurrogate()) {
+                        if (isGraphemeBoundary(transformedText, newPos)) {
                             return newPos
                         }
                     }
@@ -202,8 +207,7 @@ class BigTextViewState {
                     if (transformedCursorIndex - delta - 1 in possibleRange && transformedText.findOriginalPositionByTransformedPosition(transformedCursorIndex - delta - 1) != previousMappedPosition) {
                         // for backward, we find the last index that is same as `previousMappedPosition`
                         val newPos = transformedCursorIndex - delta //+ 1
-                        val char = transformedText.subSequence(newPos, newPos + 1)
-                        if (!char[0].isLowSurrogate()) {
+                        if (isGraphemeBoundary(transformedText, newPos)) {
                             return newPos
                         }
                     }
