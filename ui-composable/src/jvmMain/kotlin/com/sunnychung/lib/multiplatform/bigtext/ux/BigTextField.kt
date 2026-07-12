@@ -145,6 +145,11 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.awt.Toolkit
+import java.awt.datatransfer.DataFlavor
+import java.awt.datatransfer.Transferable
+import java.io.InputStream
+import java.io.Reader
 import java.util.Collections
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.TimeUnit
@@ -156,8 +161,56 @@ import kotlin.reflect.full.declaredMemberProperties
 import kotlin.reflect.jvm.isAccessible
 
 private val NEW_LINE_REGEX = "\r?\n".toRegex()
+private const val CLIPBOARD_PASTE_CHUNK_SIZE = 1024 * 1024
+private const val MIN_FREE_HEAP_AFTER_CLIPBOARD_PASTE_BYTES = 64L * 1024L * 1024L
+private const val ESTIMATED_BYTES_PER_PASTED_CHAR = 8L
 
 val BigTextCoroutineContexts: MutableSet<CoroutineContext> = Collections.synchronizedSet(mutableSetOf<CoroutineContext>())
+
+private class SingleFlavorTransferable(
+    private val delegate: Transferable,
+    private val flavor: DataFlavor,
+) : Transferable {
+    override fun getTransferDataFlavors(): Array<DataFlavor> = arrayOf(flavor)
+
+    override fun isDataFlavorSupported(flavor: DataFlavor): Boolean = this.flavor == flavor
+
+    override fun getTransferData(flavor: DataFlavor): Any {
+        require(isDataFlavorSupported(flavor)) { "Unsupported data flavor: $flavor" }
+        return delegate.getTransferData(flavor)
+    }
+}
+
+private fun availableClipboardTextFlavors(): Array<DataFlavor> {
+    return try {
+        Toolkit.getDefaultToolkit().systemClipboard.getContents(null)?.transferDataFlavors
+            ?.filter { it.isFlavorTextType }
+            ?.toTypedArray()
+            ?: emptyArray()
+    } catch (_: Exception) {
+        emptyArray()
+    }
+}
+
+private fun hasClipboardText(): Boolean = availableClipboardTextFlavors().isNotEmpty()
+
+private fun clipboardTextReader(): Reader? {
+    return try {
+        val clipboard = Toolkit.getDefaultToolkit().systemClipboard
+        val contents = clipboard.getContents(null) ?: return null
+        val streamingFlavors = contents.transferDataFlavors
+            .filter {
+                it.isFlavorTextType &&
+                    (Reader::class.java.isAssignableFrom(it.representationClass) ||
+                        InputStream::class.java.isAssignableFrom(it.representationClass))
+            }
+            .toTypedArray()
+        val flavor = DataFlavor.selectBestTextFlavor(streamingFlavors) ?: return null
+        flavor.getReaderForText(SingleFlavorTransferable(contents, flavor))
+    } catch (_: Exception) {
+        null
+    }
+}
 
 @Composable
 fun BigTextLabel(
@@ -1132,13 +1185,144 @@ fun CoreBigTextField(
         deleteSelection(isSaveUndoSnapshot = true)
     }
 
-    fun paste(): Boolean {
-        val textToPaste = clipboardManager.getText()?.text
-        return if (!textToPaste.isNullOrEmpty()) {
-            onType(textToPaste)
-            true
+    fun hasEnoughHeapForClipboardPaste(charCount: Int): Boolean {
+        val runtime = Runtime.getRuntime()
+        val used = runtime.totalMemory() - runtime.freeMemory()
+        val available = runtime.maxMemory() - used
+        val reserve = minOf(MIN_FREE_HEAP_AFTER_CLIPBOARD_PASTE_BYTES, runtime.maxMemory() / 8)
+        return available - reserve >= charCount.toLong() * ESTIMATED_BYTES_PER_PASTED_CHAR
+    }
+
+    var hasPendingClipboardCarriageReturn = false
+    fun replaceLineBreaksForStreamingPaste(input: CharSequence, isEndOfStream: Boolean): CharSequence {
+        if (!isSingleLineInput) {
+            return input
+        }
+        val result = StringBuilder(input.length + if (hasPendingClipboardCarriageReturn) 1 else 0)
+        var index = 0
+        if (hasPendingClipboardCarriageReturn) {
+            if (input.isNotEmpty() && input[0] == '\n') {
+                index = 1
+            }
+            result.append(' ')
+            hasPendingClipboardCarriageReturn = false
+        }
+        while (index < input.length) {
+            when (val char = input[index]) {
+                '\r' -> {
+                    if (index + 1 < input.length) {
+                        if (input[index + 1] == '\n') {
+                            ++index
+                        }
+                        result.append(' ')
+                    } else if (isEndOfStream) {
+                        result.append(' ')
+                    } else {
+                        hasPendingClipboardCarriageReturn = true
+                    }
+                }
+                '\n' -> result.append(' ')
+                else -> result.append(char)
+            }
+            ++index
+        }
+        return result
+    }
+
+    fun filterStreamingPasteChunk(input: CharSequence, isEndOfStream: Boolean): CharSequence {
+        val filtered = inputFilter?.filter(input) ?: input
+        return replaceLineBreaksForStreamingPaste(filtered, isEndOfStream)
+    }
+
+    fun insertStreamingPasteChunk(insertPos: Int, chunk: CharSequence, remainingCapacity: Long): Int {
+        if (chunk.isEmpty() || remainingCapacity <= 0L) {
+            return 0
+        }
+        val insertedText = if (chunk.length.toLong() > remainingCapacity) {
+            chunk.subSequence(0, remainingCapacity.toInt())
         } else {
-            false
+            chunk
+        }
+        if (!hasEnoughHeapForClipboardPaste(insertedText.length)) {
+            return 0
+        }
+        text.insertAt(insertPos, insertedText)
+        return insertedText.length
+    }
+
+    fun paste(): Boolean {
+        val text = textRef.get() ?: return false
+        val transformedText = transformedTextRef.get() ?: return false
+        val reader = clipboardTextReader() ?: return false
+        reader.use {
+            val readBuffer = CharArray(CLIPBOARD_PASTE_CHUNK_SIZE)
+            val firstRead = it.read(readBuffer)
+            if (firstRead <= 0) {
+                return false
+            }
+
+            var totalInserted = 0
+            var hasManipulatedText = false
+            var insertPos = viewState.cursorIndex
+            hasPendingClipboardCarriageReturn = false
+
+            text.withoutUndoRecording {
+                if (viewState.hasSelection()) {
+                    deleteSelection(isSaveUndoSnapshot = false)
+                    hasManipulatedText = true
+                }
+
+                insertPos = viewState.cursorIndex
+                fun consumeChunk(rawChunk: String, isEndOfStream: Boolean): Boolean {
+                    val currentLength = text.length
+                    val remainingCapacity = minOf(maxInputLength, Int.MAX_VALUE.toLong()) - currentLength
+                    if (remainingCapacity <= 0L) {
+                        return false
+                    }
+
+                    val chunk = filterStreamingPasteChunk(
+                        rawChunk,
+                        isEndOfStream
+                    )
+                    if (chunk.isEmpty()) {
+                        return true
+                    }
+                    val inserted = insertStreamingPasteChunk(
+                        insertPos + totalInserted,
+                        chunk,
+                        remainingCapacity
+                    )
+                    totalInserted += inserted
+                    hasManipulatedText = hasManipulatedText || inserted > 0
+                    return inserted == chunk.length
+                }
+
+                var rawChunk = String(readBuffer, 0, firstRead)
+                while (true) {
+                    val nextRead = it.read(readBuffer)
+                    val isEndOfStream = nextRead <= 0
+                    if (!consumeChunk(rawChunk, isEndOfStream)) {
+                        break
+                    }
+                    if (isEndOfStream) {
+                        break
+                    }
+                    rawChunk = String(readBuffer, 0, nextRead)
+                }
+            }
+
+            if (hasManipulatedText) {
+                updateViewState()
+                viewState.cursorIndex = minOf(text.length, insertPos + totalInserted)
+                viewState.updateTransformedCursorIndexByOriginal(transformedText)
+                viewState.transformedSelectionStart = viewState.transformedCursorIndex
+                viewState.selection = EMPTY_SELECTION_RANGE
+                viewState.transformedSelection = EMPTY_SELECTION_RANGE
+                recordCursorXPosition()
+                scrollToCursor()
+                showCursor()
+            }
+            return true
         }
     }
 
@@ -2081,7 +2265,7 @@ fun CoreBigTextField(
                 { isShowContextMenu = false },
                 listOfNotNull(
                     ContextMenuItemButton("Copy", viewState.hasSelection(), buildTestTag("Copy")!!) { copySelection() },
-                    if (isEditable) ContextMenuItemButton("Paste", clipboardManager.hasText(), buildTestTag("Paste")!!) { paste() } else null,
+                    if (isEditable) ContextMenuItemButton("Paste", hasClipboardText(), buildTestTag("Paste")!!) { paste() } else null,
                     if (isEditable) ContextMenuItemButton("Cut", viewState.hasSelection(), buildTestTag("Cut")!!) { cutSelection() } else null,
                     ContextMenuItemDivider(),
                     if (isEditable) ContextMenuItemButton("Undo", text.isUndoable(), buildTestTag("Undo")!!) { undo() } else null,

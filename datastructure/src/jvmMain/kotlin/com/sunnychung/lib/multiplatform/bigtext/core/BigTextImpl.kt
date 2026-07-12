@@ -1379,6 +1379,25 @@ open class BigTextImpl(
         }
     }
 
+    override fun <R> withoutUndoRecording(block: () -> R): R {
+        val wasUndoEnabled = isUndoEnabled
+        if (wasUndoEnabled) {
+            recordCurrentChangeSequenceIntoUndoHistory()
+        }
+        return try {
+            isUndoEnabled = false
+            currentChanges = mutableListOf()
+            block()
+        } finally {
+            currentChanges = mutableListOf()
+            clearRedoHistory()
+            isUndoEnabled = wasUndoEnabled
+            if (wasUndoEnabled) {
+                recordCurrentUndoMetadata()
+            }
+        }
+    }
+
     protected fun recordCurrentUndoMetadata() {
         if (currentChanges.isEmpty()) {
             currentUndoMetadata = undoMetadataSupplier?.invoke()

@@ -91,6 +91,11 @@ open class ConcurrentBigText(open val delegate: LockableBigText) : BigText {
             withWriteLock { delegate.recordCurrentChangeSequenceIntoUndoHistory() }
         }
 
+    override fun <R> withoutUndoRecording(block: () -> R): R =
+        withPreWriteLock {
+            withWriteLock { delegate.withoutUndoRecording(block) }
+        }
+
     override fun undo(callback: BigTextChangeCallback?): Pair<Boolean, Any?> = withPreWriteLock { delegate.undo(callback) { withWriteLock0(it) } }
 
     override fun redo(callback: BigTextChangeCallback?): Pair<Boolean, Any?> = withPreWriteLock { delegate.redo(callback) { withWriteLock0(it) } }

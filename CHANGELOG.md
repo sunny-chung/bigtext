@@ -20,6 +20,10 @@ UI
 DS
 - Minimum Java 21 is required
 
+### Fixed
+UI
+- OOM crash when there is a large text in clipboard (without pasting)
+
 
 ## UI [2.4.0] - 2026-03-01
 

@@ -79,6 +79,8 @@ interface BigText {
 
     fun recordCurrentChangeSequenceIntoUndoHistory()
 
+    fun <R> withoutUndoRecording(block: () -> R): R = block()
+
     fun undo(callback: BigTextChangeCallback? = null): Pair<Boolean, Any?>
 
     fun redo(callback: BigTextChangeCallback? = null): Pair<Boolean, Any?>
