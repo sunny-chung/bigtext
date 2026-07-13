@@ -1417,40 +1417,56 @@ open class BigTextImpl(
         try {
             isUndoEnabled = false // don't record the following changes into the undo history
 
-            changes.asReversed().forEach {
-                when (it.type) {
+            val changesInReverse = changes.asReversed()
+            var index = 0
+            while (index < changesInReverse.size) {
+                val change = changesInReverse[index]
+                when (change.type) {
                     BigTextChangeEventType.Delete -> {
-                        callback?.onValuePreChange(BigTextChangeEventType.Insert, it.positions.start, it.positions.endInclusive + 1)
+                        callback?.onValuePreChange(BigTextChangeEventType.Insert, change.positions.start, change.positions.endInclusive + 1)
                         changeCallbacks.forEach { callback ->
-                            callback.onValuePreChange(BigTextChangeEventType.Insert, it.positions.start, it.positions.endInclusive + 1)
+                            callback.onValuePreChange(BigTextChangeEventType.Insert, change.positions.start, change.positions.endInclusive + 1)
                         }
                         (locker ?: PassthroughBigTextLocker) {
                             insertChunkAtPosition(
-                                it.positions.start,
-                                it.bufferCharIndexes.length,
+                                change.positions.start,
+                                change.bufferCharIndexes.length,
                                 BufferOwnership.Owned,
-                                it.buffer,
-                                it.bufferCharIndexes
+                                change.buffer,
+                                change.bufferCharIndexes
                             ) {
                                 bufferIndex = -3
-                                bufferOffsetStart = it.bufferCharIndexes.start
-                                bufferOffsetEndExclusive = it.bufferCharIndexes.endInclusive + 1
-                                this.buffer = it.buffer
+                                bufferOffsetStart = change.bufferCharIndexes.start
+                                bufferOffsetEndExclusive = change.bufferCharIndexes.endInclusive + 1
+                                this.buffer = change.buffer
                                 this.bufferOwnership = BufferOwnership.Owned
 
                                 leftStringLength = 0
                             }
                         }
                         changeCallbacks.forEach { callback ->
-                            callback.onValuePostChange(BigTextChangeEventType.Insert, it.positions.start, it.positions.endInclusive + 1)
+                            callback.onValuePostChange(BigTextChangeEventType.Insert, change.positions.start, change.positions.endInclusive + 1)
                         }
-                        callback?.onValuePostChange(BigTextChangeEventType.Insert, it.positions.start, it.positions.endInclusive + 1)
+                        callback?.onValuePostChange(BigTextChangeEventType.Insert, change.positions.start, change.positions.endInclusive + 1)
+                        ++index
                     }
 
                     BigTextChangeEventType.Insert -> {
-                        callback?.onValuePreChange(BigTextChangeEventType.Delete, it.positions.start, it.positions.endInclusive + 1)
-                        delete(it.positions.start, it.positions.endInclusive + 1, locker)
-                        callback?.onValuePostChange(BigTextChangeEventType.Delete, it.positions.start, it.positions.endInclusive + 1)
+                        var deleteStart = change.positions.start
+                        val deleteEndExclusive = change.positions.endInclusive + 1
+                        ++index
+                        while (
+                            index < changesInReverse.size &&
+                            changesInReverse[index].type == BigTextChangeEventType.Insert &&
+                            changesInReverse[index].positions.endInclusive + 1 == deleteStart
+                        ) {
+                            deleteStart = changesInReverse[index].positions.start
+                            ++index
+                        }
+
+                        callback?.onValuePreChange(BigTextChangeEventType.Delete, deleteStart, deleteEndExclusive)
+                        delete(deleteStart, deleteEndExclusive, locker)
+                        callback?.onValuePostChange(BigTextChangeEventType.Delete, deleteStart, deleteEndExclusive)
                     }
                 }
             }

@@ -946,6 +946,8 @@ fun CoreBigTextField(
         onTextChange(event)
     }
 
+    var textManipulateListener by remember { mutableStateOf<BigTextChangeCallback?>(null) }
+
     fun delete(start: Int, endExclusive: Int) {
         if (start >= endExclusive) {
             return
@@ -1266,13 +1268,16 @@ fun CoreBigTextField(
             var insertPos = viewState.cursorIndex
             hasPendingClipboardCarriageReturn = false
 
-            text.withoutUndoRecording {
-                if (viewState.hasSelection()) {
-                    deleteSelection(isSaveUndoSnapshot = false)
-                    hasManipulatedText = true
-                }
+            if (viewState.hasSelection()) {
+                deleteSelection(isSaveUndoSnapshot = false)
+                hasManipulatedText = true
+            }
 
-                insertPos = viewState.cursorIndex
+            insertPos = viewState.cursorIndex
+            textManipulateListener?.let { text.unregisterCallback(it) }
+            text.disableComputations()
+            transformedText.disableComputations()
+            try {
                 fun consumeChunk(rawChunk: String, isEndOfStream: Boolean): Boolean {
                     val currentLength = text.length
                     val remainingCapacity = minOf(maxInputLength, Int.MAX_VALUE.toLong()) - currentLength
@@ -1309,9 +1314,16 @@ fun CoreBigTextField(
                     }
                     rawChunk = String(readBuffer, 0, nextRead)
                 }
+            } finally {
+                text.enableAndDoComputations()
+                transformedText.enableAndDoComputations()
+                textManipulateListener?.let { text.registerCallback(it) }
             }
 
             if (hasManipulatedText) {
+                if (totalInserted > 0) {
+                    onValuePostChange(BigTextChangeEventType.Insert, insertPos, insertPos + totalInserted)
+                }
                 updateViewState()
                 viewState.cursorIndex = minOf(text.length, insertPos + totalInserted)
                 viewState.updateTransformedCursorIndexByOriginal(transformedText)
@@ -1321,6 +1333,7 @@ fun CoreBigTextField(
                 recordCursorXPosition()
                 scrollToCursor()
                 showCursor()
+                text.recordCurrentChangeSequenceIntoUndoHistory()
             }
             return true
         }
@@ -1705,8 +1718,6 @@ fun CoreBigTextField(
         recordCursorXPosition()
         scrollToCursor()
     }
-
-    var textManipulateListener by remember { mutableStateOf<BigTextChangeCallback?>(null) }
 
     remember(weakRefOf(text)) {
         textManipulateListener?.let {
