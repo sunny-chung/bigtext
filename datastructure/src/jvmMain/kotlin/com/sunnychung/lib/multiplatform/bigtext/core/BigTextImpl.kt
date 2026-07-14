@@ -55,6 +55,7 @@ private const val EPS = 1e-4f
 private val accumulatedWidthCacheInterval = 64
 private val accumulatedWidthCacheHalfInterval = accumulatedWidthCacheInterval / 2
 private const val MAX_GRAPHEME_SEQUENCE_LENGTH = 128
+private const val SUBVIEW_MIN_LENGTH = 8 * 1024 * 1024
 
 open class BigTextImpl(
     override val chunkSize: Int = 2 * 1024 * 1024, // 2 MB
@@ -964,7 +965,7 @@ open class BigTextImpl(
         }
 
 //        val result = charSequenceBuilderFactory(endExclusive - start)
-        val result = getCharSequenceBuilder()
+        val result = getCharSequenceBuilder(endExclusive - start)
         var node = tree.findNodeByRenderCharIndex(start) ?: throw IllegalStateException("Cannot find string node for position $start")
         var nodeStartPos = findRenderPositionStart(node)
         var numRemainCharsToCopy = endExclusive - start
@@ -989,12 +990,45 @@ open class BigTextImpl(
         return charSequenceFactory(result)
     }
 
+    private fun lazySubSequence(start: Int, endExclusive: Int): CharSequence {
+        val segments = mutableListOf<BigTextSegment>()
+        var node = tree.findNodeByRenderCharIndex(start) ?: throw IllegalStateException("Cannot find string node for position $start")
+        var nodeStartPos = findRenderPositionStart(node)
+        var numRemainCharsToCopy = endExclusive - start
+        var copyFromBufferIndex = start - nodeStartPos + node.value.renderBufferStart
+        while (numRemainCharsToCopy > 0) {
+            val numCharsToCopy = minOf(endExclusive, nodeStartPos + node.value.currentRenderLength) - maxOf(start, nodeStartPos)
+            val copyUntilBufferIndex = copyFromBufferIndex + numCharsToCopy
+            if (numCharsToCopy > 0) {
+                segments += BigTextSegment(
+                    buffer = node.value.buffer,
+                    start = copyFromBufferIndex,
+                    endExclusive = copyUntilBufferIndex,
+                )
+                numRemainCharsToCopy -= numCharsToCopy
+            }
+            if (numRemainCharsToCopy > 0) {
+                nodeStartPos += node.value.currentRenderLength
+                node = tree.nextNode(node) ?: throw IllegalStateException("Cannot find the next string node. Requested = $start ..< $endExclusive. Remain = $numRemainCharsToCopy")
+                copyFromBufferIndex = node.value.renderBufferStart
+            }
+        }
+        return BigTextSegmentCharSequence(segments)
+    }
+
     private fun getCharSequenceBuilder(): GeneralStringBuilder {
         // possible memory leak
         return charSequenceBuilder
             .getOrSet { charSequenceBuilderFactory(chunkSize) }
             .apply { clear() }
     }
+
+    private fun getCharSequenceBuilder(capacity: Int): GeneralStringBuilder =
+        if (capacity > chunkSize) {
+            charSequenceBuilderFactory(capacity)
+        } else {
+            getCharSequenceBuilder()
+        }
 
     // TODO: refactor not to duplicate implementation of substring
     override fun subSequence(start: Int, endExclusive: Int): CharSequence {
@@ -1010,7 +1044,7 @@ open class BigTextImpl(
 //        log.v { "subSequence start" }
 
 //        val result = charSequenceBuilderFactory(endExclusive - start)
-        val result = getCharSequenceBuilder()
+        val result = getCharSequenceBuilder(endExclusive - start)
         var node = tree.findNodeByRenderCharIndex(start) ?: throw IllegalStateException("Cannot find string node for position $start")
         var nodeStartPos = findRenderPositionStart(node)
         var numRemainCharsToCopy = endExclusive - start
@@ -1051,6 +1085,22 @@ open class BigTextImpl(
         return charSequenceFactory(result).also {
 //            log.v { "subSequence built" }
         }
+    }
+
+    override fun subView(startIndex: Int, endIndex: Int): CharSequence {
+        require(startIndex <= endIndex) { "start should be <= endExclusive" }
+        require(0 <= startIndex) { "Invalid start" }
+        require(endIndex <= length) { "endExclusive $endIndex is out of bound. length = $length" }
+
+        if (startIndex == endIndex) {
+            return ""
+        }
+
+        if (decorator == null && endIndex - startIndex >= SUBVIEW_MIN_LENGTH) {
+            return lazySubSequence(startIndex, endIndex)
+        }
+
+        return subSequence(startIndex, endIndex)
     }
 
     protected open fun decorate(nodeValue: BigTextNodeValue, text: CharSequence, renderPositions: IntRange) =
@@ -1417,40 +1467,56 @@ open class BigTextImpl(
         try {
             isUndoEnabled = false // don't record the following changes into the undo history
 
-            changes.asReversed().forEach {
-                when (it.type) {
+            val changesInReverse = changes.asReversed()
+            var index = 0
+            while (index < changesInReverse.size) {
+                val change = changesInReverse[index]
+                when (change.type) {
                     BigTextChangeEventType.Delete -> {
-                        callback?.onValuePreChange(BigTextChangeEventType.Insert, it.positions.start, it.positions.endInclusive + 1)
+                        callback?.onValuePreChange(BigTextChangeEventType.Insert, change.positions.start, change.positions.endInclusive + 1)
                         changeCallbacks.forEach { callback ->
-                            callback.onValuePreChange(BigTextChangeEventType.Insert, it.positions.start, it.positions.endInclusive + 1)
+                            callback.onValuePreChange(BigTextChangeEventType.Insert, change.positions.start, change.positions.endInclusive + 1)
                         }
                         (locker ?: PassthroughBigTextLocker) {
                             insertChunkAtPosition(
-                                it.positions.start,
-                                it.bufferCharIndexes.length,
+                                change.positions.start,
+                                change.bufferCharIndexes.length,
                                 BufferOwnership.Owned,
-                                it.buffer,
-                                it.bufferCharIndexes
+                                change.buffer,
+                                change.bufferCharIndexes
                             ) {
                                 bufferIndex = -3
-                                bufferOffsetStart = it.bufferCharIndexes.start
-                                bufferOffsetEndExclusive = it.bufferCharIndexes.endInclusive + 1
-                                this.buffer = it.buffer
+                                bufferOffsetStart = change.bufferCharIndexes.start
+                                bufferOffsetEndExclusive = change.bufferCharIndexes.endInclusive + 1
+                                this.buffer = change.buffer
                                 this.bufferOwnership = BufferOwnership.Owned
 
                                 leftStringLength = 0
                             }
                         }
                         changeCallbacks.forEach { callback ->
-                            callback.onValuePostChange(BigTextChangeEventType.Insert, it.positions.start, it.positions.endInclusive + 1)
+                            callback.onValuePostChange(BigTextChangeEventType.Insert, change.positions.start, change.positions.endInclusive + 1)
                         }
-                        callback?.onValuePostChange(BigTextChangeEventType.Insert, it.positions.start, it.positions.endInclusive + 1)
+                        callback?.onValuePostChange(BigTextChangeEventType.Insert, change.positions.start, change.positions.endInclusive + 1)
+                        ++index
                     }
 
                     BigTextChangeEventType.Insert -> {
-                        callback?.onValuePreChange(BigTextChangeEventType.Delete, it.positions.start, it.positions.endInclusive + 1)
-                        delete(it.positions.start, it.positions.endInclusive + 1, locker)
-                        callback?.onValuePostChange(BigTextChangeEventType.Delete, it.positions.start, it.positions.endInclusive + 1)
+                        var deleteStart = change.positions.start
+                        val deleteEndExclusive = change.positions.endInclusive + 1
+                        ++index
+                        while (
+                            index < changesInReverse.size &&
+                            changesInReverse[index].type == BigTextChangeEventType.Insert &&
+                            changesInReverse[index].positions.endInclusive + 1 == deleteStart
+                        ) {
+                            deleteStart = changesInReverse[index].positions.start
+                            ++index
+                        }
+
+                        callback?.onValuePreChange(BigTextChangeEventType.Delete, deleteStart, deleteEndExclusive)
+                        delete(deleteStart, deleteEndExclusive, locker)
+                        callback?.onValuePostChange(BigTextChangeEventType.Delete, deleteStart, deleteEndExclusive)
                     }
                 }
             }

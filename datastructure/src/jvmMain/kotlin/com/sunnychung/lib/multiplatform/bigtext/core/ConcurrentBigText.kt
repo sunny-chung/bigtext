@@ -63,6 +63,9 @@ open class ConcurrentBigText(open val delegate: LockableBigText) : BigText {
     override fun substring(start: Int, endExclusive: Int): CharSequence = withReadLock { delegate.substring(start, endExclusive) }
 
     override fun subSequence(startIndex: Int, endIndex: Int): CharSequence = withReadLock { delegate.subSequence(startIndex, endIndex) }
+
+    override fun subView(startIndex: Int, endIndex: Int): CharSequence = withReadLock { delegate.subView(startIndex, endIndex) }
+
     override fun chunkAt(start: Int): String = withReadLock { delegate.chunkAt(start) }
 
     override fun findLineString(lineIndex: Int): CharSequence = withReadLock { delegate.findLineString(lineIndex) }

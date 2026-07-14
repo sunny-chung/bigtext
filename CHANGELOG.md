@@ -12,6 +12,7 @@ UI
 
 DS
 - Emoji sequences support
+- `BigText.subView()` -- returning memory-efficient sub-view in `CharSequence` type
 
 ### Breaking Change!
 UI

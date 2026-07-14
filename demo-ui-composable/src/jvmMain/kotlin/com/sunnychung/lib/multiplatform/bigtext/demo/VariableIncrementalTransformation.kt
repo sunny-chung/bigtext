@@ -28,7 +28,7 @@ class VariableIncrementalTransformation : IncrementalTextTransformation<Unit> {
     override fun initialize(text: BigText, transformer: BigTextTransformer) {
         transformer.disableComputations()
 
-        val targets = variableRegex.findAll(text.buildString())
+        val targets = variableRegex.findAll(text.subView(0, text.length))
         targets.forEach {
             val name = it.groups[1]!!.value
             transformer.replace(it.range, createSpan(name), BigTextTransformOffsetMapping.WholeBlock)
@@ -56,7 +56,7 @@ class VariableIncrementalTransformation : IncrementalTextTransformation<Unit> {
 
     private fun findNearbyPatterns(change: BigTextChangeEvent): Sequence<RangeWithResult<MatchResult>> {
         val startOffset = maxOf(0, change.changeStartIndex - processLengthLimit)
-        val substring = change.bigText.substring(
+        val substring = change.bigText.subView(
             startOffset
             until
             minOf(change.bigText.length, change.changeEndExclusiveIndex + processLengthLimit)

@@ -3,12 +3,15 @@ package com.sunnychung.lib.multiplatform.bigtext.test
 import com.sunnychung.lib.multiplatform.bigtext.core.BigTextImpl
 import com.sunnychung.lib.multiplatform.bigtext.core.isD
 import com.sunnychung.lib.multiplatform.bigtext.extension.length
+import com.sunnychung.lib.multiplatform.bigtext.util.GeneralStringBuilder
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
 import org.junit.jupiter.params.provider.ValueSource
 import kotlin.random.Random
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 
 /**
  * Some cases in this test may look very specific, but they had consistently failed before.
@@ -496,6 +499,44 @@ class BigTextImplTest {
         }
     }
 
+    @Test
+    fun subViewPreservesCustomCharSequenceTypeForSmallRange() {
+        val t = BigTextImpl(
+            chunkSize = 64,
+            charSequenceBuilderFactory = { CustomStringBuilder(it) },
+            charSequenceFactory = { CustomCharSequence(it.toString()) },
+        )
+        t.append("abcdef")
+
+        val view = t.subView(1, 4)
+
+        assertTrue(view is CustomCharSequence)
+        assertEquals("bcd", view.toString())
+    }
+
+    @Test
+    fun subViewCanReturnNonCustomCharSequenceTypeForLargeRange() {
+        val text = repeatedAlphabet(SUBVIEW_TEST_LENGTH)
+        val t = BigTextImpl(
+            chunkSize = 1024 * 1024,
+            charSequenceBuilderFactory = { CustomStringBuilder(it) },
+            charSequenceFactory = { CustomCharSequence(it.toString()) },
+        )
+        t.append(text)
+
+        val start = 17
+        val endExclusive = text.length - 19
+        val view = t.subView(start, endExclusive)
+
+        assertFalse(view is CustomCharSequence)
+        assertEquals(endExclusive - start, view.length)
+        assertEquals(text[start], view[0])
+        assertEquals(text[start + 1], view[1])
+        assertEquals(text[start + 1024 * 1024], view[1024 * 1024])
+        assertEquals(text[endExclusive - 1], view[view.lastIndex])
+        assertEquals(text.substring(start + 99, start + 123), view.subSequence(99, 123).toString())
+    }
+
     /**
      * Benchmark:
      *
@@ -547,4 +588,49 @@ private fun random(from: Int, toExclusive: Int): Int {
         return 0
     }
     return Random.nextInt(from, toExclusive)
+}
+
+private const val SUBVIEW_TEST_LENGTH = 8 * 1024 * 1024 + 64
+
+private fun repeatedAlphabet(length: Int): String = buildString(length) {
+    repeat(length) {
+        append(('a'.code + it % 26).toChar())
+    }
+}
+
+private class CustomStringBuilder(capacity: Int) : GeneralStringBuilder {
+    private val delegate = StringBuilder(capacity)
+
+    override fun append(value: Char): Appendable {
+        delegate.append(value)
+        return this
+    }
+
+    override fun append(value: CharSequence?): Appendable {
+        delegate.append(value)
+        return this
+    }
+
+    override fun append(value: CharSequence?, startIndex: Int, endIndex: Int): Appendable {
+        delegate.append(value, startIndex, endIndex)
+        return this
+    }
+
+    override fun clear() {
+        delegate.clear()
+    }
+
+    override fun toString(): String = delegate.toString()
+}
+
+private class CustomCharSequence(private val delegate: String) : CharSequence {
+    override val length: Int
+        get() = delegate.length
+
+    override fun get(index: Int): Char = delegate[index]
+
+    override fun subSequence(startIndex: Int, endIndex: Int): CharSequence =
+        CustomCharSequence(delegate.substring(startIndex, endIndex))
+
+    override fun toString(): String = delegate
 }
