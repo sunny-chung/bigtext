@@ -53,6 +53,19 @@ interface BigText {
 
     fun subSequence(startIndex: Int, endIndex: Int): CharSequence
 
+    /**
+     * Returns a view of the text range.
+     *
+     * Use this when you only need to read or scan a range, especially a large range. For example, it is suitable for
+     * regex searches, counting characters, or passing text to code that only needs the [CharSequence] interface.
+     *
+     * Do not use this when your code requires the result to be the custom type produced by
+     * [charSequenceBuilderFactory] and [charSequenceFactory]. Use [substring] or [subSequence] for that.
+     */
+    fun subView(startIndex: Int, endIndex: Int): CharSequence = subSequence(startIndex, endIndex)
+
+    fun subView(range: IntRange): CharSequence = subView(range.start, range.endInclusive + 1)
+
     fun chunkAt(start: Int): String
 
     fun findLineString(lineIndex: Int): CharSequence

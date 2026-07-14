@@ -12,6 +12,7 @@ UI
 
 DS
 - Emoji sequences support
+- `BigText.subView()` -- returning memory-efficient sub-view in `CharSequence` type
 
 ### Breaking Change!
 UI
@@ -23,10 +24,6 @@ DS
 ### Fixed
 UI
 - OOM crash when there is a large text in clipboard (without pasting)
-
-### Optimized
-DS
-- `BigText.substring()` memory usage
 
 
 ## UI [2.4.0] - 2026-03-01

@@ -55,7 +55,7 @@ private const val EPS = 1e-4f
 private val accumulatedWidthCacheInterval = 64
 private val accumulatedWidthCacheHalfInterval = accumulatedWidthCacheInterval / 2
 private const val MAX_GRAPHEME_SEQUENCE_LENGTH = 128
-private const val LAZY_SUBSTRING_MIN_LENGTH = 8 * 1024 * 1024
+private const val SUBVIEW_MIN_LENGTH = 8 * 1024 * 1024
 
 open class BigTextImpl(
     override val chunkSize: Int = 2 * 1024 * 1024, // 2 MB
@@ -964,34 +964,8 @@ open class BigTextImpl(
             return ""
         }
 
-        if (decorator == null && endExclusive - start >= LAZY_SUBSTRING_MIN_LENGTH) {
-            val segments = mutableListOf<BigTextSegment>()
-            var node = tree.findNodeByRenderCharIndex(start) ?: throw IllegalStateException("Cannot find string node for position $start")
-            var nodeStartPos = findRenderPositionStart(node)
-            var numRemainCharsToCopy = endExclusive - start
-            var copyFromBufferIndex = start - nodeStartPos + node.value.renderBufferStart
-            while (numRemainCharsToCopy > 0) {
-                val numCharsToCopy = minOf(endExclusive, nodeStartPos + node.value.currentRenderLength) - maxOf(start, nodeStartPos)
-                val copyUntilBufferIndex = copyFromBufferIndex + numCharsToCopy
-                if (numCharsToCopy > 0) {
-                    segments += BigTextSegment(
-                        buffer = node.value.buffer,
-                        start = copyFromBufferIndex,
-                        endExclusive = copyUntilBufferIndex,
-                    )
-                    numRemainCharsToCopy -= numCharsToCopy
-                }
-                if (numRemainCharsToCopy > 0) {
-                    nodeStartPos += node.value.currentRenderLength
-                    node = tree.nextNode(node) ?: throw IllegalStateException("Cannot find the next string node. Requested = $start ..< $endExclusive. Remain = $numRemainCharsToCopy")
-                    copyFromBufferIndex = node.value.renderBufferStart
-                }
-            }
-            return BigTextSegmentCharSequence(segments)
-        }
-
 //        val result = charSequenceBuilderFactory(endExclusive - start)
-        val result = getCharSequenceBuilder()
+        val result = getCharSequenceBuilder(endExclusive - start)
         var node = tree.findNodeByRenderCharIndex(start) ?: throw IllegalStateException("Cannot find string node for position $start")
         var nodeStartPos = findRenderPositionStart(node)
         var numRemainCharsToCopy = endExclusive - start
@@ -1016,12 +990,45 @@ open class BigTextImpl(
         return charSequenceFactory(result)
     }
 
+    private fun lazySubSequence(start: Int, endExclusive: Int): CharSequence {
+        val segments = mutableListOf<BigTextSegment>()
+        var node = tree.findNodeByRenderCharIndex(start) ?: throw IllegalStateException("Cannot find string node for position $start")
+        var nodeStartPos = findRenderPositionStart(node)
+        var numRemainCharsToCopy = endExclusive - start
+        var copyFromBufferIndex = start - nodeStartPos + node.value.renderBufferStart
+        while (numRemainCharsToCopy > 0) {
+            val numCharsToCopy = minOf(endExclusive, nodeStartPos + node.value.currentRenderLength) - maxOf(start, nodeStartPos)
+            val copyUntilBufferIndex = copyFromBufferIndex + numCharsToCopy
+            if (numCharsToCopy > 0) {
+                segments += BigTextSegment(
+                    buffer = node.value.buffer,
+                    start = copyFromBufferIndex,
+                    endExclusive = copyUntilBufferIndex,
+                )
+                numRemainCharsToCopy -= numCharsToCopy
+            }
+            if (numRemainCharsToCopy > 0) {
+                nodeStartPos += node.value.currentRenderLength
+                node = tree.nextNode(node) ?: throw IllegalStateException("Cannot find the next string node. Requested = $start ..< $endExclusive. Remain = $numRemainCharsToCopy")
+                copyFromBufferIndex = node.value.renderBufferStart
+            }
+        }
+        return BigTextSegmentCharSequence(segments)
+    }
+
     private fun getCharSequenceBuilder(): GeneralStringBuilder {
         // possible memory leak
         return charSequenceBuilder
             .getOrSet { charSequenceBuilderFactory(chunkSize) }
             .apply { clear() }
     }
+
+    private fun getCharSequenceBuilder(capacity: Int): GeneralStringBuilder =
+        if (capacity > chunkSize) {
+            charSequenceBuilderFactory(capacity)
+        } else {
+            getCharSequenceBuilder()
+        }
 
     // TODO: refactor not to duplicate implementation of substring
     override fun subSequence(start: Int, endExclusive: Int): CharSequence {
@@ -1037,7 +1044,7 @@ open class BigTextImpl(
 //        log.v { "subSequence start" }
 
 //        val result = charSequenceBuilderFactory(endExclusive - start)
-        val result = getCharSequenceBuilder()
+        val result = getCharSequenceBuilder(endExclusive - start)
         var node = tree.findNodeByRenderCharIndex(start) ?: throw IllegalStateException("Cannot find string node for position $start")
         var nodeStartPos = findRenderPositionStart(node)
         var numRemainCharsToCopy = endExclusive - start
@@ -1078,6 +1085,22 @@ open class BigTextImpl(
         return charSequenceFactory(result).also {
 //            log.v { "subSequence built" }
         }
+    }
+
+    override fun subView(startIndex: Int, endIndex: Int): CharSequence {
+        require(startIndex <= endIndex) { "start should be <= endExclusive" }
+        require(0 <= startIndex) { "Invalid start" }
+        require(endIndex <= length) { "endExclusive $endIndex is out of bound. length = $length" }
+
+        if (startIndex == endIndex) {
+            return ""
+        }
+
+        if (decorator == null && endIndex - startIndex >= SUBVIEW_MIN_LENGTH) {
+            return lazySubSequence(startIndex, endIndex)
+        }
+
+        return subSequence(startIndex, endIndex)
     }
 
     protected open fun decorate(nodeValue: BigTextNodeValue, text: CharSequence, renderPositions: IntRange) =
