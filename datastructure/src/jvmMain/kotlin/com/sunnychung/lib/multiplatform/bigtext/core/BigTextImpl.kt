@@ -55,6 +55,7 @@ private const val EPS = 1e-4f
 private val accumulatedWidthCacheInterval = 64
 private val accumulatedWidthCacheHalfInterval = accumulatedWidthCacheInterval / 2
 private const val MAX_GRAPHEME_SEQUENCE_LENGTH = 128
+private const val LAZY_SUBSTRING_MIN_LENGTH = 8 * 1024 * 1024
 
 open class BigTextImpl(
     override val chunkSize: Int = 2 * 1024 * 1024, // 2 MB
@@ -961,6 +962,32 @@ open class BigTextImpl(
 
         if (start == endExclusive) {
             return ""
+        }
+
+        if (decorator == null && endExclusive - start >= LAZY_SUBSTRING_MIN_LENGTH) {
+            val segments = mutableListOf<BigTextSegment>()
+            var node = tree.findNodeByRenderCharIndex(start) ?: throw IllegalStateException("Cannot find string node for position $start")
+            var nodeStartPos = findRenderPositionStart(node)
+            var numRemainCharsToCopy = endExclusive - start
+            var copyFromBufferIndex = start - nodeStartPos + node.value.renderBufferStart
+            while (numRemainCharsToCopy > 0) {
+                val numCharsToCopy = minOf(endExclusive, nodeStartPos + node.value.currentRenderLength) - maxOf(start, nodeStartPos)
+                val copyUntilBufferIndex = copyFromBufferIndex + numCharsToCopy
+                if (numCharsToCopy > 0) {
+                    segments += BigTextSegment(
+                        buffer = node.value.buffer,
+                        start = copyFromBufferIndex,
+                        endExclusive = copyUntilBufferIndex,
+                    )
+                    numRemainCharsToCopy -= numCharsToCopy
+                }
+                if (numRemainCharsToCopy > 0) {
+                    nodeStartPos += node.value.currentRenderLength
+                    node = tree.nextNode(node) ?: throw IllegalStateException("Cannot find the next string node. Requested = $start ..< $endExclusive. Remain = $numRemainCharsToCopy")
+                    copyFromBufferIndex = node.value.renderBufferStart
+                }
+            }
+            return BigTextSegmentCharSequence(segments)
         }
 
 //        val result = charSequenceBuilderFactory(endExclusive - start)
