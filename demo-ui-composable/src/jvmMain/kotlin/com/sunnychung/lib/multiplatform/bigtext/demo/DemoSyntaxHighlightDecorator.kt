@@ -17,6 +17,8 @@ private val WORD_PATTERN = "\\b([a-zA-Z]+)\\b".toRegex()
 private val NUMBER_STYLE = SpanStyle(Color(red = 0.1f, green = 0f, blue = 0.55f))
 private val WORD_STYLE = SpanStyle(Color(red = 0.1f, green = 0.4f, blue = 0.1f))
 
+private const val TEXT_LENGTH_HARD_LIMIT = 2 * 1024 * 1024
+
 /**
  * This demo syntax highlighter is SLOW. You can make it works with 100+ MB by
  * changing it to incremental, or parsing in background and not reacting to every keystroke.
@@ -33,7 +35,12 @@ class DemoSyntaxHighlightDecorator : CacheableBigTextDecorator() {
     }
 
     private fun highlight(bigText: BigText) { // Time Complexity: O(max(L, M log2 M)), L = length, M = no. of matches
-        val text = bigText.buildString()
+        if (bigText.length > TEXT_LENGTH_HARD_LIMIT) {
+            highlightedStyles = emptyList()
+            return
+        }
+
+        val text = bigText.subView(0 ..< bigText.length)
         val styles = mutableListOf<AnnotatedString.Range<SpanStyle>>()
         listOf(NUMBER_PATTERN to NUMBER_STYLE, WORD_PATTERN to WORD_STYLE).forEach { (pattern, style) ->
             pattern.findAll(text).forEach { matches ->
